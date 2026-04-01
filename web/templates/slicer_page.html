@@ -1,0 +1,25 @@
+{{define "slicer_page.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPC Editor - Slicer</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/htmx.min.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <h1>MPC Editor &mdash; Slicer</h1>
+    </header>
+
+    <main class="slicer-layout">
+        {{template "slicer.html" .}}
+    </main>
+
+    <script src="/static/js/audio.js"></script>
+    <script src="/static/js/waveform.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+{{end}}

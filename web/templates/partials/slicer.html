@@ -1,0 +1,72 @@
+{{define "slicer.html"}}
+<div class="slicer-panel" id="slicer-panel">
+    <!-- Load WAV -->
+    <div class="slicer-toolbar">
+        <form hx-post="/slicer/load" hx-target="#slicer-panel" class="inline-form">
+            <input type="text" name="path" placeholder="Path to WAV file" class="path-input" value="{{.Path}}">
+            <button type="submit" class="btn-primary">Load WAV</button>
+        </form>
+        <a href="/" class="btn-sm">Back to Editor</a>
+    </div>
+
+    {{if .Active}}
+    <!-- Waveform Canvas -->
+    <div class="waveform-container">
+        <canvas id="waveform-canvas" width="1000" height="200"></canvas>
+    </div>
+
+    <!-- Info Bar -->
+    <div class="slicer-info">
+        <span>Duration: <strong>{{.Duration}}</strong></span>
+        <span>Markers: <strong>{{.MarkerCount}}</strong></span>
+        {{if .Tempo}}<span>Tempo: <strong>{{.Tempo}}</strong></span>{{end}}
+        <span>Selected: <strong>#{{.Selected}}</strong>{{if .SelectedLocation}} ({{.SelectedLocation}}){{end}}</span>
+        <span>{{.Channels}}ch / {{.SampleRate}}Hz / {{.FrameLength}} frames</span>
+    </div>
+
+    <!-- Sensitivity Slider -->
+    <div class="slicer-controls">
+        <div class="param-row">
+            <label>Sensitivity</label>
+            <form hx-post="/slicer/sensitivity" hx-target="#slicer-panel" class="inline-form">
+                <input type="range" name="sensitivity" value="{{.Sensitivity}}" min="50" max="300" class="slider-input" id="sensitivity-slider">
+                <span class="value-display" id="sensitivity-value">{{.Sensitivity}}</span>
+                <button type="submit" class="btn-sm">Apply</button>
+            </form>
+        </div>
+
+        <!-- Marker Controls -->
+        <div class="marker-controls">
+            <button hx-get="/slicer/marker/prev" hx-target="#slicer-panel" class="btn-sm" title="Previous marker">&larr; Prev</button>
+            <button hx-get="/slicer/marker/next" hx-target="#slicer-panel" class="btn-sm" title="Next marker">Next &rarr;</button>
+            <button hx-post="/slicer/marker/nudge?ticks=-100" hx-target="#slicer-panel" class="btn-sm" title="Nudge left">Nudge -</button>
+            <button hx-post="/slicer/marker/nudge?ticks=100" hx-target="#slicer-panel" class="btn-sm" title="Nudge right">Nudge +</button>
+            <button hx-post="/slicer/marker/delete" hx-target="#slicer-panel" class="btn-sm btn-danger" title="Delete selected marker">Delete</button>
+            <button hx-post="/slicer/marker/insert" hx-target="#slicer-panel" class="btn-sm" title="Insert at midpoint">Insert</button>
+            <button type="button" class="btn-sm btn-play" onclick="AudioPlayer.playSlice({{.Selected}})" title="Play selected slice">&#9654; Play</button>
+        </div>
+
+        <!-- Export -->
+        <div class="export-controls">
+            <form hx-post="/slicer/export" hx-target="#export-result" class="inline-form">
+                <input type="text" name="dir" placeholder="Export directory (default: same as WAV)" class="path-input">
+                <input type="text" name="prefix" placeholder="Prefix (default: filename_)" class="path-input" style="width: 140px;">
+                <button type="submit" class="btn-primary">Export Slices + MIDI</button>
+            </form>
+            <div id="export-result" class="export-result"></div>
+        </div>
+    </div>
+
+    <!-- Trigger waveform render -->
+    <script>
+        if (typeof Waveform !== 'undefined') {
+            Waveform.load();
+        }
+    </script>
+    {{else}}
+    <div class="slicer-empty">
+        <p>Load a WAV file to start slicing.</p>
+    </div>
+    {{end}}
+</div>
+{{end}}

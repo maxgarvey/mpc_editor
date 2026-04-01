@@ -1,0 +1,140 @@
+{{define "pad_params.html"}}
+<div class="pad-params-panel">
+    <h2>Pad {{.BankLabel}}{{.PadDisplay}}</h2>
+
+    <div class="param-tabs">
+        <span class="param-tab active">Samples</span>
+        <span class="param-tab">Params</span>
+        <span class="param-tab">Envelope</span>
+        <span class="param-tab">Filter</span>
+        <span class="param-tab">Mixer</span>
+    </div>
+
+    <!-- Samples / Layers -->
+    <div class="param-section" id="layers-section">
+        <h3>Sample Layers</h3>
+        {{range .Layers}}
+        <div class="layer-row">
+            <div class="layer-header">
+                <label>Layer {{add .Index 1}}</label>
+                {{if .SampleName}}<button type="button" class="btn-play" onclick="AudioPlayer.playPad({{$.PadIndex}}, {{.Index}})" title="Play layer">&#9654;</button>{{end}}
+            </div>
+            <form hx-post="/pad/layer/{{.Index}}" hx-target="#pad-params" class="layer-form">
+                <input type="text" name="sample_name" value="{{.SampleName}}" placeholder="(empty)" class="sample-input">
+                <label>Level</label>
+                <input type="number" name="level" value="{{.Level}}" min="0" max="100" class="num-input" hx-trigger="change">
+                <label>Tuning</label>
+                <input type="number" name="tuning" value="{{printf "%.2f" .Tuning}}" step="0.01" min="-36" max="36" class="num-input" hx-trigger="change">
+                <label>Mode</label>
+                <select name="play_mode" hx-trigger="change">
+                    <option value="0" {{if eq .PlayMode 0}}selected{{end}}>One Shot</option>
+                    <option value="1" {{if eq .PlayMode 1}}selected{{end}}>Note On</option>
+                </select>
+                <button type="submit" class="btn-sm">Set</button>
+            </form>
+        </div>
+        {{end}}
+    </div>
+
+    <!-- Pad Parameters -->
+    <div class="param-section" id="params-section">
+        <h3>Pad Parameters</h3>
+        <form hx-post="/pad/params" hx-target="#pad-params">
+            <div class="param-row">
+                <label>Voice Overlap</label>
+                <select name="voice_overlap">
+                    <option value="0" {{if eq .VoiceOverlap 0}}selected{{end}}>Poly</option>
+                    <option value="1" {{if eq .VoiceOverlap 1}}selected{{end}}>Mono</option>
+                </select>
+            </div>
+            <div class="param-row">
+                <label>Mute Group</label>
+                <input type="number" name="mute_group" value="{{.MuteGroup}}" min="0" max="34" class="num-input">
+            </div>
+            <div class="param-row">
+                <label>MIDI Note</label>
+                <input type="number" name="midi_note" value="{{.MIDINote}}" min="0" max="127" class="num-input">
+            </div>
+            <button type="submit" class="btn-primary">Apply</button>
+        </form>
+    </div>
+
+    <!-- Envelope -->
+    <div class="param-section" id="envelope-section">
+        <h3>Envelope</h3>
+        <form hx-post="/pad/params" hx-target="#pad-params">
+            <div class="param-row">
+                <label>Attack</label>
+                <input type="range" name="attack" value="{{.Attack}}" min="0" max="100" class="slider-input">
+                <span class="value-display">{{.Attack}}</span>
+            </div>
+            <div class="param-row">
+                <label>Decay</label>
+                <input type="range" name="decay" value="{{.Decay}}" min="0" max="100" class="slider-input">
+                <span class="value-display">{{.Decay}}</span>
+            </div>
+            <div class="param-row">
+                <label>Decay Mode</label>
+                <select name="decay_mode">
+                    <option value="0" {{if eq .DecayMode 0}}selected{{end}}>End</option>
+                    <option value="1" {{if eq .DecayMode 1}}selected{{end}}>Start</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-primary">Apply</button>
+        </form>
+    </div>
+
+    <!-- Filter -->
+    <div class="param-section" id="filter-section">
+        <h3>Filter 1</h3>
+        <form hx-post="/pad/params" hx-target="#pad-params">
+            <div class="param-row">
+                <label>Type</label>
+                <select name="filter1_type">
+                    <option value="0" {{if eq .Filter1Type 0}}selected{{end}}>Off</option>
+                    <option value="1" {{if eq .Filter1Type 1}}selected{{end}}>Lowpass</option>
+                    <option value="2" {{if eq .Filter1Type 2}}selected{{end}}>Bandpass</option>
+                    <option value="3" {{if eq .Filter1Type 3}}selected{{end}}>Highpass</option>
+                </select>
+            </div>
+            <div class="param-row">
+                <label>Frequency</label>
+                <input type="range" name="filter1_freq" value="{{.Filter1Freq}}" min="0" max="100" class="slider-input">
+                <span class="value-display">{{.Filter1Freq}}</span>
+            </div>
+            <div class="param-row">
+                <label>Resonance</label>
+                <input type="range" name="filter1_res" value="{{.Filter1Res}}" min="0" max="100" class="slider-input">
+                <span class="value-display">{{.Filter1Res}}</span>
+            </div>
+            <button type="submit" class="btn-primary">Apply</button>
+        </form>
+    </div>
+
+    <!-- Mixer -->
+    <div class="param-section" id="mixer-section">
+        <h3>Mixer</h3>
+        <form hx-post="/pad/params" hx-target="#pad-params">
+            <div class="param-row">
+                <label>Level</label>
+                <input type="range" name="mixer_level" value="{{.MixerLevel}}" min="0" max="100" class="slider-input">
+                <span class="value-display">{{.MixerLevel}}</span>
+            </div>
+            <div class="param-row">
+                <label>Pan</label>
+                <input type="range" name="mixer_pan" value="{{.MixerPan}}" min="0" max="100" class="slider-input">
+                <span class="value-display">{{.MixerPan}}</span>
+            </div>
+            <div class="param-row">
+                <label>Output</label>
+                <select name="mixer_output">
+                    <option value="0" {{if eq .MixerOutput 0}}selected{{end}}>Stereo</option>
+                    <option value="1" {{if eq .MixerOutput 1}}selected{{end}}>1-2</option>
+                    <option value="2" {{if eq .MixerOutput 2}}selected{{end}}>3-4</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-primary">Apply</button>
+        </form>
+    </div>
+</div>
+{{end}}

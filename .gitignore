@@ -1,0 +1,26 @@
+# Binaries
+mpc_editor
+mpcmaid
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Preferences (runtime generated)
+~/.mpcmaid/

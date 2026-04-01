@@ -1,0 +1,14 @@
+{{define "pad_grid.html"}}
+<div class="pad-grid">
+    {{range .Pads}}
+    <button class="pad-btn {{if .Selected}}selected{{end}} {{if .Name}}has-sample{{end}}"
+            hx-get="/pad/{{.Index}}"
+            hx-target="#pad-params"
+            onclick="AudioPlayer.playPad({{.Index}}, 0)"
+            title="{{.Name}}">
+        <span class="pad-number">{{.Display}}</span>
+        {{if .Name}}<span class="pad-name">{{.Name}}</span>{{end}}
+    </button>
+    {{end}}
+</div>
+{{end}}
