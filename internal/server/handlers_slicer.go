@@ -65,53 +65,21 @@ func (s *Server) handleSlicerWaveform(w http.ResponseWriter, r *http.Request) {
 	channels := slicer.Channels()
 	frameLen := slicer.Sample().FrameLength
 
-	// Downsample to peaks: for each bucket compute min/max
-	type Peak struct {
-		Min int `json:"min"`
-		Max int `json:"max"`
-	}
-
-	downsample := func(samples []int) []Peak {
-		peaks := make([]Peak, buckets)
-		samplesPerBucket := float64(len(samples)) / float64(buckets)
-		for i := range peaks {
-			start := int(float64(i) * samplesPerBucket)
-			end := int(float64(i+1) * samplesPerBucket)
-			if end > len(samples) {
-				end = len(samples)
-			}
-			if start >= end {
-				continue
-			}
-			mn, mx := samples[start], samples[start]
-			for _, v := range samples[start:end] {
-				if v < mn {
-					mn = v
-				}
-				if v > mx {
-					mx = v
-				}
-			}
-			peaks[i] = Peak{Min: mn, Max: mx}
-		}
-		return peaks
+	var chPeaks [][]audio.Peak
+	for _, ch := range channels {
+		chPeaks = append(chPeaks, audio.DownsamplePeaks(ch, buckets))
 	}
 
 	type WaveformData struct {
-		Channels    [][]Peak `json:"channels"`
-		Markers     []int    `json:"markers"`
-		Selected    int      `json:"selected"`
-		SampleRate  int      `json:"sampleRate"`
-		FrameLength int      `json:"frameLength"`
-		Sensitivity int      `json:"sensitivity"`
-		Tempo       string   `json:"tempo"`
-		Duration    string   `json:"duration"`
-		MarkerCount int      `json:"markerCount"`
-	}
-
-	var chPeaks [][]Peak
-	for _, ch := range channels {
-		chPeaks = append(chPeaks, downsample(ch))
+		Channels    [][]audio.Peak `json:"channels"`
+		Markers     []int          `json:"markers"`
+		Selected    int            `json:"selected"`
+		SampleRate  int            `json:"sampleRate"`
+		FrameLength int            `json:"frameLength"`
+		Sensitivity int            `json:"sensitivity"`
+		Tempo       string         `json:"tempo"`
+		Duration    string         `json:"duration"`
+		MarkerCount int            `json:"markerCount"`
 	}
 
 	data := WaveformData{
