@@ -8,8 +8,9 @@
 # Test binary
 *.test
 
-# Output
+# Output / coverage
 *.out
+coverage.out
 
 # IDE
 .idea/

@@ -13,7 +13,7 @@ type SampleStatus int
 
 const (
 	SampleOK       SampleStatus = iota
-	SampleRenamed                // filename was too long, was shortened
+	SampleRenamed               // filename was too long, was shortened
 	SampleRejected              // invalid file (wrong extension, etc.)
 	SampleIgnored               // skipped
 	SampleNotFound              // referenced file not found on disk
@@ -21,9 +21,9 @@ const (
 
 // SampleRef represents a reference to a sample WAV file.
 type SampleRef struct {
-	Name       string       // sample name without extension (max 16 chars)
-	FilePath   string       // full path to the .wav file (empty if not found)
-	Status     SampleStatus
+	Name     string // sample name without extension (max 16 chars)
+	FilePath string // full path to the .wav file (empty if not found)
+	Status   SampleStatus
 }
 
 // ImportSample validates a file for use as an MPC sample.
@@ -55,7 +55,7 @@ func ImportSample(path string) SampleRef {
 
 // FindSample looks for a sample WAV file in the given directory.
 // The MPC stores sample names without extension, so we append ".wav" / ".WAV".
-func FindSample(name string, dir string) SampleRef {
+func FindSample(name, dir string) SampleRef {
 	if name == "" {
 		return SampleRef{Status: SampleNotFound}
 	}
@@ -136,14 +136,14 @@ func CopySample(ref *SampleRef, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer src.Close()
+	defer src.Close() //nolint:errcheck // read-only file
 
 	destPath := filepath.Join(destDir, filepath.Base(ref.FilePath))
 	dst, err := os.Create(destPath)
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer dst.Close() //nolint:errcheck // write error checked via io.Copy
 
 	_, err = io.Copy(dst, src)
 	return err

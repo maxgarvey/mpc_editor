@@ -28,10 +28,10 @@ func (p *Pad) Layer(index int) *Layer {
 		panic("layer index out of range [0, 4)")
 	}
 	return &Layer{
-		buf:  p.buf,
-		base: p.base + index*layerLength,
+		buf:   p.buf,
+		base:  p.base + index*layerLength,
 		index: index,
-		pad:  p,
+		pad:   p,
 	}
 }
 

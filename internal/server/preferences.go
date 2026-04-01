@@ -8,10 +8,10 @@ import (
 
 // Preferences stores user settings that persist across sessions.
 type Preferences struct {
-	Profile      string `json:"profile"`       // "MPC1000" or "MPC500"
-	LastPGMPath  string `json:"lastPgmPath"`   // last opened .pgm path
-	LastWAVPath  string `json:"lastWavPath"`   // last loaded WAV in slicer
-	AuditionMode string `json:"auditionMode"`  // "layer0", "none"
+	Profile      string `json:"profile"`      // "MPC1000" or "MPC500"
+	LastPGMPath  string `json:"lastPgmPath"`  // last opened .pgm path
+	LastWAVPath  string `json:"lastWavPath"`  // last loaded WAV in slicer
+	AuditionMode string `json:"auditionMode"` // "layer0", "none"
 }
 
 // DefaultPreferences returns the default preferences.
@@ -42,7 +42,7 @@ func LoadPreferences() Preferences {
 	if err != nil {
 		return p
 	}
-	json.Unmarshal(data, &p)
+	_ = json.Unmarshal(data, &p)
 	return p
 }
 
@@ -54,7 +54,7 @@ func SavePreferences(p Preferences) error {
 	}
 
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 
@@ -62,5 +62,5 @@ func SavePreferences(p Preferences) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0o644)
 }

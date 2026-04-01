@@ -6,21 +6,21 @@ import (
 )
 
 const (
-	DefaultWindowSize           = 1024
-	DefaultOverlapRatio         = 1
+	DefaultWindowSize            = 1024
+	DefaultOverlapRatio          = 1
 	DefaultLocalEnergyWindowSize = 43
-	DefaultSensitivity          = 130
+	DefaultSensitivity           = 130
 )
 
 // Slicer performs beat detection on an audio sample and manages slice markers.
 type Slicer struct {
-	sample               *Sample
-	channels             [][]int
-	windowSize           int
-	overlapRatio         int
+	sample                *Sample
+	channels              [][]int
+	windowSize            int
+	overlapRatio          int
 	localEnergyWindowSize int
-	sensitivity          int
-	Markers              *Markers
+	sensitivity           int
+	Markers               *Markers
 }
 
 // NewSlicer creates a Slicer for the given sample with default parameters.
@@ -31,13 +31,13 @@ func NewSlicer(sample *Sample) *Slicer {
 // NewSlicerWithParams creates a Slicer with custom parameters.
 func NewSlicerWithParams(sample *Sample, windowSize, overlapRatio, localEnergyWindowSize int) *Slicer {
 	s := &Slicer{
-		sample:               sample,
-		channels:             sample.AsSamples(),
-		windowSize:           windowSize,
-		overlapRatio:         overlapRatio,
+		sample:                sample,
+		channels:              sample.AsSamples(),
+		windowSize:            windowSize,
+		overlapRatio:          overlapRatio,
 		localEnergyWindowSize: localEnergyWindowSize,
-		sensitivity:          DefaultSensitivity,
-		Markers:              NewMarkers(),
+		sensitivity:           DefaultSensitivity,
+		Markers:               NewMarkers(),
 	}
 	s.ExtractMarkers()
 	return s
@@ -175,8 +175,7 @@ func (s *Slicer) localEnergy(i int, energyHistory []int64) int64 {
 	n := len(energyHistory)
 	m := s.localEnergyWindowSize
 
-	from := 0
-	to := m
+	var from, to int
 	if i < m {
 		from = 0
 		to = m
@@ -200,11 +199,11 @@ func nearestZeroCrossing(samples []int, index, excursion int) int {
 		return 0
 	}
 	i := index
-	min := index - excursion
-	if min < 0 {
-		min = 0
+	lo := index - excursion
+	if lo < 0 {
+		lo = 0
 	}
-	for !isZeroCross(samples, i) && i > min {
+	for !isZeroCross(samples, i) && i > lo {
 		i--
 	}
 	return i

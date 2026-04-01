@@ -32,8 +32,8 @@ func main() {
 	fmt.Printf("MPC Editor running at %s\n", url)
 
 	if runtime.GOOS == "darwin" {
-		go exec.Command("open", url).Start()
+		go exec.Command("open", url).Start() //nolint:errcheck // fire-and-forget browser open
 	}
 
-	log.Fatal(http.Serve(ln, srv.Handler()))
+	log.Fatal(http.Serve(ln, srv.Handler())) //nolint:gosec // local-only app, timeouts unnecessary
 }

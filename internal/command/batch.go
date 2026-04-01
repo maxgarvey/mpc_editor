@@ -35,7 +35,7 @@ func (r BatchResult) Report() string {
 func BatchCreate(rootDir string) BatchResult {
 	var result BatchResult
 
-	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("walk %s: %v", path, err))
 			return nil

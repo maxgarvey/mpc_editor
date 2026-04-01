@@ -237,7 +237,10 @@ func (s *Server) handleSlicerExport(w http.ResponseWriter, r *http.Request) {
 			midi.DefaultPPQ,
 		)
 		midiPath := filepath.Join(dir, prefix+"slices.mid")
-		seq.Save(midiPath)
+		if err := seq.Save(midiPath); err != nil {
+			http.Error(w, fmt.Sprintf("save MIDI: %v", err), http.StatusInternalServerError)
+			return
+		}
 		paths = append(paths, midiPath)
 	}
 

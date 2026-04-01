@@ -26,7 +26,7 @@ func testdataPath(name string) string {
 func TestIndex(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/", nil)
+	req := httptest.NewRequest("GET", "/", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -45,7 +45,7 @@ func TestIndex(t *testing.T) {
 func TestProgramNew(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("POST", "/program/new", nil)
+	req := httptest.NewRequest("POST", "/program/new", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -82,7 +82,7 @@ func TestProgramOpenAndPadSelect(t *testing.T) {
 	t.Logf("pad 0: %q", name)
 
 	// Select pad 1
-	req = httptest.NewRequest("GET", "/pad/1", nil)
+	req = httptest.NewRequest("GET", "/pad/1", http.NoBody)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -170,7 +170,7 @@ func TestProgramSave(t *testing.T) {
 func TestPadGrid(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/partials/pad-grid?bank=1", nil)
+	req := httptest.NewRequest("GET", "/partials/pad-grid?bank=1", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -186,7 +186,7 @@ func TestPadGrid(t *testing.T) {
 func TestStaticFiles(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/static/css/style.css", nil)
+	req := httptest.NewRequest("GET", "/static/css/style.css", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -194,7 +194,7 @@ func TestStaticFiles(t *testing.T) {
 		t.Fatalf("CSS status = %d", w.Code)
 	}
 
-	req = httptest.NewRequest("GET", "/static/js/app.js", nil)
+	req = httptest.NewRequest("GET", "/static/js/app.js", http.NoBody)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -206,7 +206,7 @@ func TestStaticFiles(t *testing.T) {
 func TestAudioPad_NoSample(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/audio/pad/0/0", nil)
+	req := httptest.NewRequest("GET", "/audio/pad/0/0", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -228,7 +228,7 @@ func TestAudioPad_WithSample(t *testing.T) {
 		Status:   pgm.SampleOK,
 	})
 
-	req := httptest.NewRequest("GET", "/audio/pad/0/0", nil)
+	req := httptest.NewRequest("GET", "/audio/pad/0/0", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -247,7 +247,7 @@ func TestAudioPad_WithSample(t *testing.T) {
 func TestAudioPad_InvalidIndex(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/audio/pad/999/0", nil)
+	req := httptest.NewRequest("GET", "/audio/pad/999/0", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -259,7 +259,7 @@ func TestAudioPad_InvalidIndex(t *testing.T) {
 func TestAudioSlice_NoSlicer(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/audio/slice/0", nil)
+	req := httptest.NewRequest("GET", "/audio/slice/0", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -278,7 +278,7 @@ func TestAudioInfo(t *testing.T) {
 		Status:   pgm.SampleOK,
 	})
 
-	req := httptest.NewRequest("GET", "/audio/info", nil)
+	req := httptest.NewRequest("GET", "/audio/info", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -294,7 +294,7 @@ func TestAudioInfo(t *testing.T) {
 func TestSlicerPage_Empty(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/slicer", nil)
+	req := httptest.NewRequest("GET", "/slicer", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -335,7 +335,7 @@ func TestSlicerWaveform(t *testing.T) {
 	srv := testServer(t)
 	loadTestSlicer(t, srv)
 
-	req := httptest.NewRequest("GET", "/slicer/waveform?width=500", nil)
+	req := httptest.NewRequest("GET", "/slicer/waveform?width=500", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -384,7 +384,7 @@ func TestSlicerMarkerOps(t *testing.T) {
 	loadTestSlicer(t, srv)
 
 	// Next marker
-	req := httptest.NewRequest("GET", "/slicer/marker/next", nil)
+	req := httptest.NewRequest("GET", "/slicer/marker/next", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	if w.Code != 200 {
@@ -395,7 +395,7 @@ func TestSlicerMarkerOps(t *testing.T) {
 	}
 
 	// Delete
-	req = httptest.NewRequest("POST", "/slicer/marker/delete", nil)
+	req = httptest.NewRequest("POST", "/slicer/marker/delete", http.NoBody)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	if w.Code != 200 {
@@ -406,7 +406,7 @@ func TestSlicerMarkerOps(t *testing.T) {
 	}
 
 	// Insert
-	req = httptest.NewRequest("POST", "/slicer/marker/insert", nil)
+	req = httptest.NewRequest("POST", "/slicer/marker/insert", http.NoBody)
 	w = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 	if w.Code != 200 {
@@ -490,7 +490,7 @@ func TestAssignPath_NoPaths(t *testing.T) {
 func TestBatchPage(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/batch", nil)
+	req := httptest.NewRequest("GET", "/batch", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -508,7 +508,9 @@ func TestBatchRun(t *testing.T) {
 	// Create temp dir with WAV files
 	root := t.TempDir()
 	subDir := filepath.Join(root, "drums")
-	os.MkdirAll(subDir, 0755)
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	// Write minimal WAV files
 	wavHeader := []byte{
@@ -517,8 +519,12 @@ func TestBatchRun(t *testing.T) {
 		0x44, 0xAC, 0, 0, 0x88, 0x58, 0x01, 0, 2, 0, 16, 0,
 		'd', 'a', 't', 'a', 2, 0, 0, 0, 0, 0,
 	}
-	os.WriteFile(filepath.Join(subDir, "kick.wav"), wavHeader, 0644)
-	os.WriteFile(filepath.Join(subDir, "snare.wav"), wavHeader, 0644)
+	if err := os.WriteFile(filepath.Join(subDir, "kick.wav"), wavHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "snare.wav"), wavHeader, 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	form := url.Values{"dir": {root}}
 	req := httptest.NewRequest("POST", "/batch/run", strings.NewReader(form.Encode()))
@@ -558,10 +564,10 @@ func TestRemoveAllSamples(t *testing.T) {
 	srv := testServer(t)
 
 	// Set some sample names
-	srv.session.Program.Pad(0).Layer(0).SetSampleName("kick")
-	srv.session.Program.Pad(1).Layer(0).SetSampleName("snare")
+	_ = srv.session.Program.Pad(0).Layer(0).SetSampleName("kick")
+	_ = srv.session.Program.Pad(1).Layer(0).SetSampleName("snare")
 
-	req := httptest.NewRequest("POST", "/edit/remove-all-samples", nil)
+	req := httptest.NewRequest("POST", "/edit/remove-all-samples", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -581,7 +587,7 @@ func TestRemoveAllSamples(t *testing.T) {
 func TestChromaticLayout(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("POST", "/edit/chromatic-layout", nil)
+	req := httptest.NewRequest("POST", "/edit/chromatic-layout", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -608,12 +614,12 @@ func TestCopySettingsToAll(t *testing.T) {
 	pad0.SetMuteGroup(5)
 	pad0.Envelope().SetAttack(50)
 	pad0.Mixer().SetLevel(80)
-	pad0.Layer(0).SetSampleName("kick")
+	_ = pad0.Layer(0).SetSampleName("kick")
 	pad0.Layer(0).SetLevel(90)
 
 	srv.session.SelectedPad = 0
 
-	req := httptest.NewRequest("POST", "/edit/copy-settings-to-all", nil)
+	req := httptest.NewRequest("POST", "/edit/copy-settings-to-all", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
@@ -684,7 +690,7 @@ func loadTestSlicer(t *testing.T, srv *Server) {
 func Test404(t *testing.T) {
 	srv := testServer(t)
 
-	req := httptest.NewRequest("GET", "/nonexistent", nil)
+	req := httptest.NewRequest("GET", "/nonexistent", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 

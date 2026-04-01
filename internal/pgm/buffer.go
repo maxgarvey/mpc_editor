@@ -121,7 +121,7 @@ func OpenFile(path string) (*Buffer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open pgm: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only file
 	return OpenReader(f)
 }
 
@@ -136,5 +136,5 @@ func OpenReader(r io.Reader) (*Buffer, error) {
 
 // SaveFile writes the buffer to a .pgm file.
 func (b *Buffer) SaveFile(path string) error {
-	return os.WriteFile(path, b.data, 0644)
+	return os.WriteFile(path, b.data, 0o644)
 }

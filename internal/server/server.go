@@ -202,4 +202,3 @@ func parseIntParam(r *http.Request, key string, defaultVal int) int {
 	}
 	return n
 }
-

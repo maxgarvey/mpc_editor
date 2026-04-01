@@ -18,7 +18,7 @@ func (s *Server) handleRemoveAllSamples(w http.ResponseWriter, r *http.Request) 
 	for i := 0; i < prog.PadCount(); i++ {
 		pad := prog.Pad(i)
 		for j := 0; j < 4; j++ {
-			pad.Layer(j).SetSampleName("")
+			_ = pad.Layer(j).SetSampleName("")
 		}
 	}
 	s.session.Matrix.Clear()

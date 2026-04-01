@@ -42,7 +42,7 @@ func (s *Server) handleBatchRun(w http.ResponseWriter, r *http.Request) {
 
 	// Otherwise return HTML partial
 	s.renderTemplate(w, "batch_page.html", map[string]any{
-		"Result":   &result,
-		"Dir":      dir,
+		"Result": &result,
+		"Dir":    dir,
 	})
 }

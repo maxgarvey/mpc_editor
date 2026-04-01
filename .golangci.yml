@@ -1,0 +1,48 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gocritic
+    - misspell
+    - unconvert
+    - bodyclose
+    - gosec
+    - errname
+    - errorlint
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (*encoding/json.Encoder).Encode
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+      disabled-checks:
+        - ifElseChain
+    gosec:
+      excludes:
+        - G104  # unhandled errors (covered by errcheck with exclusions)
+        - G115  # integer overflow — safe in this context (audio format values)
+        - G304  # file path from variable — expected for a local file editor
+        - G301  # directory permissions — 0755 is fine for user config dirs
+        - G306  # file permissions — 0644 is standard for user data files
+
+issues:
+  exclude-dirs:
+    - testdata
+  max-issues-per-linter: 0
+  max-same-issues: 0

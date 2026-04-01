@@ -47,7 +47,7 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("create temp dir: %v", err), http.StatusInternalServerError)
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck // best-effort temp cleanup
 
 	var savedPaths []string
 	for _, fh := range files {
@@ -59,12 +59,15 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 		destPath := filepath.Join(tmpDir, fh.Filename)
 		dst, err := os.Create(destPath)
 		if err != nil {
-			src.Close()
+			_ = src.Close()
 			continue
 		}
-		io.Copy(dst, src)
-		src.Close()
-		dst.Close()
+		_, cpErr := io.Copy(dst, src)
+		_ = src.Close()
+		_ = dst.Close()
+		if cpErr != nil {
+			continue
+		}
 		savedPaths = append(savedPaths, destPath)
 	}
 
@@ -101,7 +104,10 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, fmt.Sprintf("parse form: %v", err), http.StatusBadRequest)
+		return
+	}
 
 	padIdx := parseIntParam(r, "pad", s.session.SelectedPad)
 	mode := r.FormValue("mode")

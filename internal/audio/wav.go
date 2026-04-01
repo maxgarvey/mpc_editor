@@ -22,8 +22,8 @@ func (f Format) FrameSize() int {
 // Sample holds decoded audio data from a WAV file.
 type Sample struct {
 	Format      Format
-	FrameLength int       // number of frames (samples per channel)
-	Data        []byte    // raw PCM data
+	FrameLength int    // number of frames (samples per channel)
+	Data        []byte // raw PCM data
 }
 
 // OpenWAV reads a WAV file and returns a Sample.
@@ -32,7 +32,7 @@ func OpenWAV(path string) (*Sample, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open wav: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only file
 	return ReadWAV(f)
 }
 
@@ -84,7 +84,9 @@ func ReadWAV(r io.ReadSeeker) (*Sample, error) {
 
 		// Chunks are word-aligned (pad byte if odd size)
 		if chunkSize%2 != 0 {
-			r.Seek(1, io.SeekCurrent)
+			if _, err := r.Seek(1, io.SeekCurrent); err != nil {
+				return nil, fmt.Errorf("seek past pad byte: %w", err)
+			}
 		}
 	}
 
@@ -178,7 +180,7 @@ func (s *Sample) SaveWAV(path string) error {
 	if err != nil {
 		return fmt.Errorf("create wav: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // write error checked via WriteWAV
 	return s.WriteWAV(f)
 }
 
@@ -194,7 +196,7 @@ func (s *Sample) WriteWAV(w io.Writer) error {
 	if _, err := w.Write([]byte("RIFF")); err != nil {
 		return err
 	}
-	if err := write(uint32(fileSize)); err != nil {
+	if err := write(fileSize); err != nil {
 		return err
 	}
 	if _, err := w.Write([]byte("WAVE")); err != nil {

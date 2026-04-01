@@ -9,13 +9,13 @@ const (
 // The Java code creates Slider with BaseElement(parent, 0, sliderIndex, SLIDER_LENGTH),
 // meaning slider 0 starts at 0x29D9 and slider 1 at 0x29D9 + 13.
 var (
-	SliderPad        = OffIntParam("Pad", 0x00, 0, 64)
-	SliderParameter  = EnumParam("Parameter", 0x02, []string{"Tune", "Filter", "Layer", "Attack", "Decay"})
-	SliderTuneRange  = RangeParam("Tune", 0x03, -120, 120)
+	SliderPad         = OffIntParam("Pad", 0x00, 0, 64)
+	SliderParameter   = EnumParam("Parameter", 0x02, []string{"Tune", "Filter", "Layer", "Attack", "Decay"})
+	SliderTuneRange   = RangeParam("Tune", 0x03, -120, 120)
 	SliderFilterRange = RangeParam("Filter", 0x05, -50, 50)
-	SliderLayerRange = RangeParam("Layer", 0x07, 0, 127)
+	SliderLayerRange  = RangeParam("Layer", 0x07, 0, 127)
 	SliderAttackRange = RangeParam("Attack", 0x09, 0, 100)
-	SliderDecayRange = RangeParam("Decay", 0x0B, 0, 100)
+	SliderDecayRange  = RangeParam("Decay", 0x0B, 0, 100)
 )
 
 var SliderParameters = []Parameter{SliderPad, SliderParameter, SliderTuneRange, SliderFilterRange, SliderLayerRange, SliderAttackRange, SliderDecayRange}

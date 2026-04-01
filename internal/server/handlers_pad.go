@@ -32,7 +32,10 @@ func (s *Server) handlePadParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	idx := s.session.SelectedPad
 	pad := s.session.Program.Pad(idx)
 
@@ -110,7 +113,10 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "parse form: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// Parse layer index from /pad/layer/{index}
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/pad/layer/"), "/")
@@ -128,7 +134,7 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 	layer := s.session.Program.Pad(padIdx).Layer(layerIdx)
 
 	if v := r.FormValue("sample_name"); v != "" {
-		layer.SetSampleName(v)
+		_ = layer.SetSampleName(v)
 	}
 	if v := r.FormValue("level"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {

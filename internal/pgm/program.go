@@ -8,8 +8,8 @@ const (
 	headerFileSize = 0x00
 	headerFileType = 0x04
 
-	midiNotePadValue   = 0x2918 // 64 bytes: MIDI note → pad mapping
-	midiProgramChange  = 0x29D8
+	midiNotePadValue  = 0x2918 // 64 bytes: MIDI note → pad mapping
+	midiProgramChange = 0x29D8
 
 	padSectionStart = 0x18
 	padLength       = 0xA4

@@ -2,10 +2,10 @@ package pgm
 
 // Profile defines hardware differences between MPC models.
 type Profile struct {
-	Name         string
-	PadsPerBank  int // 12 (MPC500: 4x3) or 16 (MPC1000: 4x4)
-	SliderCount  int // 1 (MPC500) or 2 (MPC1000)
-	FilterCount  int // 1 (MPC500) or 2 (MPC1000)
+	Name        string
+	PadsPerBank int // 12 (MPC500: 4x3) or 16 (MPC1000: 4x4)
+	SliderCount int // 1 (MPC500) or 2 (MPC1000)
+	FilterCount int // 1 (MPC500) or 2 (MPC1000)
 }
 
 var (

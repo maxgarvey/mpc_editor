@@ -32,7 +32,7 @@ func createTestWAV(t *testing.T, path string) {
 		2, 0, 0, 0, // subchunk2 size = 2 bytes
 		0, 0, // one sample of silence
 	}
-	if err := os.WriteFile(path, header, 0644); err != nil {
+	if err := os.WriteFile(path, header, 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -179,7 +179,7 @@ func TestMultisampleAssign(t *testing.T) {
 func TestExportProgram(t *testing.T) {
 	// Create a program with a sample reference
 	prog := pgm.NewProgram()
-	prog.Pad(0).Layer(0).SetSampleName("chh")
+	_ = prog.Pad(0).Layer(0).SetSampleName("chh") //nolint:errcheck // test setup, name is short
 
 	// Set up matrix with a real sample file
 	var matrix pgm.SampleMatrix
@@ -231,16 +231,26 @@ func TestBatchCreate(t *testing.T) {
 	emptyDir := filepath.Join(root, "empty")
 	existingDir := filepath.Join(root, "existing")
 
-	os.MkdirAll(drumsDir, 0755)
-	os.MkdirAll(bassDir, 0755)
-	os.MkdirAll(emptyDir, 0755)
-	os.MkdirAll(existingDir, 0755)
+	if err := os.MkdirAll(drumsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(bassDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(emptyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(existingDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	createTestWAV(t, filepath.Join(drumsDir, "kick.wav"))
 	createTestWAV(t, filepath.Join(drumsDir, "snare.wav"))
 	createTestWAV(t, filepath.Join(bassDir, "bass.wav"))
 	createTestWAV(t, filepath.Join(existingDir, "hat.wav"))
-	os.WriteFile(filepath.Join(existingDir, "existing.pgm"), make([]byte, 100), 0644)
+	if err := os.WriteFile(filepath.Join(existingDir, "existing.pgm"), make([]byte, 100), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	result := BatchCreate(root)
 

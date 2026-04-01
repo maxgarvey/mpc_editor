@@ -117,7 +117,9 @@ func TestProgramSaveAndReopen(t *testing.T) {
 	}
 
 	// Modify something
-	prog.Pad(0).Layer(0).SetSampleName("MODIFIED")
+	if err := prog.Pad(0).Layer(0).SetSampleName("MODIFIED"); err != nil {
+		t.Fatal(err)
+	}
 	prog.Pad(0).Layer(0).SetTuning(5.0)
 
 	// Save to temp file
@@ -200,7 +202,7 @@ func TestClone(t *testing.T) {
 	clone := prog.Clone()
 
 	// Modify original
-	prog.Pad(0).Layer(0).SetSampleName("ORIGINAL")
+	_ = prog.Pad(0).Layer(0).SetSampleName("ORIGINAL") //nolint:errcheck // test setup, name is short
 
 	// Clone should be unaffected
 	cloneName := clone.Pad(0).Layer(0).GetSampleName()

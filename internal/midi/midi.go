@@ -17,9 +17,9 @@ const (
 
 // Event represents a MIDI event at a specific tick.
 type Event struct {
-	Tick    int
-	Status  byte
-	Key     byte
+	Tick     int
+	Status   byte
+	Key      byte
 	Velocity byte
 }
 
@@ -63,7 +63,7 @@ func (s *Sequence) Save(path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // write error checked via Write
 	return s.Write(f)
 }
 
@@ -175,7 +175,7 @@ func ReadMIDI(path string) (*Sequence, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only file
 	return ParseMIDI(f)
 }
 
@@ -199,15 +199,21 @@ func ParseMIDI(r io.Reader) (*Sequence, error) {
 	}
 
 	var format, numTracks, ppq uint16
-	binary.Read(r, binary.BigEndian, &format)
-	binary.Read(r, binary.BigEndian, &numTracks)
+	if err := binary.Read(r, binary.BigEndian, &format); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(r, binary.BigEndian, &numTracks); err != nil {
+		return nil, err
+	}
 	if err := binary.Read(r, binary.BigEndian, &ppq); err != nil {
 		return nil, err
 	}
 
 	// Skip any extra header bytes
 	if headerLen > 6 {
-		io.CopyN(io.Discard, r, int64(headerLen-6))
+		if _, err := io.CopyN(io.Discard, r, int64(headerLen-6)); err != nil {
+			return nil, fmt.Errorf("skip extra header bytes: %w", err)
+		}
 	}
 
 	seq := NewSequence(int(ppq))
@@ -282,9 +288,7 @@ func ParseMIDI(r io.Reader) (*Sequence, error) {
 }
 
 // decodeVarLen reads a MIDI variable-length quantity.
-func decodeVarLen(data []byte) (int, int) {
-	value := 0
-	bytesRead := 0
+func decodeVarLen(data []byte) (value, bytesRead int) {
 	for i := 0; i < len(data) && i < 4; i++ {
 		b := data[i]
 		value = (value << 7) | int(b&0x7F)
@@ -293,5 +297,5 @@ func decodeVarLen(data []byte) (int, int) {
 			break
 		}
 	}
-	return value, bytesRead
+	return
 }

@@ -24,13 +24,15 @@ Runs locally as a single-binary web app on `http://127.0.0.1:8080`.
 ## Build & Run
 
 ```
-go run ./cmd/mpc_editor
+make build    # compile binary
+make run      # build and start server
+make install  # install to $GOPATH/bin
 ```
 
 On macOS, the browser opens automatically. Set `PORT` to change the default port:
 
 ```
-PORT=9090 go run ./cmd/mpc_editor
+PORT=9090 make run
 ```
 
 ## Architecture
@@ -57,8 +59,14 @@ cmd/
 ## Development
 
 ```
-go test ./...
-go vet ./...
+make test         # run tests
+make test-race    # run tests with race detector
+make test-cover   # run tests with coverage report
+make lint         # run golangci-lint (auto-installs)
+make check        # vet + lint + tests
+make fmt          # format code
+make dev          # live reload (requires watchexec)
+make help         # show all targets
 ```
 
 Test fixtures are in `testdata/` (`.pgm` and `.wav` files).

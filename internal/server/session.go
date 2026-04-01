@@ -13,7 +13,7 @@ type Session struct {
 	FilePath    string // path to the current .pgm file (empty if new)
 	SelectedPad int    // currently selected pad index (0-63)
 	Profile     pgm.Profile
-	SampleDir   string // directory where samples are located
+	SampleDir   string        // directory where samples are located
 	Slicer      *audio.Slicer // active slicer (nil if none)
 	SlicerPath  string        // path to WAV loaded in slicer
 	Prefs       Preferences

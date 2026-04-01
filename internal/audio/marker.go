@@ -20,10 +20,10 @@ func (r LocationRange) MidLocation() int {
 
 // Markers manages a collection of slice markers.
 type Markers struct {
-	markers       []Marker
-	selected      int
-	maxLocation   int
-	samplingRate  int
+	markers      []Marker
+	selected     int
+	maxLocation  int
+	samplingRate int
 }
 
 // NewMarkers creates an empty Markers collection.

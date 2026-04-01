@@ -25,13 +25,13 @@ type Parameter struct {
 }
 
 // IntParam creates an integer parameter with a range.
-func IntParam(label string, offset, min, max int) Parameter {
-	return Parameter{Label: label, Offset: offset, Type: TypeInt, Min: min, Max: max}
+func IntParam(label string, offset, lo, hi int) Parameter {
+	return Parameter{Label: label, Offset: offset, Type: TypeInt, Min: lo, Max: hi}
 }
 
 // OffIntParam creates an integer parameter where 0 means "Off".
-func OffIntParam(label string, offset, min, max int) Parameter {
-	return Parameter{Label: label, Offset: offset, Type: TypeOffInt, Min: min, Max: max}
+func OffIntParam(label string, offset, lo, hi int) Parameter {
+	return Parameter{Label: label, Offset: offset, Type: TypeOffInt, Min: lo, Max: hi}
 }
 
 // StringParam creates a 16-char string parameter.
@@ -45,13 +45,13 @@ func EnumParam(label string, offset int, values []string) Parameter {
 }
 
 // TuningParam creates a tuning parameter (int16, value/100 = semitones).
-func TuningParam(label string, offset int, min, max int) Parameter {
-	return Parameter{Label: label, Offset: offset, Type: TypeTuning, Min: min, Max: max}
+func TuningParam(label string, offset, lo, hi int) Parameter {
+	return Parameter{Label: label, Offset: offset, Type: TypeTuning, Min: lo, Max: hi}
 }
 
 // RangeParam creates a range parameter (pair of bytes).
-func RangeParam(label string, offset, min, max int) Parameter {
-	return Parameter{Label: label, Offset: offset, Type: TypeRange, Min: min, Max: max}
+func RangeParam(label string, offset, lo, hi int) Parameter {
+	return Parameter{Label: label, Offset: offset, Type: TypeRange, Min: lo, Max: hi}
 }
 
 // Get reads the parameter value from the buffer at the given base offset.
