@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"path/filepath"
 
@@ -64,6 +65,11 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 	s.session.SelectedPad = 0
 	s.session.Matrix.Clear()
 
+	s.session.Prefs.LastPGMPath = path
+	if err := SavePreferences(s.session.Prefs); err != nil {
+		log.Printf("save preferences: %v", err)
+	}
+
 	// Populate sample matrix from program
 	for i := 0; i < 64; i++ {
 		pad := prog.Pad(i)
@@ -100,6 +106,11 @@ func (s *Server) handleProgramSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.session.FilePath = path
+
+	s.session.Prefs.LastPGMPath = path
+	if err := SavePreferences(s.session.Prefs); err != nil {
+		log.Printf("save preferences: %v", err)
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte("Saved to " + path))

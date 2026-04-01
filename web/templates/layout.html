@@ -13,7 +13,7 @@
         <nav class="toolbar">
             <button hx-post="/program/new" hx-confirm="Create new program? Unsaved changes will be lost.">New</button>
             <form hx-post="/program/open" hx-target="body" class="inline-form">
-                <input type="text" name="path" placeholder="Path to .pgm file" class="path-input">
+                <input type="text" name="path" placeholder="Path to .pgm file" class="path-input" value="{{.Session.Prefs.LastPGMPath}}">
                 <button type="submit">Open</button>
             </form>
             <form hx-post="/program/save" class="inline-form">

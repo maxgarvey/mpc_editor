@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
@@ -84,6 +85,11 @@ func (s *Server) handleProfileSwitch(w http.ResponseWriter, r *http.Request) {
 		s.session.Profile = pgm.ProfileMPC500
 	default:
 		s.session.Profile = pgm.ProfileMPC1000
+	}
+
+	s.session.Prefs.Profile = s.session.Profile.Name
+	if err := SavePreferences(s.session.Prefs); err != nil {
+		log.Printf("save preferences: %v", err)
 	}
 
 	w.Header().Set("HX-Redirect", "/")

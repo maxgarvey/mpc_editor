@@ -27,7 +27,7 @@ func prefsPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".mpcmaid", "preferences.json")
+	return filepath.Join(home, ".mpc_editor", "preferences.json")
 }
 
 // LoadPreferences reads preferences from disk, or returns defaults.

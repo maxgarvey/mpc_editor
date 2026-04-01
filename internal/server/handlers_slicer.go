@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -36,6 +37,11 @@ func (s *Server) handleSlicerLoad(w http.ResponseWriter, r *http.Request) {
 
 	s.session.Slicer = audio.NewSlicer(sample)
 	s.session.SlicerPath = path
+
+	s.session.Prefs.LastWAVPath = path
+	if err := SavePreferences(s.session.Prefs); err != nil {
+		log.Printf("save preferences: %v", err)
+	}
 
 	data := s.slicerData()
 	s.renderTemplate(w, "slicer.html", data)
@@ -245,9 +251,13 @@ func (s *Server) handleSlicerExport(w http.ResponseWriter, r *http.Request) {
 
 // slicerData builds template data for the slicer page.
 func (s *Server) slicerData() map[string]any {
+	path := s.session.SlicerPath
+	if path == "" {
+		path = s.session.Prefs.LastWAVPath
+	}
 	data := map[string]any{
 		"Active":    s.session.Slicer != nil,
-		"Path":      s.session.SlicerPath,
+		"Path":      path,
 		"SampleDir": s.session.SampleDir,
 	}
 

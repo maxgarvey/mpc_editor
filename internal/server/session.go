@@ -16,14 +16,21 @@ type Session struct {
 	SampleDir   string // directory where samples are located
 	Slicer      *audio.Slicer // active slicer (nil if none)
 	SlicerPath  string        // path to WAV loaded in slicer
+	Prefs       Preferences
 }
 
-// NewSession creates a session with a blank program.
+// NewSession creates a session with a blank program and loads saved preferences.
 func NewSession() *Session {
+	prefs := LoadPreferences()
+	profile := pgm.ProfileMPC1000
+	if prefs.Profile == "MPC500" {
+		profile = pgm.ProfileMPC500
+	}
 	return &Session{
 		Program:     pgm.NewProgram(),
 		SelectedPad: 0,
-		Profile:     pgm.ProfileMPC1000,
+		Profile:     profile,
+		Prefs:       prefs,
 	}
 }
 
