@@ -20,8 +20,16 @@ body {
 
 .app-header h1 {
     font-size: 18px;
-    color: #a0c840;
+    color: #d4d4d4;
     margin-bottom: 8px;
+}
+
+.title-mpc {
+    color: #ffffff;
+}
+
+.title-editor {
+    color: #cc2020;
 }
 
 .toolbar {
@@ -52,9 +60,9 @@ body {
 }
 
 .path-input {
-    background: #0f0f0f;
-    color: #d4d4d4;
-    border: 1px solid #444;
+    background: #2a3a2a;
+    color: #111111;
+    border: 1px solid #a0c840;
     padding: 5px 8px;
     border-radius: 4px;
     font-size: 13px;
@@ -121,8 +129,8 @@ body {
 
 .bank-tab.active {
     background: #3a3a3a;
-    color: #a0c840;
-    border-color: #a0c840;
+    color: #cc2020;
+    border-color: #cc2020;
 }
 
 .bank-tab:hover {
@@ -192,7 +200,7 @@ body {
 
 .pad-name {
     font-size: 9px;
-    color: #aaa;
+    color: #ffffff;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -232,7 +240,7 @@ body {
 
 .param-tab.active {
     background: #3a3a3a;
-    color: #a0c840;
+    color: #cc2020;
 }
 
 .param-section {
@@ -298,9 +306,9 @@ body {
 }
 
 .sample-input {
-    background: #0f0f0f;
-    color: #d4d4d4;
-    border: 1px solid #444;
+    background: #2a3a2a;
+    color: #111111;
+    border: 1px solid #a0c840;
     padding: 4px 6px;
     border-radius: 3px;
     font-size: 12px;
@@ -309,9 +317,9 @@ body {
 }
 
 .num-input {
-    background: #0f0f0f;
-    color: #d4d4d4;
-    border: 1px solid #444;
+    background: #2a3a2a;
+    color: #111111;
+    border: 1px solid #a0c840;
     padding: 4px;
     border-radius: 3px;
     font-size: 12px;
@@ -337,6 +345,16 @@ body {
     background: #0f0f0f;
     color: #d4d4d4;
     border: 1px solid #444;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.edit-toolbar select {
+    background: #333;
+    color: #ffffff;
+    font-weight: bold;
+    border: 1px solid #555;
     padding: 4px 8px;
     border-radius: 3px;
     font-size: 12px;
@@ -383,6 +401,16 @@ body {
 
 .btn-sm:hover {
     background: #3a3a3a;
+}
+
+.btn-set {
+    background: #cc2020;
+    color: #fff;
+    border-color: #cc2020;
+}
+
+.btn-set:hover {
+    background: #a01818;
 }
 
 .btn-danger {
