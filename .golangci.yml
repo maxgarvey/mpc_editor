@@ -41,8 +41,10 @@ linters:
         - G301  # directory permissions — 0755 is fine for user config dirs
         - G306  # file permissions — 0644 is standard for user data files
 
-issues:
+run:
   exclude-dirs:
     - testdata
+
+issues:
   max-issues-per-linter: 0
   max-same-issues: 0

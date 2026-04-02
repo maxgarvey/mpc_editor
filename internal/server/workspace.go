@@ -86,13 +86,13 @@ func (s *Server) copyToWorkspace(srcPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer src.Close()
+	defer src.Close() //nolint:errcheck // best-effort close on read-only file
 
 	dst, err := os.Create(destPath)
 	if err != nil {
 		return "", err
 	}
-	defer dst.Close()
+	defer dst.Close() //nolint:errcheck // best-effort close after copy
 
 	if _, err := io.Copy(dst, src); err != nil {
 		return "", err
