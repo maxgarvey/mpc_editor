@@ -37,10 +37,21 @@ func Open() (*sql.DB, *Queries, error) {
 		return nil, nil, err
 	}
 
+	migrateAddWorkspacePath(sqlDB)
+
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
 
 	return sqlDB, queries, nil
+}
+
+// migrateAddWorkspacePath adds the workspace_path column to existing databases.
+func migrateAddWorkspacePath(sqlDB *sql.DB) {
+	_, err := sqlDB.Exec(`ALTER TABLE preferences ADD COLUMN workspace_path TEXT NOT NULL DEFAULT ''`)
+	if err != nil {
+		// Ignore "duplicate column" — already migrated.
+		return
+	}
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

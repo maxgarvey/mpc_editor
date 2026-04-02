@@ -3,7 +3,8 @@
     <!-- Load WAV -->
     <div class="slicer-toolbar">
         <form hx-post="/slicer/load" hx-target="#slicer-panel" class="inline-form">
-            <input type="text" name="path" placeholder="Path to WAV file" class="path-input" value="{{.Path}}">
+            <input type="text" name="path" placeholder="Path to WAV file" class="path-input" id="load-wav-path" value="{{.Path}}">
+            <button type="button" class="btn-sm" onclick="openBrowser('load-wav', 'load-wav-path')">Browse</button>
             <button type="submit" class="btn-primary">Load WAV</button>
         </form>
         <a href="/" class="btn-sm">Back to Editor</a>
@@ -49,7 +50,8 @@
         <!-- Export -->
         <div class="export-controls">
             <form hx-post="/slicer/export" hx-target="#export-result" class="inline-form">
-                <input type="text" name="dir" placeholder="Export directory (default: same as WAV)" class="path-input">
+                <input type="text" name="dir" placeholder="Export directory (default: same as WAV)" class="path-input" id="export-dir-path">
+                <button type="button" class="btn-sm" onclick="openBrowser('export-dir', 'export-dir-path')">Browse</button>
                 <input type="text" name="prefix" placeholder="Prefix (default: filename_)" class="path-input" style="width: 140px;">
                 <button type="submit" class="btn-primary">Export Slices + MIDI</button>
             </form>

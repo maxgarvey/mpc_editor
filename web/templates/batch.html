@@ -28,7 +28,8 @@
             <form hx-post="/batch/run" hx-target="#batch-result" class="batch-form">
                 <div class="param-row">
                     <label>Root Directory</label>
-                    <input type="text" name="dir" placeholder="/path/to/samples" class="path-input" style="width: 400px;" value="{{.Dir}}">
+                    <input type="text" name="dir" placeholder="/path/to/samples" class="path-input" style="width: 400px;" id="batch-dir-path" value="{{.Dir}}">
+                    <button type="button" class="btn-sm" onclick="openBrowser('batch-dir', 'batch-dir-path')">Browse</button>
                 </div>
                 <button type="submit" class="btn-primary">Create Programs</button>
             </form>
@@ -65,6 +66,7 @@
             </div>
         </div>
     </main>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>
 {{end}}

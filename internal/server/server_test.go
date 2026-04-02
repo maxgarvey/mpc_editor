@@ -30,8 +30,16 @@ func testServer(t *testing.T) *Server {
 		profile TEXT NOT NULL DEFAULT 'MPC1000',
 		last_pgm_path TEXT NOT NULL DEFAULT '',
 		last_wav_path TEXT NOT NULL DEFAULT '',
-		audition_mode TEXT NOT NULL DEFAULT 'layer0'
+		audition_mode TEXT NOT NULL DEFAULT 'layer0',
+		workspace_path TEXT NOT NULL DEFAULT ''
 	); INSERT OR IGNORE INTO preferences (id) VALUES (1);`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set workspace to a temp directory for tests.
+	workspace := t.TempDir()
+	_, err = sqlDB.Exec(`UPDATE preferences SET workspace_path = ? WHERE id = 1`, workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +50,12 @@ func testServer(t *testing.T) *Server {
 }
 
 func testdataPath(name string) string {
-	return filepath.Join("..", "..", "testdata", name)
+	// Return absolute path so resolvePath doesn't join with workspace.
+	abs, err := filepath.Abs(filepath.Join("..", "..", "testdata", name))
+	if err != nil {
+		return filepath.Join("..", "..", "testdata", name)
+	}
+	return abs
 }
 
 func TestIndex(t *testing.T) {

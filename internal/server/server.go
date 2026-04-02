@@ -105,6 +105,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/batch", s.handleBatchPage)
 	s.mux.HandleFunc("/batch/run", s.handleBatchRun)
 
+	// File browser and workspace
+	s.mux.HandleFunc("/browse", s.handleBrowse)
+	s.mux.HandleFunc("/workspace/set", s.handleWorkspaceSet)
+	s.mux.HandleFunc("/workspace/mkdir", s.handleWorkspaceMkdir)
+
 	// Pad grid partial
 	s.mux.HandleFunc("/partials/pad-grid", s.handlePadGrid)
 	s.mux.HandleFunc("/partials/pad-params", s.handlePadParamsPartial)

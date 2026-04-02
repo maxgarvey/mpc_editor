@@ -79,6 +79,9 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	// Import the files
 	samples, result := command.ImportSamples(savedPaths)
 
+	// Copy samples into workspace
+	s.copySamplesToWorkspace(samples)
+
 	// Determine assign mode
 	assignMode := command.AssignPerPad
 	if mode == "per-layer" {
@@ -137,7 +140,15 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resolve relative paths
+	for i, p := range paths {
+		paths[i] = s.resolvePath(p)
+	}
+
 	samples, _ := command.ImportSamples(paths)
+
+	// Copy samples into workspace
+	s.copySamplesToWorkspace(samples)
 
 	assignMode := command.AssignPerPad
 	if mode == "per-layer" {

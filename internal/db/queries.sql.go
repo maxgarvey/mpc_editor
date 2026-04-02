@@ -10,15 +10,16 @@ import (
 )
 
 const getPreferences = `-- name: GetPreferences :one
-SELECT profile, last_pgm_path, last_wav_path, audition_mode
+SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path
 FROM preferences WHERE id = 1
 `
 
 type GetPreferencesRow struct {
-	Profile      string
-	LastPgmPath  string
-	LastWavPath  string
-	AuditionMode string
+	Profile       string
+	LastPgmPath   string
+	LastWavPath   string
+	AuditionMode  string
+	WorkspacePath string
 }
 
 func (q *Queries) GetPreferences(ctx context.Context) (GetPreferencesRow, error) {
@@ -29,20 +30,22 @@ func (q *Queries) GetPreferences(ctx context.Context) (GetPreferencesRow, error)
 		&i.LastPgmPath,
 		&i.LastWavPath,
 		&i.AuditionMode,
+		&i.WorkspacePath,
 	)
 	return i, err
 }
 
 const updateAllPreferences = `-- name: UpdateAllPreferences :exec
-UPDATE preferences SET profile = ?, last_pgm_path = ?, last_wav_path = ?, audition_mode = ?
+UPDATE preferences SET profile = ?, last_pgm_path = ?, last_wav_path = ?, audition_mode = ?, workspace_path = ?
 WHERE id = 1
 `
 
 type UpdateAllPreferencesParams struct {
-	Profile      string
-	LastPgmPath  string
-	LastWavPath  string
-	AuditionMode string
+	Profile       string
+	LastPgmPath   string
+	LastWavPath   string
+	AuditionMode  string
+	WorkspacePath string
 }
 
 func (q *Queries) UpdateAllPreferences(ctx context.Context, arg UpdateAllPreferencesParams) error {
@@ -51,6 +54,7 @@ func (q *Queries) UpdateAllPreferences(ctx context.Context, arg UpdateAllPrefere
 		arg.LastPgmPath,
 		arg.LastWavPath,
 		arg.AuditionMode,
+		arg.WorkspacePath,
 	)
 	return err
 }
@@ -88,5 +92,14 @@ UPDATE preferences SET profile = ? WHERE id = 1
 
 func (q *Queries) UpdateProfile(ctx context.Context, profile string) error {
 	_, err := q.db.ExecContext(ctx, updateProfile, profile)
+	return err
+}
+
+const updateWorkspacePath = `-- name: UpdateWorkspacePath :exec
+UPDATE preferences SET workspace_path = ? WHERE id = 1
+`
+
+func (q *Queries) UpdateWorkspacePath(ctx context.Context, workspacePath string) error {
+	_, err := q.db.ExecContext(ctx, updateWorkspacePath, workspacePath)
 	return err
 }

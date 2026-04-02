@@ -78,6 +78,20 @@ func FindSample(name, dir string) SampleRef {
 	}
 }
 
+// FindSampleInDirs searches multiple directories for a sample, returning the first match.
+func FindSampleInDirs(name string, dirs ...string) SampleRef {
+	for _, dir := range dirs {
+		if dir == "" {
+			continue
+		}
+		ref := FindSample(name, dir)
+		if ref.Status == SampleOK {
+			return ref
+		}
+	}
+	return SampleRef{Name: name, Status: SampleNotFound}
+}
+
 // EscapeName truncates and cleans a filename to fit the MPC's 16-char limit.
 func EscapeName(name string, maxLen int) string {
 	if maxLen <= 0 {

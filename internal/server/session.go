@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/maxgarvey/mpc_editor/internal/audio"
 	"github.com/maxgarvey/mpc_editor/internal/db"
@@ -12,15 +14,16 @@ import (
 // Session holds the in-memory state for the current editing session.
 // Single-user (local app), so one global session is fine.
 type Session struct {
-	Program     *pgm.Program
-	Matrix      pgm.SampleMatrix
-	FilePath    string // path to the current .pgm file (empty if new)
-	SelectedPad int    // currently selected pad index (0-63)
-	Profile     pgm.Profile
-	SampleDir   string        // directory where samples are located
-	Slicer      *audio.Slicer // active slicer (nil if none)
-	SlicerPath  string        // path to WAV loaded in slicer
-	Prefs       Preferences
+	Program       *pgm.Program
+	Matrix        pgm.SampleMatrix
+	FilePath      string // path to the current .pgm file (empty if new)
+	SelectedPad   int    // currently selected pad index (0-63)
+	Profile       pgm.Profile
+	SampleDir     string        // directory where samples are located
+	WorkspacePath string        // root directory for MPC files
+	Slicer        *audio.Slicer // active slicer (nil if none)
+	SlicerPath    string        // path to WAV loaded in slicer
+	Prefs         Preferences
 }
 
 // NewSession creates a session with a blank program and loads saved preferences.
@@ -30,12 +33,31 @@ func NewSession(queries *db.Queries) *Session {
 	if prefs.Profile == "MPC500" {
 		profile = pgm.ProfileMPC500
 	}
-	return &Session{
-		Program:     pgm.NewProgram(),
-		SelectedPad: 0,
-		Profile:     profile,
-		Prefs:       prefs,
+
+	workspace := prefs.WorkspacePath
+	if workspace == "" {
+		workspace = defaultWorkspacePath()
 	}
+	if err := os.MkdirAll(workspace, 0o755); err != nil {
+		log.Printf("create workspace %s: %v", workspace, err)
+	}
+
+	return &Session{
+		Program:       pgm.NewProgram(),
+		SelectedPad:   0,
+		Profile:       profile,
+		WorkspacePath: workspace,
+		SampleDir:     workspace,
+		Prefs:         prefs,
+	}
+}
+
+func defaultWorkspacePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".", "MPC1000")
+	}
+	return filepath.Join(home, "MPC1000")
 }
 
 // loadPrefsFromDB reads preferences from the database, falling back to defaults.
@@ -46,10 +68,11 @@ func loadPrefsFromDB(queries *db.Queries) Preferences {
 		return DefaultPreferences()
 	}
 	return Preferences{
-		Profile:      row.Profile,
-		LastPGMPath:  row.LastPgmPath,
-		LastWAVPath:  row.LastWavPath,
-		AuditionMode: row.AuditionMode,
+		Profile:       row.Profile,
+		LastPGMPath:   row.LastPgmPath,
+		LastWAVPath:   row.LastWavPath,
+		AuditionMode:  row.AuditionMode,
+		WorkspacePath: row.WorkspacePath,
 	}
 }
 

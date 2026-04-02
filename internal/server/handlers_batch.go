@@ -9,6 +9,7 @@ import (
 
 func (s *Server) handleBatchPage(w http.ResponseWriter, r *http.Request) {
 	s.renderTemplate(w, "batch_page.html", map[string]any{
+		"Dir":    s.session.WorkspacePath,
 		"Result": nil,
 	})
 }
@@ -19,7 +20,7 @@ func (s *Server) handleBatchRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dir := r.FormValue("dir")
+	dir := s.resolvePath(r.FormValue("dir"))
 	if dir == "" {
 		http.Error(w, "directory path is required", http.StatusBadRequest)
 		return

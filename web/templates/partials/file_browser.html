@@ -1,0 +1,39 @@
+{{define "file_browser.html"}}
+<div class="browser-header">
+    <span class="browser-title">Browse Workspace</span>
+    <button class="btn-sm" onclick="closeBrowser()">Close</button>
+</div>
+<div class="browser-breadcrumbs">
+    {{range $i, $b := .Breadcrumbs}}{{if $i}}<span class="breadcrumb-sep">/</span>{{end}}<a class="breadcrumb-link" hx-get="/browse?dir={{$b.Path}}&context={{$.Context}}" hx-target="#file-browser">{{$b.Name}}</a>{{end}}
+</div>
+<div class="browser-entries">
+    {{if not .Entries}}
+    <div class="browser-empty">Empty directory</div>
+    {{end}}
+    {{range .Entries}}
+    <div class="browser-entry {{if .IsDir}}is-dir{{end}}"
+         {{if .IsDir}}
+         hx-get="/browse?dir={{.Path}}&context={{$.Context}}"
+         hx-target="#file-browser"
+         {{else}}
+         onclick="selectFile('{{.Path}}', '{{$.Context}}')"
+         {{end}}>
+        <span class="entry-icon">{{if .IsDir}}[DIR]{{else if eq .Ext ".pgm"}}[PGM]{{else if eq .Ext ".wav"}}[WAV]{{else if eq .Ext ".mid"}}[MID]{{else}}[---]{{end}}</span>
+        <span class="entry-name">{{.Name}}</span>
+    </div>
+    {{end}}
+</div>
+{{if or (eq .Context "export-dir") (eq .Context "batch-dir")}}
+<div class="browser-actions">
+    <button class="btn-primary" onclick="selectDir('{{.CurrentDir}}', '{{.Context}}')">Select This Directory</button>
+</div>
+{{end}}
+<div class="browser-mkdir">
+    <form hx-post="/workspace/mkdir" hx-target="#file-browser" class="inline-form">
+        <input type="hidden" name="parent" value="{{.RelDir}}">
+        <input type="hidden" name="context" value="{{.Context}}">
+        <input type="text" name="name" placeholder="New folder" class="path-input" style="width:140px">
+        <button type="submit" class="btn-sm">New Folder</button>
+    </form>
+</div>
+{{end}}

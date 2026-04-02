@@ -47,7 +47,7 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := r.FormValue("path")
+	path := s.resolvePath(r.FormValue("path"))
 	if path == "" {
 		http.Error(w, "path is required", http.StatusBadRequest)
 		return
@@ -76,7 +76,7 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 		for j := 0; j < 4; j++ {
 			name := pad.Layer(j).GetSampleName()
 			if name != "" {
-				ref := pgm.FindSample(name, s.session.SampleDir)
+				ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
 				s.session.Matrix.Set(i, j, &ref)
 			}
 		}
@@ -93,7 +93,9 @@ func (s *Server) handleProgramSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := r.FormValue("path")
-	if path == "" {
+	if path != "" {
+		path = s.resolvePath(path)
+	} else {
 		path = s.session.FilePath
 	}
 	if path == "" {

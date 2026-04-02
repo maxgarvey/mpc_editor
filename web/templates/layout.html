@@ -13,19 +13,21 @@
         <nav class="toolbar">
             <button hx-post="/program/new" hx-confirm="Create new program? Unsaved changes will be lost.">New</button>
             <form hx-post="/program/open" hx-target="body" class="inline-form">
-                <input type="text" name="path" placeholder="Path to .pgm file" class="path-input" value="{{.Session.Prefs.LastPGMPath}}">
+                <input type="text" name="path" placeholder="Path to .pgm file" class="path-input" id="open-pgm-path" value="{{.Session.Prefs.LastPGMPath}}">
+                <button type="button" class="btn-sm" onclick="openBrowser('open-pgm', 'open-pgm-path')">Browse</button>
                 <button type="submit">Open</button>
             </form>
             <form hx-post="/program/save" class="inline-form">
-                <input type="text" name="path" placeholder="Save path (leave empty for current)" class="path-input" value="{{.Session.FilePath}}">
+                <input type="text" name="path" placeholder="Save path (leave empty for current)" class="path-input" id="save-pgm-path" value="{{.Session.FilePath}}">
+                <button type="button" class="btn-sm" onclick="openBrowser('save-pgm', 'save-pgm-path')">Browse</button>
                 <button type="submit">Save</button>
             </form>
             <a href="/slicer" class="toolbar-link">Slicer</a>
             <a href="/batch" class="toolbar-link">Batch</a>
         </nav>
-        {{if .Session.FilePath}}
-        <div class="file-info">{{.Session.FilePath}}</div>
-        {{end}}
+        <div class="file-info">
+            {{if .Session.FilePath}}{{.Session.FilePath}} | {{end}}Workspace: {{.Session.WorkspacePath}}
+        </div>
         <div class="edit-toolbar">
             <span class="toolbar-label">Edit:</span>
             <button hx-post="/edit/remove-all-samples" hx-confirm="Remove all samples from all pads?" class="btn-sm">Remove All Samples</button>

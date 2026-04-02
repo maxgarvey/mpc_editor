@@ -177,3 +177,35 @@ function uploadFiles(files, padIndex, mode) {
 
 // Init drag-drop on load
 document.addEventListener('DOMContentLoaded', initDragDrop);
+
+// --- File Browser ---
+
+function openBrowser(context, targetInputId) {
+    window._browserTargetId = targetInputId;
+    var overlay = document.createElement('div');
+    overlay.id = 'browser-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.innerHTML = '<div id="file-browser" class="file-browser"></div>';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeBrowser();
+    });
+    document.body.appendChild(overlay);
+    htmx.ajax('GET', '/browse?context=' + encodeURIComponent(context), '#file-browser');
+}
+
+function closeBrowser() {
+    var overlay = document.getElementById('browser-overlay');
+    if (overlay) overlay.remove();
+}
+
+function selectFile(path, context) {
+    var target = document.getElementById(window._browserTargetId);
+    if (target) target.value = path;
+    closeBrowser();
+}
+
+function selectDir(path, context) {
+    var target = document.getElementById(window._browserTargetId);
+    if (target) target.value = path;
+    closeBrowser();
+}

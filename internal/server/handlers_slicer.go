@@ -23,7 +23,7 @@ func (s *Server) handleSlicerLoad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := r.FormValue("path")
+	path := s.resolvePath(r.FormValue("path"))
 	if path == "" {
 		http.Error(w, "path is required", http.StatusBadRequest)
 		return
@@ -176,7 +176,9 @@ func (s *Server) handleSlicerExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dir := r.FormValue("dir")
-	if dir == "" {
+	if dir != "" {
+		dir = s.resolvePath(dir)
+	} else {
 		// Default to same directory as the loaded WAV
 		dir = filepath.Dir(s.session.SlicerPath)
 	}
