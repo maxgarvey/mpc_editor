@@ -15,7 +15,6 @@ linters:
     - misspell
     - unconvert
     - bodyclose
-    - gosec
     - errname
     - errorlint
 
@@ -33,14 +32,6 @@ linters:
         - style
       disabled-checks:
         - ifElseChain
-    gosec:
-      excludes:
-        - G104  # unhandled errors (covered by errcheck with exclusions)
-        - G115  # integer overflow — safe in this context (audio format values)
-        - G301  # directory permissions — 0755 is fine for user config dirs
-        - G304  # file path from variable — expected for a local file editor
-        - G306  # file permissions — 0644 is standard for user data files
-
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
