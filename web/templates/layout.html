@@ -12,16 +12,10 @@
         <h1><span class="title-mpc">MPC</span> <span class="title-editor">Editor</span></h1>
         <nav class="toolbar">
             <button hx-post="/program/new" hx-confirm="Create new program? Unsaved changes will be lost.">New</button>
-            <form hx-post="/program/open" hx-target="body" class="inline-form">
-                <input type="text" name="path" placeholder="Path to .pgm file" class="path-input" id="open-pgm-path" value="{{.Session.Prefs.LastPGMPath}}">
-                <button type="button" class="btn-sm" onclick="openBrowser('open-pgm', 'open-pgm-path')">Browse</button>
-                <button type="submit">Open</button>
-            </form>
-            <form class="inline-form" onsubmit="event.preventDefault(); openSaveConfirm();">
-                <input type="text" name="path" placeholder="Save path (leave empty for current)" class="path-input" id="save-pgm-path" value="{{.Session.FilePath}}">
-                <button type="button" class="btn-sm" onclick="openBrowser('save-pgm', 'save-pgm-path')">Browse</button>
-                <button type="submit">Save</button>
-            </form>
+            <input type="hidden" id="open-pgm-path" value="{{.Session.Prefs.LastPGMPath}}">
+            <input type="hidden" id="save-pgm-path" value="{{.Session.FilePath}}">
+            <button onclick="openBrowser('open-pgm', 'open-pgm-path')">Open</button>
+            <button onclick="openSaveConfirm()">Save</button>
             <a href="/slicer" class="toolbar-link">Slicer</a>
             <a href="/batch" class="toolbar-link">Batch</a>
         </nav>

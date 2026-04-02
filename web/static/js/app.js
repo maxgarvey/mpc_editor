@@ -202,6 +202,18 @@ function selectFile(path, context) {
     var target = document.getElementById(window._browserTargetId);
     if (target) target.value = path;
     closeBrowser();
+
+    // Auto-open when selecting a file in the open-pgm browser
+    if (context === 'open-pgm') {
+        htmx.ajax('POST', '/program/open', {
+            target: 'body',
+            values: { path: path }
+        });
+    }
+    // Auto-open save confirm when selecting in save-pgm browser
+    if (context === 'save-pgm') {
+        openSaveConfirm();
+    }
 }
 
 function selectDir(path, context) {
