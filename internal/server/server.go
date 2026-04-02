@@ -6,20 +6,24 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/maxgarvey/mpc_editor/internal/db"
 )
 
 // Server is the HTTP server for the MPC Editor web application.
 type Server struct {
 	session   *Session
+	queries   *db.Queries
 	templates *template.Template
 	mux       *http.ServeMux
 	staticFS  fs.FS
 }
 
 // New creates a new Server with the given embedded filesystem for templates and static assets.
-func New(templateFS, staticFS fs.FS) *Server {
+func New(templateFS, staticFS fs.FS, queries *db.Queries) *Server {
 	s := &Server{
-		session:  NewSession(),
+		session:  NewSession(queries),
+		queries:  queries,
 		mux:      http.NewServeMux(),
 		staticFS: staticFS,
 	}

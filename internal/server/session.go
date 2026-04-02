@@ -1,7 +1,11 @@
 package server
 
 import (
+	"context"
+	"log"
+
 	"github.com/maxgarvey/mpc_editor/internal/audio"
+	"github.com/maxgarvey/mpc_editor/internal/db"
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
 
@@ -20,8 +24,8 @@ type Session struct {
 }
 
 // NewSession creates a session with a blank program and loads saved preferences.
-func NewSession() *Session {
-	prefs := LoadPreferences()
+func NewSession(queries *db.Queries) *Session {
+	prefs := loadPrefsFromDB(queries)
 	profile := pgm.ProfileMPC1000
 	if prefs.Profile == "MPC500" {
 		profile = pgm.ProfileMPC500
@@ -31,6 +35,21 @@ func NewSession() *Session {
 		SelectedPad: 0,
 		Profile:     profile,
 		Prefs:       prefs,
+	}
+}
+
+// loadPrefsFromDB reads preferences from the database, falling back to defaults.
+func loadPrefsFromDB(queries *db.Queries) Preferences {
+	row, err := queries.GetPreferences(context.Background())
+	if err != nil {
+		log.Printf("load preferences from db: %v", err)
+		return DefaultPreferences()
+	}
+	return Preferences{
+		Profile:      row.Profile,
+		LastPGMPath:  row.LastPgmPath,
+		LastWAVPath:  row.LastWavPath,
+		AuditionMode: row.AuditionMode,
 	}
 }
 

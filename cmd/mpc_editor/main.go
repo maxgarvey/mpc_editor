@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/maxgarvey/mpc_editor/internal/db"
 	"github.com/maxgarvey/mpc_editor/internal/server"
 	"github.com/maxgarvey/mpc_editor/web"
 )
@@ -19,12 +20,18 @@ func main() {
 		port = p
 	}
 
+	sqlDB, queries, err := db.Open()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	templateFS, staticFS := web.FS()
-	srv := server.New(templateFS, staticFS)
+	srv := server.New(templateFS, staticFS, queries)
 
 	addr := "127.0.0.1:" + port
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
+		_ = sqlDB.Close()
 		log.Fatal(err)
 	}
 

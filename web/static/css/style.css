@@ -6,21 +6,21 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: #1a1a1a;
+    color: #d4d4d4;
     min-height: 100vh;
 }
 
 /* Header */
 .app-header {
-    background: #16213e;
+    background: #111111;
     padding: 12px 20px;
-    border-bottom: 2px solid #0f3460;
+    border-bottom: 2px solid #333;
 }
 
 .app-header h1 {
     font-size: 18px;
-    color: #e94560;
+    color: #a0c840;
     margin-bottom: 8px;
 }
 
@@ -32,9 +32,9 @@ body {
 }
 
 .toolbar button {
-    background: #0f3460;
-    color: #e0e0e0;
-    border: 1px solid #533483;
+    background: #2a2a2a;
+    color: #d4d4d4;
+    border: 1px solid #444;
     padding: 6px 14px;
     border-radius: 4px;
     cursor: pointer;
@@ -42,7 +42,7 @@ body {
 }
 
 .toolbar button:hover {
-    background: #533483;
+    background: #3a3a3a;
 }
 
 .inline-form {
@@ -52,9 +52,9 @@ body {
 }
 
 .path-input {
-    background: #0a0a1a;
-    color: #e0e0e0;
-    border: 1px solid #333;
+    background: #0f0f0f;
+    color: #d4d4d4;
+    border: 1px solid #444;
     padding: 5px 8px;
     border-radius: 4px;
     font-size: 13px;
@@ -96,7 +96,7 @@ body {
 
 /* Pad Section */
 .pad-section {
-    background: #16213e;
+    background: #1e1e1e;
     border-radius: 8px;
     padding: 16px;
 }
@@ -109,9 +109,9 @@ body {
 
 .bank-tab {
     flex: 1;
-    background: #0f3460;
-    color: #aaa;
-    border: 1px solid #333;
+    background: #2a2a2a;
+    color: #999;
+    border: 1px solid #444;
     padding: 6px;
     border-radius: 4px 4px 0 0;
     cursor: pointer;
@@ -120,14 +120,14 @@ body {
 }
 
 .bank-tab.active {
-    background: #533483;
-    color: #fff;
-    border-color: #533483;
+    background: #3a3a3a;
+    color: #a0c840;
+    border-color: #a0c840;
 }
 
 .bank-tab:hover {
-    background: #533483;
-    color: #fff;
+    background: #3a3a3a;
+    color: #d4d4d4;
 }
 
 /* Pad Grid - 4x4 */
@@ -139,8 +139,8 @@ body {
 
 .pad-btn {
     aspect-ratio: 1;
-    background: #2a2a4a;
-    border: 2px solid #444;
+    background: #808080;
+    border: 2px solid #606060;
     border-radius: 6px;
     cursor: pointer;
     display: flex;
@@ -149,38 +149,40 @@ body {
     justify-content: center;
     padding: 4px;
     transition: all 0.15s;
-    color: #999;
+    color: #222;
 }
 
 .pad-btn:hover {
-    background: #3a3a5a;
-    border-color: #666;
+    background: #909090;
+    border-color: #aaa;
 }
 
 .pad-btn.selected {
-    border-color: #e94560;
-    background: #3a2040;
+    border-color: #cc2020;
+    background: #909090;
+    box-shadow: 0 0 6px rgba(204, 32, 32, 0.4);
 }
 
 .pad-btn.has-sample {
-    background: #1a3a2a;
-    border-color: #2a6a4a;
+    background: #6a8a6a;
+    border-color: #5a7a5a;
 }
 
 .pad-btn.has-sample.selected {
-    background: #2a3a3a;
-    border-color: #e94560;
+    background: #7a9a7a;
+    border-color: #cc2020;
+    box-shadow: 0 0 6px rgba(204, 32, 32, 0.4);
 }
 
 .pad-btn.drag-over {
-    border-color: #4ae68a;
-    background: #1a4a2a;
-    box-shadow: 0 0 8px rgba(74, 230, 138, 0.3);
+    border-color: #a0c840;
+    background: #7a9a6a;
+    box-shadow: 0 0 8px rgba(160, 200, 64, 0.4);
 }
 
 .waveform-container.drag-over {
-    border-color: #4ae68a;
-    box-shadow: 0 0 8px rgba(74, 230, 138, 0.3);
+    border-color: #a0c840;
+    box-shadow: 0 0 8px rgba(160, 200, 64, 0.4);
 }
 
 .pad-number {
@@ -199,7 +201,7 @@ body {
 
 /* Params Section */
 .params-section {
-    background: #16213e;
+    background: #1e1e1e;
     border-radius: 8px;
     padding: 16px;
     overflow-y: auto;
@@ -207,7 +209,7 @@ body {
 }
 
 .pad-params-panel h2 {
-    color: #e94560;
+    color: #a0c840;
     margin-bottom: 12px;
     font-size: 16px;
 }
@@ -220,8 +222,8 @@ body {
 }
 
 .param-tab {
-    background: #0f3460;
-    color: #aaa;
+    background: #2a2a2a;
+    color: #999;
     padding: 6px 12px;
     border-radius: 4px;
     cursor: pointer;
@@ -229,8 +231,8 @@ body {
 }
 
 .param-tab.active {
-    background: #533483;
-    color: #fff;
+    background: #3a3a3a;
+    color: #a0c840;
 }
 
 .param-section {
@@ -254,9 +256,9 @@ body {
 }
 
 .btn-play {
-    background: #1a5a3a;
-    color: #4ae68a;
-    border: 1px solid #2a8a5a;
+    background: #2a3a2a;
+    color: #a0c840;
+    border: 1px solid #4a6a30;
     border-radius: 3px;
     cursor: pointer;
     font-size: 11px;
@@ -265,14 +267,14 @@ body {
 }
 
 .btn-play:hover {
-    background: #2a8a5a;
-    color: #fff;
+    background: #3a4a30;
+    color: #c0e060;
 }
 
 .layer-row {
     margin-bottom: 8px;
     padding: 8px;
-    background: #0a0a1a;
+    background: #0f0f0f;
     border-radius: 4px;
 }
 
@@ -296,8 +298,8 @@ body {
 }
 
 .sample-input {
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: #0f0f0f;
+    color: #d4d4d4;
     border: 1px solid #444;
     padding: 4px 6px;
     border-radius: 3px;
@@ -307,8 +309,8 @@ body {
 }
 
 .num-input {
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: #0f0f0f;
+    color: #d4d4d4;
     border: 1px solid #444;
     padding: 4px;
     border-radius: 3px;
@@ -332,8 +334,8 @@ body {
 }
 
 .param-row select {
-    background: #1a1a2e;
-    color: #e0e0e0;
+    background: #0f0f0f;
+    color: #d4d4d4;
     border: 1px solid #444;
     padding: 4px 8px;
     border-radius: 3px;
@@ -342,7 +344,7 @@ body {
 
 .slider-input {
     flex: 1;
-    accent-color: #e94560;
+    accent-color: #cc2020;
 }
 
 .value-display {
@@ -355,7 +357,7 @@ body {
 
 /* Buttons */
 .btn-primary {
-    background: #e94560;
+    background: #cc2020;
     color: #fff;
     border: none;
     padding: 6px 16px;
@@ -366,13 +368,13 @@ body {
 }
 
 .btn-primary:hover {
-    background: #c73a52;
+    background: #a01818;
 }
 
 .btn-sm {
-    background: #0f3460;
-    color: #e0e0e0;
-    border: 1px solid #533483;
+    background: #2a2a2a;
+    color: #d4d4d4;
+    border: 1px solid #444;
     padding: 3px 10px;
     border-radius: 3px;
     cursor: pointer;
@@ -380,31 +382,31 @@ body {
 }
 
 .btn-sm:hover {
-    background: #533483;
+    background: #3a3a3a;
 }
 
 .btn-danger {
-    border-color: #e94560;
-    color: #e94560;
+    border-color: #cc2020;
+    color: #cc2020;
 }
 
 .btn-danger:hover {
-    background: #e94560;
+    background: #cc2020;
     color: #fff;
 }
 
 .toolbar-link {
-    color: #e0e0e0;
+    color: #d4d4d4;
     text-decoration: none;
-    background: #0f3460;
-    border: 1px solid #533483;
+    background: #2a2a2a;
+    border: 1px solid #444;
     padding: 6px 14px;
     border-radius: 4px;
     font-size: 13px;
 }
 
 .toolbar-link:hover {
-    background: #533483;
+    background: #3a3a3a;
 }
 
 /* Slicer Layout */
@@ -414,7 +416,7 @@ body {
 }
 
 .slicer-panel {
-    background: #16213e;
+    background: #1e1e1e;
     border-radius: 8px;
     padding: 16px;
 }
@@ -428,7 +430,7 @@ body {
 }
 
 .waveform-container {
-    background: #0a0a1a;
+    background: #0f0f0f;
     border: 1px solid #333;
     border-radius: 4px;
     margin-bottom: 12px;
@@ -451,7 +453,7 @@ body {
 }
 
 .slicer-info strong {
-    color: #e0e0e0;
+    color: #d4d4d4;
 }
 
 .slicer-controls {
@@ -475,7 +477,7 @@ body {
 .export-result {
     margin-top: 8px;
     font-size: 12px;
-    color: #4ae68a;
+    color: #a0c840;
 }
 
 /* Batch Layout */
@@ -485,13 +487,13 @@ body {
 }
 
 .batch-panel {
-    background: #16213e;
+    background: #1e1e1e;
     border-radius: 8px;
     padding: 20px;
 }
 
 .batch-panel h2 {
-    color: #e94560;
+    color: #a0c840;
     margin-bottom: 12px;
 }
 
@@ -507,19 +509,19 @@ body {
 }
 
 .batch-result-panel {
-    background: #0a0a1a;
+    background: #0f0f0f;
     border-radius: 4px;
     padding: 16px;
     margin-top: 12px;
 }
 
 .batch-result-panel h3 {
-    color: #e0e0e0;
+    color: #d4d4d4;
     margin-bottom: 8px;
 }
 
 .batch-report {
-    color: #4ae68a;
+    color: #a0c840;
     font-size: 14px;
     margin-bottom: 12px;
 }
@@ -537,11 +539,11 @@ body {
 }
 
 .batch-errors h4 {
-    color: #e94560;
+    color: #cc2020;
 }
 
 .error-item {
-    color: #e94560;
+    color: #cc2020;
     font-size: 12px;
     padding: 2px 0;
 }

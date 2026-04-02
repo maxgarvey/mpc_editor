@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,14 +10,35 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/maxgarvey/mpc_editor/internal/db"
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
 	"github.com/maxgarvey/mpc_editor/web"
+	_ "modernc.org/sqlite"
 )
 
 func testServer(t *testing.T) *Server {
 	t.Helper()
+	sqlDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	// Run schema
+	_, err = sqlDB.Exec(`CREATE TABLE IF NOT EXISTS preferences (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		profile TEXT NOT NULL DEFAULT 'MPC1000',
+		last_pgm_path TEXT NOT NULL DEFAULT '',
+		last_wav_path TEXT NOT NULL DEFAULT '',
+		audition_mode TEXT NOT NULL DEFAULT 'layer0'
+	); INSERT OR IGNORE INTO preferences (id) VALUES (1);`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	queries := db.New(sqlDB)
 	templateFS, staticFS := web.FS()
-	return New(templateFS, staticFS)
+	return New(templateFS, staticFS, queries)
 }
 
 func testdataPath(name string) string {

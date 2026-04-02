@@ -37,7 +37,7 @@ const Waveform = (function() {
         const frameLength = waveformData.frameLength;
 
         // Clear
-        ctx.fillStyle = '#0a0a1a';
+        ctx.fillStyle = '#0f0f0f';
         ctx.fillRect(0, 0, w, h);
 
         if (!channels || channels.length === 0) return;
@@ -71,7 +71,7 @@ const Waveform = (function() {
             ctx.stroke();
 
             // Draw waveform
-            ctx.fillStyle = '#2a8a5a';
+            ctx.fillStyle = '#a0c840';
             for (let i = 0; i < peaks.length && i < w; i++) {
                 const peak = peaks[i];
                 const top = yCenter - peak.max * scale;
@@ -87,7 +87,7 @@ const Waveform = (function() {
                 const x = (markers[i] / frameLength) * w;
                 const isSelected = (i === selected);
 
-                ctx.strokeStyle = isSelected ? '#e94560' : '#f0c040';
+                ctx.strokeStyle = isSelected ? '#cc2020' : '#d4d4d4';
                 ctx.lineWidth = isSelected ? 2 : 1;
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
@@ -95,7 +95,7 @@ const Waveform = (function() {
                 ctx.stroke();
 
                 // Marker number label
-                ctx.fillStyle = isSelected ? '#e94560' : '#f0c040';
+                ctx.fillStyle = isSelected ? '#cc2020' : '#d4d4d4';
                 ctx.font = '10px sans-serif';
                 ctx.fillText(String(i), x + 2, 12);
             }
@@ -108,7 +108,7 @@ const Waveform = (function() {
                 ? (markers[selected + 1] / frameLength) * w
                 : w;
 
-            ctx.fillStyle = 'rgba(233, 69, 96, 0.08)';
+            ctx.fillStyle = 'rgba(204, 32, 32, 0.1)';
             ctx.fillRect(fromX, 0, toX - fromX, h);
         }
     }

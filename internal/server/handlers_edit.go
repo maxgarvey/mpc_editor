@@ -88,8 +88,8 @@ func (s *Server) handleProfileSwitch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.session.Prefs.Profile = s.session.Profile.Name
-	if err := SavePreferences(s.session.Prefs); err != nil {
-		log.Printf("save preferences: %v", err)
+	if err := s.queries.UpdateProfile(r.Context(), s.session.Profile.Name); err != nil {
+		log.Printf("save profile: %v", err)
 	}
 
 	w.Header().Set("HX-Redirect", "/")

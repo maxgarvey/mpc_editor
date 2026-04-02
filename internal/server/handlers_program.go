@@ -66,8 +66,8 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 	s.session.Matrix.Clear()
 
 	s.session.Prefs.LastPGMPath = path
-	if err := SavePreferences(s.session.Prefs); err != nil {
-		log.Printf("save preferences: %v", err)
+	if err := s.queries.UpdateLastPGMPath(r.Context(), path); err != nil {
+		log.Printf("save last pgm path: %v", err)
 	}
 
 	// Populate sample matrix from program
@@ -108,8 +108,8 @@ func (s *Server) handleProgramSave(w http.ResponseWriter, r *http.Request) {
 	s.session.FilePath = path
 
 	s.session.Prefs.LastPGMPath = path
-	if err := SavePreferences(s.session.Prefs); err != nil {
-		log.Printf("save preferences: %v", err)
+	if err := s.queries.UpdateLastPGMPath(r.Context(), path); err != nil {
+		log.Printf("save last pgm path: %v", err)
 	}
 
 	w.Header().Set("Content-Type", "text/plain")

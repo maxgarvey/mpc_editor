@@ -4,7 +4,7 @@ GOFLAGS   := -trimpath
 LDFLAGS   := -s -w
 LINT_VER  := v2.1.6
 
-.PHONY: all build run test lint vet fmt check clean install dev help
+.PHONY: all build run test lint vet fmt check clean install dev generate help
 
 ## —— Primary targets ——
 
@@ -50,6 +50,13 @@ fmt:  ## Format code and check for drift
 	@test -z "$$(git diff --name-only)" || { echo "gofmt produced changes:"; git diff --name-only; exit 1; }
 
 check: vet lint test  ## Run vet + lint + tests
+
+generate:  ## Regenerate sqlc code from SQL definitions
+	@command -v sqlc >/dev/null 2>&1 || { \
+		echo "Installing sqlc..."; \
+		go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest; \
+	}
+	cd internal/db && sqlc generate
 
 ## —— Development ——
 

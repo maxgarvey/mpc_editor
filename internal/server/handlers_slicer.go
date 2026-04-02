@@ -39,8 +39,8 @@ func (s *Server) handleSlicerLoad(w http.ResponseWriter, r *http.Request) {
 	s.session.SlicerPath = path
 
 	s.session.Prefs.LastWAVPath = path
-	if err := SavePreferences(s.session.Prefs); err != nil {
-		log.Printf("save preferences: %v", err)
+	if err := s.queries.UpdateLastWAVPath(r.Context(), path); err != nil {
+		log.Printf("save last wav path: %v", err)
 	}
 
 	data := s.slicerData()
