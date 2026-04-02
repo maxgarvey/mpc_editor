@@ -2,7 +2,7 @@ BINARY    := mpc_editor
 CMD       := ./cmd/mpc_editor
 GOFLAGS   := -trimpath
 LDFLAGS   := -s -w
-LINT_VER  := v2.1.6
+LINT_VER  := v2.11.4
 
 .PHONY: all build run test lint vet fmt check clean install dev generate help
 
