@@ -37,13 +37,9 @@ linters:
       excludes:
         - G104  # unhandled errors (covered by errcheck with exclusions)
         - G115  # integer overflow — safe in this context (audio format values)
-        - G120  # request body size — localhost-only app, no untrusted clients
         - G301  # directory permissions — 0755 is fine for user config dirs
         - G304  # file path from variable — expected for a local file editor
         - G306  # file permissions — 0644 is standard for user data files
-        - G702  # command injection — only runs "open <url>" for browser launch
-        - G703  # path traversal — paths validated by workspace boundary checks
-        - G705  # XSS — localhost-only app, no untrusted content
 
 issues:
   max-issues-per-linter: 0
