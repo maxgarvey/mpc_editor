@@ -209,3 +209,56 @@ function selectDir(path, context) {
     if (target) target.value = path;
     closeBrowser();
 }
+
+// --- Save Confirmation Modal ---
+
+function openSaveConfirm() {
+    var pathInput = document.getElementById('save-pgm-path');
+    var path = pathInput ? pathInput.value : '';
+
+    var overlay = document.createElement('div');
+    overlay.id = 'save-confirm-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeSaveConfirm();
+    });
+
+    var modal = document.createElement('div');
+    modal.className = 'save-confirm-modal';
+    modal.innerHTML =
+        '<div class="save-confirm-header">Save Program</div>' +
+        '<div class="save-confirm-body">' +
+            '<label class="save-confirm-label">Save to:</label>' +
+            '<input type="text" id="save-confirm-path" class="path-input" value="' +
+                path.replace(/"/g, '&quot;') + '" style="width:100%">' +
+        '</div>' +
+        '<div class="save-confirm-actions">' +
+            '<button class="btn-primary" onclick="confirmSave()">Confirm Save</button>' +
+            '<button class="btn-sm" onclick="closeSaveConfirm()">Cancel</button>' +
+        '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    document.getElementById('save-confirm-path').select();
+}
+
+function closeSaveConfirm() {
+    var overlay = document.getElementById('save-confirm-overlay');
+    if (overlay) overlay.remove();
+}
+
+function confirmSave() {
+    var pathInput = document.getElementById('save-confirm-path');
+    var path = pathInput ? pathInput.value : '';
+
+    var original = document.getElementById('save-pgm-path');
+    if (original) original.value = path;
+
+    closeSaveConfirm();
+
+    htmx.ajax('POST', '/program/save', {
+        target: 'body',
+        values: { path: path }
+    });
+}

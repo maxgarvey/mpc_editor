@@ -17,7 +17,7 @@
                 <button type="button" class="btn-sm" onclick="openBrowser('open-pgm', 'open-pgm-path')">Browse</button>
                 <button type="submit">Open</button>
             </form>
-            <form hx-post="/program/save" class="inline-form">
+            <form class="inline-form" onsubmit="event.preventDefault(); openSaveConfirm();">
                 <input type="text" name="path" placeholder="Save path (leave empty for current)" class="path-input" id="save-pgm-path" value="{{.Session.FilePath}}">
                 <button type="button" class="btn-sm" onclick="openBrowser('save-pgm', 'save-pgm-path')">Browse</button>
                 <button type="submit">Save</button>

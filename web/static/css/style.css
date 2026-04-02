@@ -730,6 +730,42 @@ body {
     color: #888;
 }
 
+/* Save confirmation modal */
+.save-confirm-modal {
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    width: 440px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.save-confirm-header {
+    font-size: 14px;
+    font-weight: bold;
+    color: #cc2020;
+    padding: 12px 16px;
+    border-bottom: 1px solid #333;
+}
+
+.save-confirm-body {
+    padding: 16px;
+}
+
+.save-confirm-label {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 6px;
+}
+
+.save-confirm-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 12px 16px;
+    border-top: 1px solid #333;
+}
+
 /* File detail */
 .file-detail {
     padding: 16px;
