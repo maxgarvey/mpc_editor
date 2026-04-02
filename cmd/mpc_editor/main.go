@@ -26,7 +26,7 @@ func main() {
 	}
 
 	templateFS, staticFS := web.FS()
-	srv := server.New(templateFS, staticFS, queries)
+	srv := server.New(templateFS, staticFS, sqlDB, queries)
 
 	addr := "127.0.0.1:" + port
 	ln, err := net.Listen("tcp", addr)

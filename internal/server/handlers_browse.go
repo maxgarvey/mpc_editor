@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -27,11 +29,14 @@ type BreadcrumbItem struct {
 
 // BrowseEntry represents a file or directory in the browser listing.
 type BrowseEntry struct {
-	Name  string
-	Path  string // absolute path
-	IsDir bool
-	Ext   string
-	Size  int64
+	Name           string
+	Path           string // absolute path
+	IsDir          bool
+	Ext            string
+	Size           int64
+	FileID         int64  // catalog file ID (0 if not cataloged)
+	MissingSamples int64  // for .pgm: number of unresolved sample refs
+	WavInfo        string // for .wav: e.g. "44100Hz 16bit stereo"
 }
 
 func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +133,9 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Enrich entries with catalog data.
+	s.enrichBrowseEntries(browseEntries, workspace)
+
 	data := BrowseData{
 		Context:     ctx,
 		CurrentDir:  absDir,
@@ -168,6 +176,16 @@ func (s *Server) handleWorkspaceSet(w http.ResponseWriter, r *http.Request) {
 	if err := s.queries.UpdateWorkspacePath(r.Context(), absPath); err != nil {
 		log.Printf("save workspace path: %v", err)
 	}
+
+	// Re-scan the new workspace in the background.
+	go func() {
+		if result, err := s.scanner.ScanWorkspace(absPath); err != nil {
+			log.Printf("workspace scan after set: %v", err)
+		} else {
+			log.Printf("workspace scan: found=%d scanned=%d removed=%d",
+				result.FilesFound, result.FilesScanned, result.FilesRemoved)
+		}
+	}()
 
 	w.Header().Set("HX-Redirect", "/")
 	w.WriteHeader(http.StatusOK)
@@ -211,6 +229,46 @@ func (s *Server) handleWorkspaceMkdir(w http.ResponseWriter, r *http.Request) {
 	s.handleBrowse(w, r)
 }
 
+// enrichBrowseEntries looks up catalog data for each entry and populates
+// badge fields (MissingSamples for .pgm, WavInfo for .wav).
+func (s *Server) enrichBrowseEntries(entries []BrowseEntry, workspace string) {
+	ctx := context.Background()
+	for i := range entries {
+		e := &entries[i]
+		if e.IsDir {
+			continue
+		}
+
+		relPath, err := filepath.Rel(workspace, e.Path)
+		if err != nil {
+			continue
+		}
+
+		f, err := s.queries.GetFileByPath(ctx, relPath)
+		if err != nil {
+			continue
+		}
+		e.FileID = f.ID
+
+		switch e.Ext {
+		case ".pgm":
+			missing, err := s.queries.CountMissingSamples(ctx, f.ID)
+			if err == nil {
+				e.MissingSamples = missing
+			}
+		case ".wav":
+			meta, err := s.queries.GetWavMeta(ctx, f.ID)
+			if err == nil {
+				ch := "mono"
+				if meta.Channels == 2 {
+					ch = "stereo"
+				}
+				e.WavInfo = fmt.Sprintf("%dHz %dbit %s", meta.SampleRate, meta.BitsPerSample, ch)
+			}
+		}
+	}
+}
+
 // filterAllows returns true if the file extension is allowed for the given browse context.
 func filterAllows(ctx, ext string) bool {
 	switch ctx {
@@ -221,6 +279,7 @@ func filterAllows(ctx, ext string) bool {
 	case "export-dir", "batch-dir":
 		return false // directories only
 	default:
-		return ext == ".pgm" || ext == ".wav" || ext == ".mid"
+		return ext == ".pgm" || ext == ".wav" || ext == ".mid" ||
+			ext == ".seq" || ext == ".sng" || ext == ".all"
 	}
 }

@@ -1,0 +1,78 @@
+{{define "file_detail.html"}}
+<div class="file-detail">
+    <div class="detail-header">
+        <span class="detail-type">[{{.File.FileType | upper}}]</span>
+        <span class="detail-path">{{.File.Path}}</span>
+        <span class="detail-size">{{.File.Size}} bytes</span>
+    </div>
+
+    {{if .PgmMeta}}
+    <div class="detail-section">
+        <h3>Program Info</h3>
+        <div class="detail-row">
+            <span class="detail-label">MIDI Program Change:</span>
+            <span>{{if eq .PgmMeta.MIDIProgramChange 0}}Off{{else}}{{.PgmMeta.MIDIProgramChange}}{{end}}</span>
+        </div>
+        {{if gt .MissingSamples 0}}
+        <div class="detail-row">
+            <span class="badge badge-warn">{{.MissingSamples}} missing sample{{if gt .MissingSamples 1}}s{{end}}</span>
+        </div>
+        {{end}}
+    </div>
+
+    {{if .Samples}}
+    <div class="detail-section">
+        <h3>Samples</h3>
+        <table class="detail-table">
+            <thead>
+                <tr><th>Pad</th><th>Layer</th><th>Sample</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {{range .Samples}}
+                <tr>
+                    <td>{{.Pad}}</td>
+                    <td>{{.Layer}}</td>
+                    <td>{{.SampleName}}</td>
+                    <td>{{if .Found}}<span class="status-ok">Found</span>{{else}}<span class="status-missing">Missing</span>{{end}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
+    {{end}}
+
+    {{if .WavMeta}}
+    <div class="detail-section">
+        <h3>Audio Info</h3>
+        <div class="detail-row"><span class="detail-label">Sample Rate:</span> <span>{{.WavMeta.SampleRate}} Hz</span></div>
+        <div class="detail-row"><span class="detail-label">Channels:</span> <span>{{if eq .WavMeta.Channels 1}}Mono{{else if eq .WavMeta.Channels 2}}Stereo{{else}}{{.WavMeta.Channels}}{{end}}</span></div>
+        <div class="detail-row"><span class="detail-label">Bit Depth:</span> <span>{{.WavMeta.BitsPerSample}} bit</span></div>
+        <div class="detail-row"><span class="detail-label">Frames:</span> <span>{{.WavMeta.FrameCount}}</span></div>
+        {{if .WavMeta.Duration}}
+        <div class="detail-row"><span class="detail-label">Duration:</span> <span>{{.WavMeta.Duration}}</span></div>
+        {{end}}
+    </div>
+
+    {{if .UsedBy}}
+    <div class="detail-section">
+        <h3>Used by Programs</h3>
+        <ul class="detail-list">
+            {{range .UsedBy}}
+            <li><a href="/file/?id={{.ID}}">{{.Path}}</a></li>
+            {{end}}
+        </ul>
+    </div>
+    {{end}}
+    {{end}}
+
+    {{if .SeqMeta}}
+    <div class="detail-section">
+        <h3>Sequence Info</h3>
+        <div class="detail-row"><span class="detail-label">Version:</span> <span>{{.SeqMeta.Version}}</span></div>
+        <div class="detail-row"><span class="detail-label">BPM:</span> <span>{{.SeqMeta.BPM}}</span></div>
+        <div class="detail-row"><span class="detail-label">Bars:</span> <span>{{.SeqMeta.Bars}}</span></div>
+    </div>
+    {{end}}
+</div>
+{{end}}

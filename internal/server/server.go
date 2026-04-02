@@ -1,34 +1,40 @@
 package server
 
 import (
+	"database/sql"
 	"html/template"
 	"io/fs"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
+	"github.com/maxgarvey/mpc_editor/internal/scanner"
 )
 
 // Server is the HTTP server for the MPC Editor web application.
 type Server struct {
 	session   *Session
 	queries   *db.Queries
+	scanner   *scanner.Scanner
 	templates *template.Template
 	mux       *http.ServeMux
 	staticFS  fs.FS
 }
 
 // New creates a new Server with the given embedded filesystem for templates and static assets.
-func New(templateFS, staticFS fs.FS, queries *db.Queries) *Server {
+func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server {
 	s := &Server{
 		session:  NewSession(queries),
 		queries:  queries,
+		scanner:  scanner.New(sqlDB, queries),
 		mux:      http.NewServeMux(),
 		staticFS: staticFS,
 	}
 
 	funcMap := template.FuncMap{
+		"upper": strings.ToUpper,
 		"seq": func(n int) []int {
 			s := make([]int, n)
 			for i := range s {
@@ -53,6 +59,21 @@ func New(templateFS, staticFS fs.FS, queries *db.Queries) *Server {
 	s.templates = tmpl
 
 	s.registerRoutes()
+
+	// Auto-scan workspace on startup (background, non-blocking).
+	go func() {
+		if s.session.WorkspacePath == "" {
+			return
+		}
+		result, err := s.scanner.ScanWorkspace(s.session.WorkspacePath)
+		if err != nil {
+			log.Printf("startup scan: %v", err)
+			return
+		}
+		log.Printf("startup scan: found=%d scanned=%d removed=%d",
+			result.FilesFound, result.FilesScanned, result.FilesRemoved)
+	}()
+
 	return s
 }
 
@@ -109,6 +130,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/browse", s.handleBrowse)
 	s.mux.HandleFunc("/workspace/set", s.handleWorkspaceSet)
 	s.mux.HandleFunc("/workspace/mkdir", s.handleWorkspaceMkdir)
+	s.mux.HandleFunc("/workspace/scan", s.handleWorkspaceScan)
+	s.mux.HandleFunc("/file/", s.handleFileDetail)
 
 	// Pad grid partial
 	s.mux.HandleFunc("/partials/pad-grid", s.handlePadGrid)

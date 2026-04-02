@@ -38,6 +38,7 @@ func Open() (*sql.DB, *Queries, error) {
 	}
 
 	migrateAddWorkspacePath(sqlDB)
+	migrateCreateCatalog(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -51,6 +52,69 @@ func migrateAddWorkspacePath(sqlDB *sql.DB) {
 	if err != nil {
 		// Ignore "duplicate column" — already migrated.
 		return
+	}
+}
+
+// migrateCreateCatalog creates the file catalog tables for existing databases.
+// New databases get them from schema.sql; this handles upgrades.
+func migrateCreateCatalog(sqlDB *sql.DB) {
+	tables := []string{
+		`CREATE TABLE IF NOT EXISTS files (
+			id        INTEGER PRIMARY KEY AUTOINCREMENT,
+			path      TEXT NOT NULL UNIQUE,
+			file_type TEXT NOT NULL,
+			size      INTEGER NOT NULL DEFAULT 0,
+			mod_time  INTEGER NOT NULL DEFAULT 0,
+			scanned   INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE TABLE IF NOT EXISTS pgm_meta (
+			file_id         INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
+			midi_pgm_change INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE TABLE IF NOT EXISTS wav_meta (
+			file_id         INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
+			sample_rate     INTEGER NOT NULL DEFAULT 0,
+			channels        INTEGER NOT NULL DEFAULT 0,
+			bits_per_sample INTEGER NOT NULL DEFAULT 0,
+			frame_count     INTEGER NOT NULL DEFAULT 0
+		)`,
+		`CREATE TABLE IF NOT EXISTS seq_meta (
+			file_id INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
+			bpm     REAL NOT NULL DEFAULT 0,
+			bars    INTEGER NOT NULL DEFAULT 0,
+			version TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE TABLE IF NOT EXISTS pgm_samples (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			pgm_file_id    INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+			pad            INTEGER NOT NULL,
+			layer          INTEGER NOT NULL,
+			sample_name    TEXT NOT NULL,
+			sample_file_id INTEGER REFERENCES files(id) ON DELETE SET NULL,
+			UNIQUE(pgm_file_id, pad, layer)
+		)`,
+		`CREATE TABLE IF NOT EXISTS seq_tracks (
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			seq_file_id  INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+			track        INTEGER NOT NULL,
+			track_name   TEXT NOT NULL DEFAULT '',
+			midi_channel INTEGER NOT NULL DEFAULT 0,
+			pgm_file_id  INTEGER REFERENCES files(id) ON DELETE SET NULL,
+			UNIQUE(seq_file_id, track)
+		)`,
+		`CREATE TABLE IF NOT EXISTS song_steps (
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			song_file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+			step         INTEGER NOT NULL,
+			seq_index    INTEGER NOT NULL,
+			seq_file_id  INTEGER REFERENCES files(id) ON DELETE SET NULL,
+			repeats      INTEGER NOT NULL DEFAULT 1,
+			tempo        REAL NOT NULL DEFAULT 0,
+			UNIQUE(song_file_id, step)
+		)`,
+	}
+	for _, ddl := range tables {
+		_, _ = sqlDB.Exec(ddl)
 	}
 }
 

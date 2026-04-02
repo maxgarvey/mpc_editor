@@ -4,6 +4,33 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
+type File struct {
+	ID       int64
+	Path     string
+	FileType string
+	Size     int64
+	ModTime  int64
+	Scanned  int64
+}
+
+type PgmMetum struct {
+	FileID        int64
+	MidiPgmChange int64
+}
+
+type PgmSample struct {
+	ID           int64
+	PgmFileID    int64
+	Pad          int64
+	Layer        int64
+	SampleName   string
+	SampleFileID sql.NullInt64
+}
+
 type Preference struct {
 	ID            int64
 	Profile       string
@@ -11,4 +38,38 @@ type Preference struct {
 	LastWavPath   string
 	AuditionMode  string
 	WorkspacePath string
+}
+
+type SeqMetum struct {
+	FileID  int64
+	Bpm     float64
+	Bars    int64
+	Version string
+}
+
+type SeqTrack struct {
+	ID          int64
+	SeqFileID   int64
+	Track       int64
+	TrackName   string
+	MidiChannel int64
+	PgmFileID   sql.NullInt64
+}
+
+type SongStep struct {
+	ID         int64
+	SongFileID int64
+	Step       int64
+	SeqIndex   int64
+	SeqFileID  sql.NullInt64
+	Repeats    int64
+	Tempo      float64
+}
+
+type WavMetum struct {
+	FileID        int64
+	SampleRate    int64
+	Channels      int64
+	BitsPerSample int64
+	FrameCount    int64
 }

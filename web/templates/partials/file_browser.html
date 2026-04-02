@@ -18,8 +18,10 @@
          {{else}}
          onclick="selectFile('{{.Path}}', '{{$.Context}}')"
          {{end}}>
-        <span class="entry-icon">{{if .IsDir}}[DIR]{{else if eq .Ext ".pgm"}}[PGM]{{else if eq .Ext ".wav"}}[WAV]{{else if eq .Ext ".mid"}}[MID]{{else}}[---]{{end}}</span>
+        <span class="entry-icon">{{if .IsDir}}[DIR]{{else if eq .Ext ".pgm"}}[PGM]{{else if eq .Ext ".wav"}}[WAV]{{else if eq .Ext ".mid"}}[MID]{{else if eq .Ext ".seq"}}[SEQ]{{else if eq .Ext ".sng"}}[SNG]{{else if eq .Ext ".all"}}[ALL]{{else}}[---]{{end}}</span>
         <span class="entry-name">{{.Name}}</span>
+        {{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}
+        {{if .WavInfo}}<span class="badge badge-info">{{.WavInfo}}</span>{{end}}
     </div>
     {{end}}
 </div>

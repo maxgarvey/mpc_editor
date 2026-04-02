@@ -125,6 +125,72 @@ func readFmtChunk(r io.Reader, size uint32, format *Format) error {
 	return nil
 }
 
+// ReadWAVHeader reads only the format metadata and frame count from a WAV file
+// without loading the PCM data into memory.
+func ReadWAVHeader(path string) (Format, int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return Format{}, 0, fmt.Errorf("open wav: %w", err)
+	}
+	defer f.Close() //nolint:errcheck // read-only file
+
+	var riffHeader [12]byte
+	if _, err := io.ReadFull(f, riffHeader[:]); err != nil {
+		return Format{}, 0, fmt.Errorf("read RIFF header: %w", err)
+	}
+	if string(riffHeader[0:4]) != "RIFF" || string(riffHeader[8:12]) != "WAVE" {
+		return Format{}, 0, fmt.Errorf("not a WAVE file")
+	}
+
+	var format Format
+	var dataSize uint32
+
+	for {
+		var chunkHeader [8]byte
+		if _, err := io.ReadFull(f, chunkHeader[:]); err != nil {
+			break
+		}
+		chunkID := string(chunkHeader[0:4])
+		chunkSize := binary.LittleEndian.Uint32(chunkHeader[4:8])
+
+		switch chunkID {
+		case "fmt ":
+			if err := readFmtChunk(f, chunkSize, &format); err != nil {
+				return Format{}, 0, err
+			}
+		case "data":
+			dataSize = chunkSize
+			// Don't read the data — just record the size and stop.
+			if format.SampleRate > 0 {
+				frameCount := int(dataSize) / format.FrameSize()
+				return format, frameCount, nil
+			}
+			// fmt chunk hasn't been seen yet; skip data and keep looking.
+			if _, err := f.Seek(int64(chunkSize), io.SeekCurrent); err != nil {
+				return Format{}, 0, err
+			}
+		default:
+			if _, err := f.Seek(int64(chunkSize), io.SeekCurrent); err != nil {
+				return Format{}, 0, err
+			}
+		}
+
+		if chunkSize%2 != 0 {
+			if _, err := f.Seek(1, io.SeekCurrent); err != nil {
+				break
+			}
+		}
+	}
+
+	if format.SampleRate == 0 {
+		return Format{}, 0, fmt.Errorf("no fmt chunk found")
+	}
+	if dataSize == 0 {
+		return Format{}, 0, fmt.Errorf("no data chunk found")
+	}
+	return format, int(dataSize) / format.FrameSize(), nil
+}
+
 // AsSamples converts raw PCM data to per-channel int arrays.
 // Returns [numChannels][frameLength]int.
 func (s *Sample) AsSamples() [][]int {

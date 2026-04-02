@@ -7,7 +7,118 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
+
+const countMissingSamples = `-- name: CountMissingSamples :one
+SELECT COUNT(*) FROM pgm_samples
+WHERE pgm_file_id = ? AND sample_file_id IS NULL AND sample_name != ''
+`
+
+func (q *Queries) CountMissingSamples(ctx context.Context, pgmFileID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMissingSamples, pgmFileID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteFile = `-- name: DeleteFile :exec
+DELETE FROM files WHERE id = ?
+`
+
+func (q *Queries) DeleteFile(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFile, id)
+	return err
+}
+
+const deleteFileByPath = `-- name: DeleteFileByPath :exec
+DELETE FROM files WHERE path = ?
+`
+
+func (q *Queries) DeleteFileByPath(ctx context.Context, path string) error {
+	_, err := q.db.ExecContext(ctx, deleteFileByPath, path)
+	return err
+}
+
+const deletePgmSamples = `-- name: DeletePgmSamples :exec
+
+DELETE FROM pgm_samples WHERE pgm_file_id = ?
+`
+
+// PGM sample references
+func (q *Queries) DeletePgmSamples(ctx context.Context, pgmFileID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePgmSamples, pgmFileID)
+	return err
+}
+
+const deleteSeqTracks = `-- name: DeleteSeqTracks :exec
+
+DELETE FROM seq_tracks WHERE seq_file_id = ?
+`
+
+// SEQ track references (future)
+func (q *Queries) DeleteSeqTracks(ctx context.Context, seqFileID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteSeqTracks, seqFileID)
+	return err
+}
+
+const deleteSongSteps = `-- name: DeleteSongSteps :exec
+
+DELETE FROM song_steps WHERE song_file_id = ?
+`
+
+// Song step references (future)
+func (q *Queries) DeleteSongSteps(ctx context.Context, songFileID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteSongSteps, songFileID)
+	return err
+}
+
+const getFileByID = `-- name: GetFileByID :one
+SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE id = ?
+`
+
+func (q *Queries) GetFileByID(ctx context.Context, id int64) (File, error) {
+	row := q.db.QueryRowContext(ctx, getFileByID, id)
+	var i File
+	err := row.Scan(
+		&i.ID,
+		&i.Path,
+		&i.FileType,
+		&i.Size,
+		&i.ModTime,
+		&i.Scanned,
+	)
+	return i, err
+}
+
+const getFileByPath = `-- name: GetFileByPath :one
+SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE path = ?
+`
+
+func (q *Queries) GetFileByPath(ctx context.Context, path string) (File, error) {
+	row := q.db.QueryRowContext(ctx, getFileByPath, path)
+	var i File
+	err := row.Scan(
+		&i.ID,
+		&i.Path,
+		&i.FileType,
+		&i.Size,
+		&i.ModTime,
+		&i.Scanned,
+	)
+	return i, err
+}
+
+const getPgmMeta = `-- name: GetPgmMeta :one
+SELECT file_id, midi_pgm_change FROM pgm_meta WHERE file_id = ?
+`
+
+func (q *Queries) GetPgmMeta(ctx context.Context, fileID int64) (PgmMetum, error) {
+	row := q.db.QueryRowContext(ctx, getPgmMeta, fileID)
+	var i PgmMetum
+	err := row.Scan(&i.FileID, &i.MidiPgmChange)
+	return i, err
+}
 
 const getPreferences = `-- name: GetPreferences :one
 SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path
@@ -33,6 +144,373 @@ func (q *Queries) GetPreferences(ctx context.Context) (GetPreferencesRow, error)
 		&i.WorkspacePath,
 	)
 	return i, err
+}
+
+const getSeqMeta = `-- name: GetSeqMeta :one
+SELECT file_id, bpm, bars, version FROM seq_meta WHERE file_id = ?
+`
+
+func (q *Queries) GetSeqMeta(ctx context.Context, fileID int64) (SeqMetum, error) {
+	row := q.db.QueryRowContext(ctx, getSeqMeta, fileID)
+	var i SeqMetum
+	err := row.Scan(
+		&i.FileID,
+		&i.Bpm,
+		&i.Bars,
+		&i.Version,
+	)
+	return i, err
+}
+
+const getWavMeta = `-- name: GetWavMeta :one
+SELECT file_id, sample_rate, channels, bits_per_sample, frame_count FROM wav_meta WHERE file_id = ?
+`
+
+func (q *Queries) GetWavMeta(ctx context.Context, fileID int64) (WavMetum, error) {
+	row := q.db.QueryRowContext(ctx, getWavMeta, fileID)
+	var i WavMetum
+	err := row.Scan(
+		&i.FileID,
+		&i.SampleRate,
+		&i.Channels,
+		&i.BitsPerSample,
+		&i.FrameCount,
+	)
+	return i, err
+}
+
+const insertPgmSample = `-- name: InsertPgmSample :exec
+INSERT INTO pgm_samples (pgm_file_id, pad, layer, sample_name, sample_file_id)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertPgmSampleParams struct {
+	PgmFileID    int64
+	Pad          int64
+	Layer        int64
+	SampleName   string
+	SampleFileID sql.NullInt64
+}
+
+func (q *Queries) InsertPgmSample(ctx context.Context, arg InsertPgmSampleParams) error {
+	_, err := q.db.ExecContext(ctx, insertPgmSample,
+		arg.PgmFileID,
+		arg.Pad,
+		arg.Layer,
+		arg.SampleName,
+		arg.SampleFileID,
+	)
+	return err
+}
+
+const insertSeqTrack = `-- name: InsertSeqTrack :exec
+INSERT INTO seq_tracks (seq_file_id, track, track_name, midi_channel, pgm_file_id)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertSeqTrackParams struct {
+	SeqFileID   int64
+	Track       int64
+	TrackName   string
+	MidiChannel int64
+	PgmFileID   sql.NullInt64
+}
+
+func (q *Queries) InsertSeqTrack(ctx context.Context, arg InsertSeqTrackParams) error {
+	_, err := q.db.ExecContext(ctx, insertSeqTrack,
+		arg.SeqFileID,
+		arg.Track,
+		arg.TrackName,
+		arg.MidiChannel,
+		arg.PgmFileID,
+	)
+	return err
+}
+
+const insertSongStep = `-- name: InsertSongStep :exec
+INSERT INTO song_steps (song_file_id, step, seq_index, seq_file_id, repeats, tempo)
+VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertSongStepParams struct {
+	SongFileID int64
+	Step       int64
+	SeqIndex   int64
+	SeqFileID  sql.NullInt64
+	Repeats    int64
+	Tempo      float64
+}
+
+func (q *Queries) InsertSongStep(ctx context.Context, arg InsertSongStepParams) error {
+	_, err := q.db.ExecContext(ctx, insertSongStep,
+		arg.SongFileID,
+		arg.Step,
+		arg.SeqIndex,
+		arg.SeqFileID,
+		arg.Repeats,
+		arg.Tempo,
+	)
+	return err
+}
+
+const listAllFiles = `-- name: ListAllFiles :many
+SELECT id, path, file_type, size, mod_time, scanned FROM files ORDER BY path
+`
+
+func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
+	rows, err := q.db.QueryContext(ctx, listAllFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []File
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.FileType,
+			&i.Size,
+			&i.ModTime,
+			&i.Scanned,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilesByType = `-- name: ListFilesByType :many
+SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE file_type = ? ORDER BY path
+`
+
+func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesByType, fileType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []File
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.FileType,
+			&i.Size,
+			&i.ModTime,
+			&i.Scanned,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPgmSamples = `-- name: ListPgmSamples :many
+SELECT ps.pad, ps.layer, ps.sample_name, ps.sample_file_id,
+       f.path AS sample_path
+FROM pgm_samples ps
+LEFT JOIN files f ON f.id = ps.sample_file_id
+WHERE ps.pgm_file_id = ?
+ORDER BY ps.pad, ps.layer
+`
+
+type ListPgmSamplesRow struct {
+	Pad          int64
+	Layer        int64
+	SampleName   string
+	SampleFileID sql.NullInt64
+	SamplePath   sql.NullString
+}
+
+func (q *Queries) ListPgmSamples(ctx context.Context, pgmFileID int64) ([]ListPgmSamplesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPgmSamples, pgmFileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPgmSamplesRow
+	for rows.Next() {
+		var i ListPgmSamplesRow
+		if err := rows.Scan(
+			&i.Pad,
+			&i.Layer,
+			&i.SampleName,
+			&i.SampleFileID,
+			&i.SamplePath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProgramsUsingSample = `-- name: ListProgramsUsingSample :many
+SELECT DISTINCT f.id, f.path
+FROM pgm_samples ps
+JOIN files f ON f.id = ps.pgm_file_id
+WHERE ps.sample_file_id = ?
+ORDER BY f.path
+`
+
+type ListProgramsUsingSampleRow struct {
+	ID   int64
+	Path string
+}
+
+func (q *Queries) ListProgramsUsingSample(ctx context.Context, sampleFileID sql.NullInt64) ([]ListProgramsUsingSampleRow, error) {
+	rows, err := q.db.QueryContext(ctx, listProgramsUsingSample, sampleFileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProgramsUsingSampleRow
+	for rows.Next() {
+		var i ListProgramsUsingSampleRow
+		if err := rows.Scan(&i.ID, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSeqTracks = `-- name: ListSeqTracks :many
+SELECT st.track, st.track_name, st.midi_channel, st.pgm_file_id,
+       f.path AS pgm_path
+FROM seq_tracks st
+LEFT JOIN files f ON f.id = st.pgm_file_id
+WHERE st.seq_file_id = ?
+ORDER BY st.track
+`
+
+type ListSeqTracksRow struct {
+	Track       int64
+	TrackName   string
+	MidiChannel int64
+	PgmFileID   sql.NullInt64
+	PgmPath     sql.NullString
+}
+
+func (q *Queries) ListSeqTracks(ctx context.Context, seqFileID int64) ([]ListSeqTracksRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeqTracks, seqFileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSeqTracksRow
+	for rows.Next() {
+		var i ListSeqTracksRow
+		if err := rows.Scan(
+			&i.Track,
+			&i.TrackName,
+			&i.MidiChannel,
+			&i.PgmFileID,
+			&i.PgmPath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSongSteps = `-- name: ListSongSteps :many
+SELECT ss.step, ss.seq_index, ss.seq_file_id, ss.repeats, ss.tempo,
+       f.path AS seq_path
+FROM song_steps ss
+LEFT JOIN files f ON f.id = ss.seq_file_id
+WHERE ss.song_file_id = ?
+ORDER BY ss.step
+`
+
+type ListSongStepsRow struct {
+	Step      int64
+	SeqIndex  int64
+	SeqFileID sql.NullInt64
+	Repeats   int64
+	Tempo     float64
+	SeqPath   sql.NullString
+}
+
+func (q *Queries) ListSongSteps(ctx context.Context, songFileID int64) ([]ListSongStepsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSongSteps, songFileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSongStepsRow
+	for rows.Next() {
+		var i ListSongStepsRow
+		if err := rows.Scan(
+			&i.Step,
+			&i.SeqIndex,
+			&i.SeqFileID,
+			&i.Repeats,
+			&i.Tempo,
+			&i.SeqPath,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resolveUnlinkedSamples = `-- name: ResolveUnlinkedSamples :exec
+UPDATE pgm_samples SET sample_file_id = (
+    SELECT f.id FROM files f
+    WHERE f.file_type = 'wav'
+    AND (LOWER(REPLACE(f.path, '.wav', '')) LIKE '%' || LOWER(pgm_samples.sample_name)
+         OR LOWER(REPLACE(f.path, '.WAV', '')) LIKE '%' || LOWER(pgm_samples.sample_name))
+    LIMIT 1
+)
+WHERE sample_file_id IS NULL AND sample_name != ''
+`
+
+func (q *Queries) ResolveUnlinkedSamples(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, resolveUnlinkedSamples)
+	return err
 }
 
 const updateAllPreferences = `-- name: UpdateAllPreferences :exec
@@ -101,5 +579,113 @@ UPDATE preferences SET workspace_path = ? WHERE id = 1
 
 func (q *Queries) UpdateWorkspacePath(ctx context.Context, workspacePath string) error {
 	_, err := q.db.ExecContext(ctx, updateWorkspacePath, workspacePath)
+	return err
+}
+
+const upsertFile = `-- name: UpsertFile :one
+
+INSERT INTO files (path, file_type, size, mod_time, scanned)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(path) DO UPDATE SET
+    size = excluded.size,
+    mod_time = excluded.mod_time,
+    scanned = excluded.scanned
+RETURNING id
+`
+
+type UpsertFileParams struct {
+	Path     string
+	FileType string
+	Size     int64
+	ModTime  int64
+	Scanned  int64
+}
+
+// File catalog
+func (q *Queries) UpsertFile(ctx context.Context, arg UpsertFileParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, upsertFile,
+		arg.Path,
+		arg.FileType,
+		arg.Size,
+		arg.ModTime,
+		arg.Scanned,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const upsertPgmMeta = `-- name: UpsertPgmMeta :exec
+
+INSERT INTO pgm_meta (file_id, midi_pgm_change)
+VALUES (?, ?)
+ON CONFLICT(file_id) DO UPDATE SET midi_pgm_change = excluded.midi_pgm_change
+`
+
+type UpsertPgmMetaParams struct {
+	FileID        int64
+	MidiPgmChange int64
+}
+
+// PGM metadata
+func (q *Queries) UpsertPgmMeta(ctx context.Context, arg UpsertPgmMetaParams) error {
+	_, err := q.db.ExecContext(ctx, upsertPgmMeta, arg.FileID, arg.MidiPgmChange)
+	return err
+}
+
+const upsertSeqMeta = `-- name: UpsertSeqMeta :exec
+
+INSERT INTO seq_meta (file_id, bpm, bars, version)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(file_id) DO UPDATE SET
+    bpm = excluded.bpm, bars = excluded.bars, version = excluded.version
+`
+
+type UpsertSeqMetaParams struct {
+	FileID  int64
+	Bpm     float64
+	Bars    int64
+	Version string
+}
+
+// SEQ metadata
+func (q *Queries) UpsertSeqMeta(ctx context.Context, arg UpsertSeqMetaParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSeqMeta,
+		arg.FileID,
+		arg.Bpm,
+		arg.Bars,
+		arg.Version,
+	)
+	return err
+}
+
+const upsertWavMeta = `-- name: UpsertWavMeta :exec
+
+INSERT INTO wav_meta (file_id, sample_rate, channels, bits_per_sample, frame_count)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(file_id) DO UPDATE SET
+    sample_rate = excluded.sample_rate,
+    channels = excluded.channels,
+    bits_per_sample = excluded.bits_per_sample,
+    frame_count = excluded.frame_count
+`
+
+type UpsertWavMetaParams struct {
+	FileID        int64
+	SampleRate    int64
+	Channels      int64
+	BitsPerSample int64
+	FrameCount    int64
+}
+
+// WAV metadata
+func (q *Queries) UpsertWavMeta(ctx context.Context, arg UpsertWavMetaParams) error {
+	_, err := q.db.ExecContext(ctx, upsertWavMeta,
+		arg.FileID,
+		arg.SampleRate,
+		arg.Channels,
+		arg.BitsPerSample,
+		arg.FrameCount,
+	)
 	return err
 }
