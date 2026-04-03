@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/maxgarvey/mpc_editor/internal/db"
 )
 
 // FileDetailData holds template data for the file detail page.
@@ -40,6 +42,7 @@ type WavMetaInfo struct {
 	BitsPerSample int64
 	FrameCount    int64
 	Duration      string // formatted duration
+	Source        string
 }
 
 // SeqMetaInfo holds .seq metadata for display.
@@ -143,6 +146,7 @@ func (s *Server) enrichWavDetail(ctx context.Context, data *FileDetailData, file
 			BitsPerSample: meta.BitsPerSample,
 			FrameCount:    meta.FrameCount,
 			Duration:      dur,
+			Source:        meta.Source,
 		}
 	}
 
@@ -152,6 +156,28 @@ func (s *Server) enrichWavDetail(ctx context.Context, data *FileDetailData, file
 			data.UsedBy = append(data.UsedBy, FileRef{ID: p.ID, Path: p.Path})
 		}
 	}
+}
+
+func (s *Server) handleSetWavSource(w http.ResponseWriter, r *http.Request) {
+	idStr := r.FormValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid file id", http.StatusBadRequest)
+		return
+	}
+
+	source := r.FormValue("source")
+	ctx := context.Background()
+	if err := s.queries.UpdateWavSource(ctx, db.UpdateWavSourceParams{
+		Source: source,
+		FileID: id,
+	}); err != nil {
+		http.Error(w, "failed to update source", http.StatusInternalServerError)
+		return
+	}
+
+	// Re-render file detail
+	s.handleFileDetail(w, r)
 }
 
 func (s *Server) enrichSeqDetail(ctx context.Context, data *FileDetailData, fileID int64) {

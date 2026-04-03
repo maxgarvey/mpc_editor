@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS wav_meta (
     sample_rate     INTEGER NOT NULL DEFAULT 0,
     channels        INTEGER NOT NULL DEFAULT 0,
     bits_per_sample INTEGER NOT NULL DEFAULT 0,
-    frame_count     INTEGER NOT NULL DEFAULT 0
+    frame_count     INTEGER NOT NULL DEFAULT 0,
+    source          TEXT NOT NULL DEFAULT ''
 );
 
 -- Metadata extracted from .seq files (when parser exists).

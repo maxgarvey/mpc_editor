@@ -39,6 +39,7 @@ func Open() (*sql.DB, *Queries, error) {
 
 	migrateAddWorkspacePath(sqlDB)
 	migrateCreateCatalog(sqlDB)
+	migrateAddWavSource(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -76,7 +77,8 @@ func migrateCreateCatalog(sqlDB *sql.DB) {
 			sample_rate     INTEGER NOT NULL DEFAULT 0,
 			channels        INTEGER NOT NULL DEFAULT 0,
 			bits_per_sample INTEGER NOT NULL DEFAULT 0,
-			frame_count     INTEGER NOT NULL DEFAULT 0
+			frame_count     INTEGER NOT NULL DEFAULT 0,
+			source          TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS seq_meta (
 			file_id INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
@@ -115,6 +117,15 @@ func migrateCreateCatalog(sqlDB *sql.DB) {
 	}
 	for _, ddl := range tables {
 		_, _ = sqlDB.Exec(ddl)
+	}
+}
+
+// migrateAddWavSource adds the source column to existing wav_meta tables.
+func migrateAddWavSource(sqlDB *sql.DB) {
+	_, err := sqlDB.Exec(`ALTER TABLE wav_meta ADD COLUMN source TEXT NOT NULL DEFAULT ''`)
+	if err != nil {
+		// Ignore "duplicate column" — already migrated.
+		return
 	}
 }
 

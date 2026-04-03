@@ -207,6 +207,7 @@ func (s *Scanner) scanWAV(ctx context.Context, fileID int64, path string) error 
 		Channels:      int64(format.Channels),
 		BitsPerSample: int64(format.BitsPerSample),
 		FrameCount:    int64(frameCount),
+		Source:        "",
 	})
 }
 

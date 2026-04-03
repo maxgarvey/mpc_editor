@@ -72,4 +72,5 @@ type WavMetum struct {
 	Channels      int64
 	BitsPerSample int64
 	FrameCount    int64
+	Source        string
 }

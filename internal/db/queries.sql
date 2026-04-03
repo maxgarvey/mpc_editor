@@ -63,16 +63,20 @@ SELECT file_id, midi_pgm_change FROM pgm_meta WHERE file_id = ?;
 -- WAV metadata
 
 -- name: UpsertWavMeta :exec
-INSERT INTO wav_meta (file_id, sample_rate, channels, bits_per_sample, frame_count)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO wav_meta (file_id, sample_rate, channels, bits_per_sample, frame_count, source)
+VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(file_id) DO UPDATE SET
     sample_rate = excluded.sample_rate,
     channels = excluded.channels,
     bits_per_sample = excluded.bits_per_sample,
-    frame_count = excluded.frame_count;
+    frame_count = excluded.frame_count,
+    source = CASE WHEN excluded.source = '' THEN wav_meta.source ELSE excluded.source END;
 
 -- name: GetWavMeta :one
-SELECT file_id, sample_rate, channels, bits_per_sample, frame_count FROM wav_meta WHERE file_id = ?;
+SELECT file_id, sample_rate, channels, bits_per_sample, frame_count, source FROM wav_meta WHERE file_id = ?;
+
+-- name: UpdateWavSource :exec
+UPDATE wav_meta SET source = ? WHERE file_id = ?;
 
 -- SEQ metadata
 

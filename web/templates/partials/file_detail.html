@@ -52,6 +52,14 @@
         {{if .WavMeta.Duration}}
         <div class="detail-row"><span class="detail-label">Duration:</span> <span>{{.WavMeta.Duration}}</span></div>
         {{end}}
+        <div class="detail-row">
+            <span class="detail-label">Source:</span>
+            <form hx-post="/file/source" hx-target="#pad-params" class="inline-form source-form">
+                <input type="hidden" name="id" value="{{$.File.ID}}">
+                <input type="text" name="source" value="{{.WavMeta.Source}}" placeholder="e.g. sample pack, URL, recording" class="sample-input">
+                <button type="submit" class="btn-sm btn-set">Set</button>
+            </form>
+        </div>
     </div>
 
     {{if .UsedBy}}

@@ -163,7 +163,7 @@ func (q *Queries) GetSeqMeta(ctx context.Context, fileID int64) (SeqMetum, error
 }
 
 const getWavMeta = `-- name: GetWavMeta :one
-SELECT file_id, sample_rate, channels, bits_per_sample, frame_count FROM wav_meta WHERE file_id = ?
+SELECT file_id, sample_rate, channels, bits_per_sample, frame_count, source FROM wav_meta WHERE file_id = ?
 `
 
 func (q *Queries) GetWavMeta(ctx context.Context, fileID int64) (WavMetum, error) {
@@ -175,6 +175,7 @@ func (q *Queries) GetWavMeta(ctx context.Context, fileID int64) (WavMetum, error
 		&i.Channels,
 		&i.BitsPerSample,
 		&i.FrameCount,
+		&i.Source,
 	)
 	return i, err
 }
@@ -573,6 +574,20 @@ func (q *Queries) UpdateProfile(ctx context.Context, profile string) error {
 	return err
 }
 
+const updateWavSource = `-- name: UpdateWavSource :exec
+UPDATE wav_meta SET source = ? WHERE file_id = ?
+`
+
+type UpdateWavSourceParams struct {
+	Source string
+	FileID int64
+}
+
+func (q *Queries) UpdateWavSource(ctx context.Context, arg UpdateWavSourceParams) error {
+	_, err := q.db.ExecContext(ctx, updateWavSource, arg.Source, arg.FileID)
+	return err
+}
+
 const updateWorkspacePath = `-- name: UpdateWorkspacePath :exec
 UPDATE preferences SET workspace_path = ? WHERE id = 1
 `
@@ -661,13 +676,14 @@ func (q *Queries) UpsertSeqMeta(ctx context.Context, arg UpsertSeqMetaParams) er
 
 const upsertWavMeta = `-- name: UpsertWavMeta :exec
 
-INSERT INTO wav_meta (file_id, sample_rate, channels, bits_per_sample, frame_count)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO wav_meta (file_id, sample_rate, channels, bits_per_sample, frame_count, source)
+VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(file_id) DO UPDATE SET
     sample_rate = excluded.sample_rate,
     channels = excluded.channels,
     bits_per_sample = excluded.bits_per_sample,
-    frame_count = excluded.frame_count
+    frame_count = excluded.frame_count,
+    source = CASE WHEN excluded.source = '' THEN wav_meta.source ELSE excluded.source END
 `
 
 type UpsertWavMetaParams struct {
@@ -676,6 +692,7 @@ type UpsertWavMetaParams struct {
 	Channels      int64
 	BitsPerSample int64
 	FrameCount    int64
+	Source        string
 }
 
 // WAV metadata
@@ -686,6 +703,7 @@ func (q *Queries) UpsertWavMeta(ctx context.Context, arg UpsertWavMetaParams) er
 		arg.Channels,
 		arg.BitsPerSample,
 		arg.FrameCount,
+		arg.Source,
 	)
 	return err
 }

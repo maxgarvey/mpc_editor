@@ -52,7 +52,8 @@ func testServer(t *testing.T) *Server {
 			sample_rate INTEGER NOT NULL DEFAULT 0,
 			channels INTEGER NOT NULL DEFAULT 0,
 			bits_per_sample INTEGER NOT NULL DEFAULT 0,
-			frame_count INTEGER NOT NULL DEFAULT 0
+			frame_count INTEGER NOT NULL DEFAULT 0,
+			source TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS seq_meta (
 			file_id INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
