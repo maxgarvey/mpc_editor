@@ -4,7 +4,7 @@ GOFLAGS   := -trimpath
 LDFLAGS   := -s -w
 LINT_VER  := v2.11.4
 
-.PHONY: all build run test lint vet fmt check clean install dev generate help
+.PHONY: all build run test lint vet fmt check clean install dev generate help test-e2e test-e2e-headed test-e2e-ui
 
 ## —— Primary targets ——
 
@@ -57,6 +57,17 @@ generate:  ## Regenerate sqlc code from SQL definitions
 		go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest; \
 	}
 	cd internal/db && sqlc generate
+
+## —— E2E (Playwright) ——
+
+test-e2e:  ## Run Playwright e2e tests
+	cd e2e && npx playwright test
+
+test-e2e-headed:  ## Run e2e tests with visible browser
+	cd e2e && npx playwright test --headed
+
+test-e2e-ui:  ## Open Playwright UI mode for interactive testing
+	cd e2e && npx playwright test --ui
 
 ## —— Development ——
 
