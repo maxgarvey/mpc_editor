@@ -7,6 +7,20 @@
 
     {{if .WavMeta}}
     <div class="detail-section">
+        <div class="wav-waveform-container">
+            <canvas id="wav-waveform-canvas" height="120"></canvas>
+        </div>
+    </div>
+
+    <div class="detail-section">
+        <button class="btn-sm btn-set" onclick="AudioPlayer.play('/audio/file?path={{.RelPath}}')">Play</button>
+        <button class="btn-sm" onclick="AudioPlayer.stop()">Stop</button>
+        {{if .HasProgram}}
+        <button class="btn-sm btn-assign" onclick="assignWavToPad('{{.RelPath}}')">Assign to Pad</button>
+        {{end}}
+    </div>
+
+    <div class="detail-section">
         <h3>Audio Info</h3>
         <div class="detail-row"><span class="detail-label">Sample Rate:</span> <span>{{.WavMeta.SampleRate}} Hz</span></div>
         <div class="detail-row"><span class="detail-label">Channels:</span> <span>{{if eq .WavMeta.Channels 1}}Mono{{else if eq .WavMeta.Channels 2}}Stereo{{else}}{{.WavMeta.Channels}}{{end}}</span></div>
@@ -23,11 +37,6 @@
                 <button type="submit" class="btn-sm btn-set">Set</button>
             </form>
         </div>
-    </div>
-
-    <div class="detail-section">
-        <button class="btn-sm btn-set" onclick="AudioPlayer.playURL('/audio/info?path={{.Path}}')">Play</button>
-        <button class="btn-sm" onclick="AudioPlayer.stop()">Stop</button>
     </div>
     {{else}}
     <div class="detail-section">
@@ -46,4 +55,6 @@
     </div>
     {{end}}
 </div>
+<script src="/static/js/wav_waveform.js"></script>
+<script>WavWaveform.load('{{.RelPath}}');</script>
 {{end}}

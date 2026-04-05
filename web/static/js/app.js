@@ -496,3 +496,38 @@ document.addEventListener('htmx:afterRequest', function(e) {
     });
     elt.classList.add('active');
 });
+
+// --- WAV-to-Pad Assignment ---
+
+// Assign a WAV file to the currently selected pad in the active PGM editor.
+// Called from the "Assign to Pad" button in the WAV detail view.
+function assignWavToPad(wavPath) {
+    var selectedBtn = document.querySelector('.pad-btn.selected');
+    var padIndex = 0;
+    var padLabel = 'A1';
+    if (selectedBtn) {
+        var padGet = selectedBtn.getAttribute('hx-get');
+        var padMatch = padGet && padGet.match(/\/pad\/(\d+)/);
+        if (padMatch) padIndex = parseInt(padMatch[1]);
+        var bank = String.fromCharCode(65 + Math.floor(padIndex / 16));
+        padLabel = bank + ((padIndex % 16) + 1);
+    }
+
+    fetch('/assign/path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'path=' + encodeURIComponent(wavPath) + '&pad=' + padIndex
+    })
+    .then(function() {
+        AudioPlayer.clearCache();
+        AudioPlayer.invalidatePad(padIndex);
+        // Re-open the PGM to refresh the pad grid
+        var lastPgm = document.querySelector('#detail-panel .detail-pgm');
+        if (lastPgm) {
+            window.location.reload();
+        }
+    })
+    .catch(function(err) {
+        console.warn('Assignment failed:', err);
+    });
+}

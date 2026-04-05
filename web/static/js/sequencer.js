@@ -5,6 +5,8 @@ const SequencePlayer = (function() {
     let stepTimer = null;
     let currentStep = 0;
     let audioCtx = null;
+    const mutedTracks = new Set();
+    const soloTracks = new Set();
 
     function getContext() {
         if (!audioCtx) {
@@ -14,6 +16,13 @@ const SequencePlayer = (function() {
             audioCtx.resume();
         }
         return audioCtx;
+    }
+
+    function isTrackAudible(trackIndex) {
+        if (soloTracks.size > 0) {
+            return soloTracks.has(trackIndex);
+        }
+        return !mutedTracks.has(trackIndex);
     }
 
     function play(seqPath, bar) {
@@ -41,7 +50,9 @@ const SequencePlayer = (function() {
             // Trigger notes on this step
             var stepEvents = events.filter(function(e) { return e.step === currentStep; });
             stepEvents.forEach(function(e) {
-                playTone(e.note, e.velocity, e.durationSteps, bpm);
+                if (isTrackAudible(e.track)) {
+                    playTone(e.note, e.velocity, e.durationSteps, bpm);
+                }
             });
 
             highlightStep(currentStep);
@@ -89,9 +100,45 @@ const SequencePlayer = (function() {
         });
     }
 
+    function toggleMute(trackIndex, btn) {
+        if (mutedTracks.has(trackIndex)) {
+            mutedTracks.delete(trackIndex);
+            btn.classList.remove('active');
+            btn.closest('tr').classList.remove('track-muted');
+        } else {
+            mutedTracks.add(trackIndex);
+            btn.classList.add('active');
+            btn.closest('tr').classList.add('track-muted');
+        }
+    }
+
+    function toggleSolo(trackIndex, btn) {
+        if (soloTracks.has(trackIndex)) {
+            soloTracks.delete(trackIndex);
+            btn.classList.remove('active');
+        } else {
+            soloTracks.add(trackIndex);
+            btn.classList.add('active');
+        }
+        // Update visual mute state on all rows
+        document.querySelectorAll('.step-grid tbody tr').forEach(function(row) {
+            var muteBtn = row.querySelector('.track-mute-btn');
+            if (!muteBtn) return;
+            // Determine track index from onclick
+            var idx = parseInt(muteBtn.getAttribute('onclick').match(/\d+/)[0]);
+            if (soloTracks.size > 0 && !soloTracks.has(idx)) {
+                row.classList.add('track-muted');
+            } else if (!mutedTracks.has(idx)) {
+                row.classList.remove('track-muted');
+            }
+        });
+    }
+
     return {
         play: play,
         stop: stop,
-        isPlaying: function() { return playing; }
+        isPlaying: function() { return playing; },
+        toggleMute: toggleMute,
+        toggleSolo: toggleSolo
     };
 })();

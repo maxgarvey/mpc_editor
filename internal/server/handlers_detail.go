@@ -32,6 +32,8 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 		s.renderDetailWAV(w, path)
 	case ".seq":
 		s.renderDetailSEQ(w, r, path)
+	case ".sng":
+		s.renderDetailSNG(w, path)
 	default:
 		s.renderDetailFile(w, path, ext)
 	}
@@ -87,8 +89,9 @@ func (s *Server) renderDetailWAV(w http.ResponseWriter, path string) {
 	}
 
 	data := map[string]any{
-		"Path":    path,
-		"RelPath": relPath,
+		"Path":       path,
+		"RelPath":    relPath,
+		"HasProgram": s.session.Program != nil,
 	}
 
 	f, err := s.queries.GetFileByPath(ctx, relPath)
@@ -151,6 +154,29 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		Grid:       grid,
 	}
 	s.renderTemplate(w, "detail_seq.html", data)
+}
+
+func (s *Server) renderDetailSNG(w http.ResponseWriter, path string) {
+	ctx := context.Background()
+	workspace := s.session.WorkspacePath
+
+	relPath, err := filepath.Rel(workspace, path)
+	if err != nil {
+		relPath = path
+	}
+
+	data := map[string]any{
+		"Path":    path,
+		"RelPath": relPath,
+	}
+
+	f, err := s.queries.GetFileByPath(ctx, relPath)
+	if err == nil {
+		data["FileID"] = f.ID
+		data["Size"] = f.Size
+	}
+
+	s.renderTemplate(w, "detail_sng.html", data)
 }
 
 func (s *Server) renderDetailFile(w http.ResponseWriter, path, ext string) {

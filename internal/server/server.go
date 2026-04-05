@@ -54,8 +54,18 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 			return a % b
 		},
 		"velocityOpacity": func(vel byte) float64 {
-			// Map velocity 0-127 to opacity 0.3-1.0
-			return 0.3 + float64(vel)/127.0*0.7
+			// Map velocity 0-127 to opacity 0.5-1.0
+			return 0.5 + float64(vel)/127.0*0.5
+		},
+		"velocityColor": func(vel byte) string {
+			switch {
+			case vel < 43:
+				return "#4488cc"
+			case vel < 86:
+				return "#44aa44"
+			default:
+				return "#cc4444"
+			}
 		},
 	}
 
@@ -113,6 +123,8 @@ func (s *Server) registerRoutes() {
 	// Audio playback
 	s.mux.HandleFunc("/audio/pad/", s.handleAudioPad)
 	s.mux.HandleFunc("/audio/slice/", s.handleAudioSlice)
+	s.mux.HandleFunc("/audio/file", s.handleAudioFile)
+	s.mux.HandleFunc("/audio/waveform", s.handleAudioWaveform)
 	s.mux.HandleFunc("/audio/info", s.handleAudioInfo)
 
 	// Slicer

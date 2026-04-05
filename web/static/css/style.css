@@ -250,6 +250,7 @@ body {
 }
 
 .pad-btn {
+    position: relative;
     aspect-ratio: 1;
     background: #808080;
     border: 2px solid #606060;
@@ -309,6 +310,18 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100%;
+}
+
+.pad-layers {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    font-size: 8px;
+    color: #a0c840;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 1px 3px;
+    border-radius: 2px;
+    line-height: 1;
 }
 
 /* Params Section */
@@ -491,6 +504,16 @@ body {
 
 .btn-primary:hover {
     background: #a01818;
+}
+
+.btn-assign {
+    background: #2a5a2a;
+    color: #a0c840;
+    border-color: #4a8a4a;
+}
+
+.btn-assign:hover {
+    background: #3a6a3a;
 }
 
 .btn-sm {
@@ -965,6 +988,22 @@ body {
     text-decoration: underline;
 }
 
+/* WAV waveform */
+
+.wav-waveform-container {
+    width: 100%;
+    height: 120px;
+    background: #0f0f0f;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.wav-waveform-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
 /* Sequence viewer */
 
 .sequence-layout {
@@ -1032,8 +1071,8 @@ body {
 }
 
 .track-name-cell {
-    width: 100px;
-    min-width: 100px;
+    width: 140px;
+    min-width: 140px;
     text-align: left !important;
     color: #a0c840;
     font-size: 12px;
@@ -1041,6 +1080,55 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.track-label {
+    display: inline;
+}
+
+.track-controls {
+    float: right;
+    display: inline-flex;
+    gap: 2px;
+}
+
+.track-mute-btn,
+.track-solo-btn {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid #555;
+    border-radius: 2px;
+    background: #333;
+    color: #888;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 16px;
+    text-align: center;
+}
+
+.track-mute-btn:hover { background: #444; }
+.track-solo-btn:hover { background: #444; }
+
+.track-mute-btn.active {
+    background: #cc6600;
+    color: #fff;
+    border-color: #cc6600;
+}
+
+.track-solo-btn.active {
+    background: #ccaa00;
+    color: #000;
+    border-color: #ccaa00;
+}
+
+tr.track-muted .step-cell {
+    opacity: 0.3;
+}
+
+tr.track-muted .track-label {
+    opacity: 0.5;
 }
 
 .step-cell {

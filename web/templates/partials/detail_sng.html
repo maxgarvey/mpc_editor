@@ -1,0 +1,17 @@
+{{define "detail_sng.html"}}
+<div class="detail-sng">
+    <div class="detail-header">
+        <span class="detail-type">[SNG]</span>
+        <span class="detail-path">{{.RelPath}}</span>
+    </div>
+    <div class="detail-section">
+        <h3>Song File</h3>
+        {{if .Size}}
+        <div class="detail-row"><span class="detail-label">Size:</span> <span>{{.Size}} bytes</span></div>
+        {{end}}
+    </div>
+    <div class="detail-section">
+        <p style="color:#888">Song editing is planned for a future update. The binary format is not yet reverse-engineered.</p>
+    </div>
+</div>
+{{end}}

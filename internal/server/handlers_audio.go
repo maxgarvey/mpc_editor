@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/maxgarvey/mpc_editor/internal/audio"
 )
 
 func (s *Server) handleAudioPad(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +67,71 @@ func (s *Server) handleAudioSlice(w http.ResponseWriter, r *http.Request) {
 	if err := slice.WriteWAV(w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// handleAudioFile serves a WAV file from the workspace by relative path.
+func (s *Server) handleAudioFile(w http.ResponseWriter, r *http.Request) {
+	relPath := r.FormValue("path")
+	if relPath == "" {
+		http.Error(w, "path is required", http.StatusBadRequest)
+		return
+	}
+
+	path := s.resolvePath(relPath)
+	if path == "" {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	if !strings.HasSuffix(strings.ToLower(path), ".wav") {
+		http.Error(w, "only WAV files supported", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "audio/wav")
+	w.Header().Set("Cache-Control", "max-age=300")
+	http.ServeFile(w, r, path)
+}
+
+// handleAudioWaveform returns peak data for waveform visualization of an arbitrary WAV file.
+func (s *Server) handleAudioWaveform(w http.ResponseWriter, r *http.Request) {
+	relPath := r.FormValue("path")
+	if relPath == "" {
+		http.Error(w, "path is required", http.StatusBadRequest)
+		return
+	}
+
+	path := s.resolvePath(relPath)
+	if path == "" {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	buckets := parseIntParam(r, "width", 1000)
+	if buckets < 100 {
+		buckets = 100
+	}
+	if buckets > 4000 {
+		buckets = 4000
+	}
+
+	sample, err := audio.OpenWAV(path)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("open WAV: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	channels := sample.AsSamples()
+	var chPeaks [][]audio.Peak
+	for _, ch := range channels {
+		chPeaks = append(chPeaks, audio.DownsamplePeaks(ch, buckets))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"channels":    chPeaks,
+		"frameLength": sample.FrameLength,
+	})
 }
 
 // handleAudioInfo returns JSON with which pads have audio available.

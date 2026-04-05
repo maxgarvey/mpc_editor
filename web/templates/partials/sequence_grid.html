@@ -57,10 +57,16 @@
         <tbody>
             {{range .Grid.Rows}}
             <tr>
-                <td class="track-name-cell">{{.TrackName}}</td>
+                <td class="track-name-cell">
+                <span class="track-label">{{.TrackName}}</span>
+                <span class="track-controls">
+                    <button class="track-mute-btn" onclick="SequencePlayer.toggleMute({{.TrackIndex}}, this)" title="Mute">M</button>
+                    <button class="track-solo-btn" onclick="SequencePlayer.toggleSolo({{.TrackIndex}}, this)" title="Solo">S</button>
+                </span>
+            </td>
                 {{range $i, $step := .Steps}}
                 <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
-                    {{if $step.Active}}title="{{$step.NoteName}} vel:{{$step.Velocity}}" style="opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
+                    {{if $step.Active}}title="{{$step.NoteName}} vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
                     {{if $step.Active}}<span class="step-dot"></span>{{end}}
                 </td>
                 {{end}}

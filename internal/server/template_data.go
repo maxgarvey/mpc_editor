@@ -2,10 +2,12 @@ package server
 
 // PadInfo holds display data for a single pad in the grid.
 type PadInfo struct {
-	Index    int
-	Name     string
-	Selected bool
-	Display  int
+	Index      int
+	Name       string
+	Selected   bool
+	Display    int
+	HasSample  bool
+	LayerCount int
 }
 
 // padGridData builds template data for the pad grid.
@@ -14,11 +16,21 @@ func (s *Server) padGridData(bank int) map[string]any {
 	pads := make([]PadInfo, 16)
 	for i := range pads {
 		idx := start + i
+		name := s.session.PadName(idx)
+		layerCount := 0
+		for j := range 4 {
+			layerName := s.session.Program.Pad(idx).Layer(j).GetSampleName()
+			if layerName != "" {
+				layerCount++
+			}
+		}
 		pads[i] = PadInfo{
-			Index:    idx,
-			Name:     s.session.PadName(idx),
-			Selected: idx == s.session.SelectedPad,
-			Display:  i + 1,
+			Index:      idx,
+			Name:       name,
+			Selected:   idx == s.session.SelectedPad,
+			Display:    i + 1,
+			HasSample:  name != "",
+			LayerCount: layerCount,
 		}
 	}
 
