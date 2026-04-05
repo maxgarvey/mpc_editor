@@ -42,15 +42,19 @@
         </aside>
 
         <section class="detail-panel" id="detail-panel">
-            {{if .DetailHTML}}
-            {{.DetailHTML}}
-            {{else}}
-            {{template "detail_empty.html" .}}
-            {{end}}
+            <div class="detail-tabs" id="detail-tabs"></div>
+            <div class="detail-tab-content" id="detail-tab-content">
+                {{if .DetailHTML}}
+                {{.DetailHTML}}
+                {{else}}
+                {{template "detail_empty.html" .}}
+                {{end}}
+            </div>
         </section>
     </main>
 
     <script src="/static/js/audio.js"></script>
+    <script src="/static/js/tabs.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

@@ -7,14 +7,12 @@
     <div class="browser-empty">Empty directory</div>
     {{end}}
     {{range .Entries}}
-    <div class="browser-entry {{if .IsDir}}is-dir{{end}} {{if eq .Path $.SelectedPath}}active{{end}}"
+    <div class="browser-entry {{if .IsDir}}is-dir{{end}}" data-path="{{.Path}}"
          {{if .IsDir}}
          hx-get="/browse/nav?dir={{.Path}}"
          hx-target="#file-nav"
          {{else}}
-         hx-get="/detail?path={{.Path}}"
-         hx-target="#detail-panel"
-         hx-push-url="false"
+         onclick="TabManager.openFile('{{.Path}}')"
          {{end}}>
         <span class="entry-icon">{{if .IsDir}}[DIR]{{else if eq .Ext ".pgm"}}[PGM]{{else if eq .Ext ".wav"}}[WAV]{{else if eq .Ext ".mid"}}[MID]{{else if eq .Ext ".seq"}}[SEQ]{{else if eq .Ext ".sng"}}[SNG]{{else if eq .Ext ".all"}}[ALL]{{else}}[---]{{end}}</span>
         <span class="entry-name">{{.Name}}</span>

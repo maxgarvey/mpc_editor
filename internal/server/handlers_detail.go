@@ -13,6 +13,21 @@ import (
 	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
+// handleDetailSelect updates the server-side selected path without rendering.
+// Used when switching tabs so browser nav stays in sync.
+func (s *Server) handleDetailSelect(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	path := r.FormValue("path")
+	if path != "" {
+		path = s.resolvePath(path)
+	}
+	s.session.SelectedDetailPath = path
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // handleDetail inspects the file type and renders the appropriate detail partial
 // into #detail-panel.
 func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {

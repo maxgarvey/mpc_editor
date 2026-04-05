@@ -482,19 +482,11 @@ function doWorkspaceImport() {
 
 // --- Browser Nav Highlighting ---
 
-// Highlight selected file in browser nav when detail panel is swapped
-document.addEventListener('htmx:afterRequest', function(e) {
-    var elt = e.detail.elt;
-    if (!elt || !elt.classList || !elt.classList.contains('browser-entry')) return;
-
-    var hxTarget = elt.getAttribute('hx-target');
-    if (hxTarget !== '#detail-panel') return;
-
-    var entries = document.querySelectorAll('#file-nav .browser-entry');
-    entries.forEach(function(entry) {
-        entry.classList.remove('active');
-    });
-    elt.classList.add('active');
+// After browser nav re-renders (directory navigation, mkdir), re-apply tab highlighting
+document.addEventListener('htmx:afterSettle', function(e) {
+    if (e.detail.target && e.detail.target.id === 'file-nav') {
+        TabManager.refreshBrowserHighlight();
+    }
 });
 
 // --- WAV-to-Pad Assignment ---

@@ -63,3 +63,15 @@ export async function waitForHtmxOrTimeout(page: Page, timeoutMs = 3000): Promis
     page.waitForTimeout(timeoutMs),
   ]);
 }
+
+/**
+ * Wait for the detail tab content to update after a TabManager.openFile() call.
+ * Waits for the tab to appear and the fetch to complete by checking for content change.
+ */
+export async function waitForTabOpen(page: Page, textMatch?: string, timeoutMs = 5000): Promise<void> {
+  if (textMatch) {
+    await page.locator('.detail-tab-content').filter({ hasText: textMatch }).waitFor({ timeout: timeoutMs });
+  } else {
+    await page.locator('.detail-tab').first().waitFor({ timeout: timeoutMs });
+  }
+}

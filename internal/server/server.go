@@ -150,6 +150,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/batch/run", s.handleBatchRun)
 
 	// Detail panel (type-dispatched)
+	s.mux.HandleFunc("/detail/select", s.handleDetailSelect)
 	s.mux.HandleFunc("/detail", s.handleDetail)
 
 	// File browser and workspace

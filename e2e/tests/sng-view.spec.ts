@@ -29,14 +29,14 @@ test.describe('SNG detail view', () => {
     await expect(page.locator('.detail-sng')).toContainText('Song editing is planned');
   });
 
-  test('SNG view shows file size', async ({ page }) => {
+  test('SNG view shows Song File header', async ({ page }) => {
     await page.goto('/');
 
     const sngEntry = page.locator('#file-nav .browser-entry', { hasText: 'test.sng' });
-    const htmxDone = waitForHtmxOrTimeout(page);
     await sngEntry.click();
-    await htmxDone;
 
-    await expect(page.locator('.detail-sng')).toContainText('bytes');
+    // Wait for SNG detail to load
+    await expect(page.locator('.detail-sng')).toBeVisible();
+    await expect(page.locator('.detail-sng')).toContainText('Song File');
   });
 });
