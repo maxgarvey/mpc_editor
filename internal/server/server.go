@@ -146,6 +146,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/workspace/set", s.handleWorkspaceSet)
 	s.mux.HandleFunc("/workspace/mkdir", s.handleWorkspaceMkdir)
 	s.mux.HandleFunc("/workspace/scan", s.handleWorkspaceScan)
+	s.mux.HandleFunc("/workspace/import", s.handleWorkspaceImport)
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)
 	s.mux.HandleFunc("/file/", s.handleFileDetail)
 

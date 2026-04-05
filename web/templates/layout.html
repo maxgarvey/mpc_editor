@@ -12,7 +12,7 @@
         <div class="header-top">
             <h1><span class="title-mpc">MPC</span> <span class="title-editor">Editor</span></h1>
             <nav class="toolbar">
-                <button hx-post="/program/new" hx-confirm="Create new program? Unsaved changes will be lost." hx-target="#detail-panel">New</button>
+                <button onclick="openNewModal()">New</button>
                 <input type="hidden" id="open-pgm-path" value="{{.Session.Prefs.LastPGMPath}}">
                 <input type="hidden" id="save-pgm-path" value="{{.Session.FilePath}}">
                 <button onclick="openSaveConfirm()">Save</button>

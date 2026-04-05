@@ -47,9 +47,11 @@ test.describe('Program lifecycle', () => {
     const count = await sampledPads.count();
     expect(count).toBeGreaterThan(0);
 
-    // Click New and accept the confirmation dialog
-    page.on('dialog', (dialog) => dialog.accept());
+    // Open the New modal and click Create
     await page.getByRole('button', { name: 'New', exact: true }).click();
+    const modal = page.locator('.new-modal');
+    await expect(modal).toBeVisible();
+    await modal.getByRole('button', { name: 'Create' }).click();
 
     // Wait for page to reload/update
     await page.waitForLoadState('networkidle');
