@@ -860,3 +860,139 @@ body {
 .detail-list a:hover {
     text-decoration: underline;
 }
+
+/* Sequence viewer */
+
+.sequence-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+.sequence-panel {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.sequence-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.sequence-path {
+    color: #a0c840;
+    font-family: monospace;
+}
+
+.sequence-meta {
+    color: #999;
+}
+
+.bar-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.bar-label {
+    color: #ccc;
+    font-size: 13px;
+}
+
+.bar-select {
+    background: #222;
+    color: #ccc;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 13px;
+}
+
+.step-grid {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.step-grid th {
+    color: #888;
+    font-size: 11px;
+    font-weight: normal;
+    padding: 4px 2px;
+    text-align: center;
+}
+
+.track-name-cell {
+    width: 100px;
+    min-width: 100px;
+    text-align: left !important;
+    color: #a0c840;
+    font-size: 12px;
+    padding: 4px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.step-cell {
+    width: 40px;
+    height: 28px;
+    background: #222;
+    border: 1px solid #333;
+    text-align: center;
+    vertical-align: middle;
+    position: relative;
+}
+
+.step-cell.beat-start {
+    border-left: 2px solid #555;
+}
+
+.step-header.beat-start {
+    border-left: 2px solid #555;
+}
+
+.step-active {
+    background: #cc2020;
+}
+
+.step-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+}
+
+.step-cell.step-playing {
+    border-color: #a0c840;
+    box-shadow: inset 0 0 8px rgba(160, 200, 64, 0.4);
+}
+
+.sequence-error {
+    color: #e44;
+    padding: 20px;
+    text-align: center;
+}
+
+.sequence-empty {
+    color: #888;
+    padding: 20px;
+    text-align: center;
+    font-style: italic;
+}
+
+.toolbar-link {
+    color: #a0c840;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.toolbar-link:hover {
+    text-decoration: underline;
+}

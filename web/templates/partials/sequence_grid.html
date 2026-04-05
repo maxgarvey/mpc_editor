@@ -1,0 +1,77 @@
+{{define "sequence_grid.html"}}
+<div class="sequence-content">
+    {{if .Error}}
+    <div class="sequence-error">{{.Error}}</div>
+    {{else}}
+    <div class="sequence-info">
+        <span class="sequence-path">{{.Path}}</span>
+        <span class="sequence-meta">{{.Version}} &bull; {{.BPM}} BPM &bull; {{.Bars}} bar{{if gt .Bars 1}}s{{end}}</span>
+    </div>
+
+    <div class="bar-nav">
+        {{if gt .CurrentBar 1}}
+        <button class="btn-sm"
+                hx-get="/sequence?path={{.Path}}&bar={{add .CurrentBar -1}}"
+                hx-target="#sequence-grid">&laquo; Prev</button>
+        {{else}}
+        <button class="btn-sm" disabled>&laquo; Prev</button>
+        {{end}}
+
+        <span class="bar-label">Bar
+            <select class="bar-select"
+                    hx-get="/sequence"
+                    hx-target="#sequence-grid"
+                    hx-include="this"
+                    name="bar">
+                <input type="hidden" name="path" value="{{.Path}}">
+                {{range $i := seq .Bars}}
+                <option value="{{add $i 1}}" {{if eq (add $i 1) $.CurrentBar}}selected{{end}}>{{add $i 1}}</option>
+                {{end}}
+            </select>
+            / {{.Bars}}
+        </span>
+
+        {{if lt .CurrentBar .Bars}}
+        <button class="btn-sm"
+                hx-get="/sequence?path={{.Path}}&bar={{add .CurrentBar 1}}"
+                hx-target="#sequence-grid">Next &raquo;</button>
+        {{else}}
+        <button class="btn-sm" disabled>Next &raquo;</button>
+        {{end}}
+
+        <button class="btn-sm btn-set" onclick="SequencePlayer.play('{{.Path}}', {{.CurrentBar}})">Play</button>
+        <button class="btn-sm" onclick="SequencePlayer.stop()">Stop</button>
+    </div>
+
+    {{if .Grid}}
+    {{if .Grid.Rows}}
+    <table class="step-grid">
+        <thead>
+            <tr>
+                <th class="track-name-cell">Track</th>
+                {{range $i := seq 16}}
+                <th class="step-header {{if eq (mod $i 4) 0}}beat-start{{end}}">{{add $i 1}}</th>
+                {{end}}
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Grid.Rows}}
+            <tr>
+                <td class="track-name-cell">{{.TrackName}}</td>
+                {{range $i, $step := .Steps}}
+                <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
+                    {{if $step.Active}}title="{{$step.NoteName}} vel:{{$step.Velocity}}" style="opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
+                    {{if $step.Active}}<span class="step-dot"></span>{{end}}
+                </td>
+                {{end}}
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <div class="sequence-empty">No note events in bar {{.CurrentBar}}</div>
+    {{end}}
+    {{end}}
+    {{end}}
+</div>
+{{end}}

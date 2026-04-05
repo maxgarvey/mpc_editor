@@ -12,6 +12,7 @@ import (
 	"github.com/maxgarvey/mpc_editor/internal/audio"
 	"github.com/maxgarvey/mpc_editor/internal/db"
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
+	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
 // recognizedExtensions maps lowercase file extensions to their catalog type.
@@ -104,6 +105,8 @@ func (s *Scanner) ScanWorkspace(workspace string) (*ScanResult, error) {
 			parseErr = s.scanPGM(ctx, fileID, path)
 		case "wav":
 			parseErr = s.scanWAV(ctx, fileID, path)
+		case "seq":
+			parseErr = s.scanSEQ(ctx, fileID, path)
 		}
 
 		if parseErr != nil {
@@ -209,6 +212,45 @@ func (s *Scanner) scanWAV(ctx context.Context, fileID int64, path string) error 
 		FrameCount:    int64(frameCount),
 		Source:        "",
 	})
+}
+
+// scanSEQ extracts metadata and track info from a .seq file.
+func (s *Scanner) scanSEQ(ctx context.Context, fileID int64, path string) error {
+	sequence, err := seq.Open(path)
+	if err != nil {
+		return err
+	}
+
+	if err := s.queries.UpsertSeqMeta(ctx, db.UpsertSeqMetaParams{
+		FileID:  fileID,
+		Bpm:     sequence.BPM,
+		Bars:    int64(sequence.Bars),
+		Version: sequence.Version,
+	}); err != nil {
+		return err
+	}
+
+	// Clear old tracks and re-insert non-empty ones.
+	if err := s.queries.DeleteSeqTracks(ctx, fileID); err != nil {
+		return err
+	}
+
+	for i, track := range sequence.Tracks {
+		if track.Name == "" && track.MIDIChannel == 0 {
+			continue
+		}
+		if err := s.queries.InsertSeqTrack(ctx, db.InsertSeqTrackParams{
+			SeqFileID:   fileID,
+			Track:       int64(i),
+			TrackName:   track.Name,
+			MidiChannel: int64(track.MIDIChannel),
+			PgmFileID:   sql.NullInt64{}, // resolved later if needed
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // findWavByName searches for a .wav file in the catalog matching the sample name.

@@ -50,6 +50,13 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 		"padDisplayIndex": func(padIndex int) int {
 			return (padIndex % 16) + 1
 		},
+		"mod": func(a, b int) int {
+			return a % b
+		},
+		"velocityOpacity": func(vel byte) float64 {
+			// Map velocity 0-127 to opacity 0.3-1.0
+			return 0.3 + float64(vel)/127.0*0.7
+		},
 	}
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/*.html", "templates/partials/*.html")
@@ -115,6 +122,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/slicer/sensitivity", s.handleSlicerSensitivity)
 	s.mux.HandleFunc("/slicer/marker/", s.handleSlicerMarker)
 	s.mux.HandleFunc("/slicer/export", s.handleSlicerExport)
+
+	// Sequence viewer
+	s.mux.HandleFunc("/sequence", s.handleSequencePage)
+	s.mux.HandleFunc("/sequence/events", s.handleSequenceEvents)
 
 	// Edit operations
 	s.mux.HandleFunc("/edit/remove-all-samples", s.handleRemoveAllSamples)

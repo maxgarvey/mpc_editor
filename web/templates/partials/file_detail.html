@@ -80,6 +80,9 @@
         <div class="detail-row"><span class="detail-label">Version:</span> <span>{{.SeqMeta.Version}}</span></div>
         <div class="detail-row"><span class="detail-label">BPM:</span> <span>{{.SeqMeta.BPM}}</span></div>
         <div class="detail-row"><span class="detail-label">Bars:</span> <span>{{.SeqMeta.Bars}}</span></div>
+        <div class="detail-row">
+            <a href="/sequence?path={{.File.Path}}" class="toolbar-link">View Step Grid</a>
+        </div>
     </div>
     {{end}}
 </div>

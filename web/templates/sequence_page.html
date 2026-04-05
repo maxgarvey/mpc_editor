@@ -1,0 +1,26 @@
+{{define "sequence_page.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPC Editor - Sequence</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/htmx.min.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <h1><span class="title-mpc">MPC</span> <span class="title-editor">Editor</span> &mdash; Sequence</h1>
+    </header>
+
+    <main class="sequence-layout">
+        <div class="sequence-panel" id="sequence-grid">
+            {{template "sequence_grid.html" .}}
+        </div>
+    </main>
+
+    <script src="/static/js/audio.js"></script>
+    <script src="/static/js/sequencer.js"></script>
+</body>
+</html>
+{{end}}
