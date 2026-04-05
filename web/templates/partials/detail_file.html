@@ -1,0 +1,13 @@
+{{define "detail_file.html"}}
+<div class="detail-generic">
+    <div class="detail-header">
+        <span class="detail-type">[{{.FileType | upper}}]</span>
+        <span class="detail-path">{{.RelPath}}</span>
+        {{if .Size}}<span class="detail-size">{{.Size}} bytes</span>{{end}}
+    </div>
+
+    <div class="detail-section">
+        <p style="color:#888">Preview not available for this file type.</p>
+    </div>
+</div>
+{{end}}

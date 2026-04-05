@@ -14,14 +14,17 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bank := parseIntParam(r, "bank", s.session.SelectedPad/16)
+	// Build browse data for the left panel.
+	browseData, err := s.buildBrowseData("", s.session.SelectedDetailPath)
+	if err != nil {
+		log.Printf("build browse data: %v", err)
+		browseData = BrowseData{}
+	}
 
 	data := map[string]any{
-		"Session":   s.session,
-		"PadGrid":   s.padGridData(bank),
-		"PadParams": s.padParamsData(),
-		"Banks":     []int{0, 1, 2, 3},
-		"Bank":      bank,
+		"Session":    s.session,
+		"BrowseData": browseData,
+		"DetailHTML": nil,
 	}
 	s.renderTemplate(w, "layout.html", data)
 }

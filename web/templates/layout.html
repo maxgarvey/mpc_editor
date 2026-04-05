@@ -9,53 +9,44 @@
 </head>
 <body>
     <header class="app-header">
-        <h1><span class="title-mpc">MPC</span> <span class="title-editor">Editor</span></h1>
-        <nav class="toolbar">
-            <button hx-post="/program/new" hx-confirm="Create new program? Unsaved changes will be lost.">New</button>
-            <input type="hidden" id="open-pgm-path" value="{{.Session.Prefs.LastPGMPath}}">
-            <input type="hidden" id="save-pgm-path" value="{{.Session.FilePath}}">
-            <button onclick="openBrowser('open-pgm', 'open-pgm-path')">Open</button>
-            <button onclick="openSaveConfirm()">Save</button>
-            <a href="/slicer" class="toolbar-link">Slicer</a>
-            <a href="/batch" class="toolbar-link">Batch</a>
-        </nav>
+        <div class="header-top">
+            <h1><span class="title-mpc">MPC</span> <span class="title-editor">Editor</span></h1>
+            <nav class="toolbar">
+                <button hx-post="/program/new" hx-confirm="Create new program? Unsaved changes will be lost." hx-target="#detail-panel">New</button>
+                <input type="hidden" id="open-pgm-path" value="{{.Session.Prefs.LastPGMPath}}">
+                <input type="hidden" id="save-pgm-path" value="{{.Session.FilePath}}">
+                <button onclick="openSaveConfirm()">Save</button>
+                <a href="/slicer" class="toolbar-link">Slicer</a>
+                <a href="/batch" class="toolbar-link">Batch</a>
+                <span class="toolbar-separator">|</span>
+                <span class="toolbar-label">Profile:</span>
+                <form hx-post="/edit/profile" class="inline-form">
+                    <select name="profile" hx-trigger="change" hx-post="/edit/profile">
+                        <option value="MPC1000" {{if eq .Session.Profile.Name "MPC1000"}}selected{{end}}>MPC1000</option>
+                        <option value="MPC500" {{if eq .Session.Profile.Name "MPC500"}}selected{{end}}>MPC500</option>
+                    </select>
+                </form>
+            </nav>
+        </div>
         <div class="file-info">
             {{if .Session.FilePath}}{{.Session.FilePath}} | {{end}}Workspace: {{.Session.WorkspacePath}}
         </div>
-        <div class="edit-toolbar">
-            <span class="toolbar-label">Edit:</span>
-            <button hx-post="/edit/remove-all-samples" hx-confirm="Remove all samples from all pads?" class="btn-sm">Remove All Samples</button>
-            <button hx-post="/edit/chromatic-layout" class="btn-sm">Chromatic Layout</button>
-            <button hx-post="/edit/copy-settings-to-all" hx-confirm="Copy selected pad's settings to all pads?" class="btn-sm">Copy Settings to All</button>
-            <span class="toolbar-separator">|</span>
-            <span class="toolbar-label">Profile:</span>
-            <form hx-post="/edit/profile" class="inline-form">
-                <select name="profile" hx-trigger="change" hx-post="/edit/profile">
-                    <option value="MPC1000" {{if eq .Session.Profile.Name "MPC1000"}}selected{{end}}>MPC1000</option>
-                    <option value="MPC500" {{if eq .Session.Profile.Name "MPC500"}}selected{{end}}>MPC500</option>
-                </select>
-            </form>
-        </div>
     </header>
 
-    <main class="editor-layout">
-        <section class="pad-section">
-            <div class="bank-tabs">
-                {{range .Banks}}
-                <button class="bank-tab {{if eq . $.Bank}}active{{end}}"
-                        hx-get="/partials/pad-grid?bank={{.}}"
-                        hx-target="#pad-grid">
-                    Bank {{padBankLabel .}}
-                </button>
-                {{end}}
+    <main class="browser-layout">
+        <aside class="browser-panel">
+            <div class="browser-panel-header">Workspace</div>
+            <div id="file-nav">
+                {{template "file_browser_nav.html" .BrowseData}}
             </div>
-            <div id="pad-grid">
-                {{template "pad_grid.html" .PadGrid}}
-            </div>
-        </section>
+        </aside>
 
-        <section class="params-section" id="pad-params">
-            {{template "pad_params.html" .PadParams}}
+        <section class="detail-panel" id="detail-panel">
+            {{if .DetailHTML}}
+            {{.DetailHTML}}
+            {{else}}
+            {{template "detail_empty.html" .}}
+            {{end}}
         </section>
     </main>
 

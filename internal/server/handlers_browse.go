@@ -13,12 +13,13 @@ import (
 
 // BrowseData holds template data for the file browser.
 type BrowseData struct {
-	Context     string
-	CurrentDir  string
-	RelDir      string
-	Breadcrumbs []BreadcrumbItem
-	Entries     []BrowseEntry
-	Workspace   string
+	Context      string
+	CurrentDir   string
+	RelDir       string
+	Breadcrumbs  []BreadcrumbItem
+	Entries      []BrowseEntry
+	Workspace    string
+	SelectedPath string // absolute path of the currently selected file (for highlighting)
 }
 
 // BreadcrumbItem represents a segment in the breadcrumb path.
@@ -148,6 +149,118 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	s.renderTemplate(w, "file_browser.html", data)
 }
 
+// buildBrowseData builds an unfiltered BrowseData for the persistent browser nav panel.
+func (s *Server) buildBrowseData(dir, selectedPath string) (BrowseData, error) {
+	workspace := s.session.WorkspacePath
+
+	var absDir string
+	if dir == "" {
+		absDir = workspace
+	} else if filepath.IsAbs(dir) {
+		absDir = dir
+	} else {
+		absDir = filepath.Join(workspace, dir)
+	}
+	absDir = filepath.Clean(absDir)
+
+	if err := s.validateWithinWorkspace(absDir); err != nil {
+		return BrowseData{}, err
+	}
+
+	entries, err := os.ReadDir(absDir)
+	if err != nil {
+		return BrowseData{}, err
+	}
+
+	var browseEntries []BrowseEntry
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+
+		if e.IsDir() {
+			browseEntries = append(browseEntries, BrowseEntry{
+				Name:  name,
+				Path:  filepath.Join(absDir, name),
+				IsDir: true,
+			})
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(name))
+		// No filtering — show all known MPC file types
+		if !filterAllows("browse", ext) {
+			continue
+		}
+
+		info, _ := e.Info()
+		var size int64
+		if info != nil {
+			size = info.Size()
+		}
+		browseEntries = append(browseEntries, BrowseEntry{
+			Name: name,
+			Path: filepath.Join(absDir, name),
+			Ext:  ext,
+			Size: size,
+		})
+	}
+
+	sort.Slice(browseEntries, func(i, j int) bool {
+		if browseEntries[i].IsDir != browseEntries[j].IsDir {
+			return browseEntries[i].IsDir
+		}
+		return strings.ToLower(browseEntries[i].Name) < strings.ToLower(browseEntries[j].Name)
+	})
+
+	relDir, _ := filepath.Rel(workspace, absDir)
+	if relDir == "." {
+		relDir = ""
+	}
+
+	breadcrumbs := []BreadcrumbItem{{Name: filepath.Base(workspace), Path: ""}}
+	if relDir != "" {
+		parts := strings.Split(relDir, string(filepath.Separator))
+		for i, part := range parts {
+			breadcrumbs = append(breadcrumbs, BreadcrumbItem{
+				Name: part,
+				Path: filepath.Join(parts[:i+1]...),
+			})
+		}
+	}
+
+	s.enrichBrowseEntries(browseEntries, workspace)
+
+	return BrowseData{
+		Context:      "browse",
+		CurrentDir:   absDir,
+		RelDir:       relDir,
+		Breadcrumbs:  breadcrumbs,
+		Entries:      browseEntries,
+		Workspace:    workspace,
+		SelectedPath: selectedPath,
+	}, nil
+}
+
+// handleBrowseNav handles HTMX requests to navigate the persistent browser panel.
+func (s *Server) handleBrowseNav(w http.ResponseWriter, r *http.Request) {
+	workspace := s.session.WorkspacePath
+	if workspace == "" {
+		http.Error(w, "no workspace configured", http.StatusBadRequest)
+		return
+	}
+
+	dir := r.FormValue("dir")
+	data, err := s.buildBrowseData(dir, s.session.SelectedDetailPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	s.renderTemplate(w, "file_browser_nav.html", data)
+}
+
 func (s *Server) handleWorkspaceSet(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -224,6 +337,11 @@ func (s *Server) handleWorkspaceMkdir(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Re-render browser at the parent directory.
+	if ctx == "browse" {
+		r.Form.Set("dir", parent)
+		s.handleBrowseNav(w, r)
+		return
+	}
 	r.Form.Set("dir", parent)
 	r.Form.Set("context", ctx)
 	s.handleBrowse(w, r)

@@ -65,13 +65,19 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Clear audio cache when program changes
+// Re-initialize UI components when detail panel or other HTMX content changes
 document.addEventListener('htmx:afterSettle', function(e) {
     if (e.detail.pathInfo && e.detail.pathInfo.requestPath === '/program/open') {
         AudioPlayer.clearCache();
     }
-    // Re-init drag-and-drop after HTMX updates
+    // When the detail panel loads a PGM, clear audio cache
+    if (e.detail.pathInfo && e.detail.pathInfo.requestPath === '/detail') {
+        AudioPlayer.clearCache();
+    }
+    // Re-init drag-and-drop and tabs after HTMX updates
     initDragDrop();
+    initTabs();
+
 });
 
 // --- Drag-and-Drop ---
@@ -274,3 +280,20 @@ function confirmSave() {
         values: { path: path }
     });
 }
+
+// --- Browser Nav Highlighting ---
+
+// Highlight selected file in browser nav when detail panel is swapped
+document.addEventListener('htmx:afterRequest', function(e) {
+    var elt = e.detail.elt;
+    if (!elt || !elt.classList || !elt.classList.contains('browser-entry')) return;
+
+    var hxTarget = elt.getAttribute('hx-target');
+    if (hxTarget !== '#detail-panel') return;
+
+    var entries = document.querySelectorAll('#file-nav .browser-entry');
+    entries.forEach(function(entry) {
+        entry.classList.remove('active');
+    });
+    elt.classList.add('active');
+});

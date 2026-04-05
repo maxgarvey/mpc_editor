@@ -1,4 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { setupWorkspace, cleanupWorkspace, setWorkspace } from './helpers';
+
+let workspace: string;
+
+test.beforeEach(async ({ page }) => {
+  workspace = await setupWorkspace();
+  await setWorkspace(page, workspace);
+});
+
+test.afterEach(async () => {
+  await cleanupWorkspace(workspace);
+});
 
 test.describe('Smoke tests', () => {
   test('page loads with correct title', async ({ page }) => {
@@ -14,17 +26,25 @@ test.describe('Smoke tests', () => {
     await expect(header).toContainText('Editor');
   });
 
-  test('pad grid renders 16 pads', async ({ page }) => {
+  test('browser panel is visible', async ({ page }) => {
     await page.goto('/');
-    const pads = page.locator('.pad-btn');
-    await expect(pads).toHaveCount(16);
+    const browser = page.locator('.browser-panel');
+    await expect(browser).toBeVisible();
+    await expect(browser).toContainText('Workspace');
   });
 
-  test('bank tabs are visible', async ({ page }) => {
+  test('detail panel shows welcome state', async ({ page }) => {
     await page.goto('/');
-    const tabs = page.locator('.bank-tab');
-    await expect(tabs).toHaveCount(4);
-    await expect(tabs.first()).toContainText('A');
+    const detail = page.locator('#detail-panel');
+    await expect(detail).toBeVisible();
+    await expect(detail).toContainText('Welcome to MPC Editor');
+  });
+
+  test('workspace files are listed in browser', async ({ page }) => {
+    await page.goto('/');
+    const entries = page.locator('#file-nav .browser-entry');
+    const count = await entries.count();
+    expect(count).toBeGreaterThan(0);
   });
 
   test('static assets load without errors', async ({ page }) => {
@@ -36,11 +56,5 @@ test.describe('Smoke tests', () => {
     });
     await page.goto('/');
     expect(errors).toHaveLength(0);
-  });
-
-  test('pad params panel is present', async ({ page }) => {
-    await page.goto('/');
-    const params = page.locator('#pad-params');
-    await expect(params).toBeVisible();
   });
 });

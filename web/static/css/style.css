@@ -18,10 +18,17 @@ body {
     border-bottom: 2px solid #333;
 }
 
+.header-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
 .app-header h1 {
     font-size: 18px;
     color: #d4d4d4;
-    margin-bottom: 8px;
+    margin-bottom: 0;
 }
 
 .title-mpc {
@@ -93,12 +100,109 @@ body {
     margin: 0 4px;
 }
 
-/* Main Layout */
+/* Main Layout - Two-column browser + detail */
+.browser-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 0;
+    height: calc(100vh - 110px);
+    overflow: hidden;
+}
+
+.browser-panel {
+    background: #151515;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.browser-panel-header {
+    font-size: 13px;
+    font-weight: bold;
+    color: #a0c840;
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+    background: #111;
+}
+
+#file-nav {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.nav-breadcrumbs {
+    padding: 6px 12px;
+    font-size: 12px;
+    background: #0f0f0f;
+    border-bottom: 1px solid #333;
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+.nav-entries {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.nav-mkdir {
+    padding: 8px 12px;
+    border-top: 1px solid #333;
+}
+
+.browser-entry.active {
+    background: #2a3a2a;
+    border-left: 3px solid #a0c840;
+}
+
+.detail-panel {
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* Detail welcome/empty state */
+.detail-welcome {
+    text-align: center;
+    color: #666;
+    padding: 80px 20px;
+}
+
+.detail-welcome h2 {
+    color: #888;
+    font-size: 20px;
+    margin-bottom: 12px;
+}
+
+.detail-welcome p {
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.detail-welcome-types {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+.type-hint {
+    font-family: monospace;
+    font-size: 12px;
+    color: #555;
+}
+
+/* PGM detail view */
+.detail-pgm .edit-toolbar {
+    margin-bottom: 12px;
+}
+
+/* Legacy editor layout (used inside detail panel for PGM editing) */
 .editor-layout {
     display: grid;
     grid-template-columns: 360px 1fr;
     gap: 20px;
-    padding: 20px;
     max-width: 1200px;
 }
 

@@ -137,7 +137,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/batch", s.handleBatchPage)
 	s.mux.HandleFunc("/batch/run", s.handleBatchRun)
 
+	// Detail panel (type-dispatched)
+	s.mux.HandleFunc("/detail", s.handleDetail)
+
 	// File browser and workspace
+	s.mux.HandleFunc("/browse/nav", s.handleBrowseNav)
 	s.mux.HandleFunc("/browse", s.handleBrowse)
 	s.mux.HandleFunc("/workspace/set", s.handleWorkspaceSet)
 	s.mux.HandleFunc("/workspace/mkdir", s.handleWorkspaceMkdir)

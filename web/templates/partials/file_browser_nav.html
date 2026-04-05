@@ -1,0 +1,34 @@
+{{define "file_browser_nav.html"}}
+<div class="nav-breadcrumbs">
+    {{range $i, $b := .Breadcrumbs}}{{if $i}}<span class="breadcrumb-sep">/</span>{{end}}<a class="breadcrumb-link" hx-get="/browse/nav?dir={{$b.Path}}" hx-target="#file-nav">{{$b.Name}}</a>{{end}}
+</div>
+<div class="nav-entries">
+    {{if not .Entries}}
+    <div class="browser-empty">Empty directory</div>
+    {{end}}
+    {{range .Entries}}
+    <div class="browser-entry {{if .IsDir}}is-dir{{end}} {{if eq .Path $.SelectedPath}}active{{end}}"
+         {{if .IsDir}}
+         hx-get="/browse/nav?dir={{.Path}}"
+         hx-target="#file-nav"
+         {{else}}
+         hx-get="/detail?path={{.Path}}"
+         hx-target="#detail-panel"
+         hx-push-url="false"
+         {{end}}>
+        <span class="entry-icon">{{if .IsDir}}[DIR]{{else if eq .Ext ".pgm"}}[PGM]{{else if eq .Ext ".wav"}}[WAV]{{else if eq .Ext ".mid"}}[MID]{{else if eq .Ext ".seq"}}[SEQ]{{else if eq .Ext ".sng"}}[SNG]{{else if eq .Ext ".all"}}[ALL]{{else}}[---]{{end}}</span>
+        <span class="entry-name">{{.Name}}</span>
+        {{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}
+        {{if .WavInfo}}<span class="badge badge-info">{{.WavInfo}}</span>{{end}}
+    </div>
+    {{end}}
+</div>
+<div class="nav-mkdir">
+    <form hx-post="/workspace/mkdir" hx-target="#file-nav" class="inline-form">
+        <input type="hidden" name="parent" value="{{.RelDir}}">
+        <input type="hidden" name="context" value="browse">
+        <input type="text" name="name" placeholder="New folder" class="path-input" style="width:120px">
+        <button type="submit" class="btn-sm">New Folder</button>
+    </form>
+</div>
+{{end}}

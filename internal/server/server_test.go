@@ -130,8 +130,11 @@ func TestIndex(t *testing.T) {
 	if !strings.Contains(body, "MPC Editor") {
 		t.Error("missing title in response")
 	}
-	if !strings.Contains(body, "Bank A") {
-		t.Error("missing Bank A tab")
+	if !strings.Contains(body, "Workspace") {
+		t.Error("missing Workspace panel")
+	}
+	if !strings.Contains(body, "detail-panel") {
+		t.Error("missing detail panel")
 	}
 }
 

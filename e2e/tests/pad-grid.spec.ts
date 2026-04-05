@@ -1,14 +1,19 @@
 import { test, expect } from '@playwright/test';
-import { setupWorkspace, cleanupWorkspace, setWorkspace, openProgram, waitForHtmxOrTimeout } from './helpers';
-import path from 'path';
+import { setupWorkspace, cleanupWorkspace, setWorkspace, scanWorkspace, waitForHtmxOrTimeout } from './helpers';
 
 let workspace: string;
 
 test.beforeEach(async ({ page }) => {
   workspace = await setupWorkspace();
   await setWorkspace(page, workspace);
-  await openProgram(page, path.join(workspace, 'test.pgm'));
+  await scanWorkspace(page);
   await page.goto('/');
+
+  // Open the PGM file by clicking it in the browser panel
+  const pgmEntry = page.locator('#file-nav .browser-entry', { hasText: '.pgm' }).first();
+  const htmxDone = waitForHtmxOrTimeout(page);
+  await pgmEntry.click();
+  await htmxDone;
 });
 
 test.afterEach(async () => {

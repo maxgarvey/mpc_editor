@@ -14,16 +14,17 @@ import (
 // Session holds the in-memory state for the current editing session.
 // Single-user (local app), so one global session is fine.
 type Session struct {
-	Program       *pgm.Program
-	Matrix        pgm.SampleMatrix
-	FilePath      string // path to the current .pgm file (empty if new)
-	SelectedPad   int    // currently selected pad index (0-63)
-	Profile       pgm.Profile
-	SampleDir     string        // directory where samples are located
-	WorkspacePath string        // root directory for MPC files
-	Slicer        *audio.Slicer // active slicer (nil if none)
-	SlicerPath    string        // path to WAV loaded in slicer
-	Prefs         Preferences
+	Program            *pgm.Program
+	Matrix             pgm.SampleMatrix
+	FilePath           string // path to the current .pgm file (empty if new)
+	SelectedPad        int    // currently selected pad index (0-63)
+	Profile            pgm.Profile
+	SampleDir          string        // directory where samples are located
+	WorkspacePath      string        // root directory for MPC files
+	Slicer             *audio.Slicer // active slicer (nil if none)
+	SlicerPath         string        // path to WAV loaded in slicer
+	Prefs              Preferences
+	SelectedDetailPath string // path of the file shown in the detail panel
 }
 
 // NewSession creates a session with a blank program and loads saved preferences.

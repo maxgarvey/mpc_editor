@@ -1,0 +1,49 @@
+{{define "detail_wav.html"}}
+<div class="detail-wav">
+    <div class="detail-header">
+        <span class="detail-type">[WAV]</span>
+        <span class="detail-path">{{.RelPath}}</span>
+    </div>
+
+    {{if .WavMeta}}
+    <div class="detail-section">
+        <h3>Audio Info</h3>
+        <div class="detail-row"><span class="detail-label">Sample Rate:</span> <span>{{.WavMeta.SampleRate}} Hz</span></div>
+        <div class="detail-row"><span class="detail-label">Channels:</span> <span>{{if eq .WavMeta.Channels 1}}Mono{{else if eq .WavMeta.Channels 2}}Stereo{{else}}{{.WavMeta.Channels}}{{end}}</span></div>
+        <div class="detail-row"><span class="detail-label">Bit Depth:</span> <span>{{.WavMeta.BitsPerSample}} bit</span></div>
+        <div class="detail-row"><span class="detail-label">Frames:</span> <span>{{.WavMeta.FrameCount}}</span></div>
+        {{if .WavMeta.Duration}}
+        <div class="detail-row"><span class="detail-label">Duration:</span> <span>{{.WavMeta.Duration}}</span></div>
+        {{end}}
+        <div class="detail-row">
+            <span class="detail-label">Source:</span>
+            <form hx-post="/file/source" hx-swap="none" class="inline-form source-form">
+                <input type="hidden" name="id" value="{{.FileID}}">
+                <input type="text" name="source" value="{{.WavMeta.Source}}" placeholder="e.g. sample pack, URL, recording" class="sample-input">
+                <button type="submit" class="btn-sm btn-set">Set</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="detail-section">
+        <button class="btn-sm btn-set" onclick="AudioPlayer.playURL('/audio/info?path={{.Path}}')">Play</button>
+        <button class="btn-sm" onclick="AudioPlayer.stop()">Stop</button>
+    </div>
+    {{else}}
+    <div class="detail-section">
+        <p style="color:#888">No metadata available. Try scanning the workspace.</p>
+    </div>
+    {{end}}
+
+    {{if .UsedBy}}
+    <div class="detail-section">
+        <h3>Used by Programs</h3>
+        <ul class="detail-list">
+            {{range .UsedBy}}
+            <li><a hx-get="/detail?path={{.Path}}" hx-target="#detail-panel">{{.Path}}</a></li>
+            {{end}}
+        </ul>
+    </div>
+    {{end}}
+</div>
+{{end}}
