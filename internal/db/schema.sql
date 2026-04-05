@@ -76,3 +76,13 @@ CREATE TABLE IF NOT EXISTS song_steps (
     tempo        REAL NOT NULL DEFAULT 0,
     UNIQUE(song_file_id, step)
 );
+
+-- Tags attached to files (free-form and key:value).
+CREATE TABLE IF NOT EXISTS file_tags (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id   INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    tag_key   TEXT NOT NULL DEFAULT '',
+    tag_value TEXT NOT NULL,
+    auto      INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(file_id, tag_key, tag_value)
+);

@@ -3,7 +3,9 @@ package scanner
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,6 +114,15 @@ func (s *Scanner) ScanWorkspace(workspace string) (*ScanResult, error) {
 		if parseErr != nil {
 			result.Errors = append(result.Errors, relPath+": "+parseErr.Error())
 		} else {
+			// Auto-tag based on extracted metadata.
+			switch fileType {
+			case "wav":
+				s.autoTagWAV(ctx, fileID)
+			case "pgm":
+				s.autoTagPGM(ctx, fileID)
+			case "seq":
+				s.autoTagSEQ(ctx, fileID)
+			}
 			// Mark as scanned.
 			_, _ = s.queries.UpsertFile(ctx, db.UpsertFileParams{
 				Path:     relPath,
@@ -271,4 +282,75 @@ func (s *Scanner) findWavByName(ctx context.Context, name string) (db.File, erro
 	}
 
 	return db.File{}, sql.ErrNoRows
+}
+
+// addTag is a helper that logs but doesn't fail on tag insertion errors.
+func (s *Scanner) addTag(ctx context.Context, fileID int64, key, value string) {
+	_ = s.queries.AddFileTag(ctx, db.AddFileTagParams{
+		FileID:   fileID,
+		TagKey:   key,
+		TagValue: value,
+		Auto:     1,
+	})
+}
+
+// autoTagWAV generates tags from WAV metadata.
+func (s *Scanner) autoTagWAV(ctx context.Context, fileID int64) {
+	_ = s.queries.RemoveAutoTags(ctx, fileID)
+
+	meta, err := s.queries.GetWavMeta(ctx, fileID)
+	if err != nil {
+		return
+	}
+
+	if meta.Channels == 1 {
+		s.addTag(ctx, fileID, "channels", "mono")
+	} else if meta.Channels == 2 {
+		s.addTag(ctx, fileID, "channels", "stereo")
+	}
+	if meta.SampleRate > 0 {
+		s.addTag(ctx, fileID, "sample_rate", fmt.Sprintf("%d", meta.SampleRate))
+	}
+	if meta.BitsPerSample > 0 {
+		s.addTag(ctx, fileID, "bit_depth", fmt.Sprintf("%d", meta.BitsPerSample))
+	}
+}
+
+// autoTagPGM generates tags from PGM sample references.
+func (s *Scanner) autoTagPGM(ctx context.Context, fileID int64) {
+	_ = s.queries.RemoveAutoTags(ctx, fileID)
+
+	samples, err := s.queries.ListPgmSamples(ctx, fileID)
+	if err != nil {
+		return
+	}
+
+	unique := make(map[string]bool)
+	for _, sample := range samples {
+		if sample.SampleName != "" {
+			unique[sample.SampleName] = true
+		}
+	}
+
+	s.addTag(ctx, fileID, "samples", fmt.Sprintf("%d", len(unique)))
+	for name := range unique {
+		s.addTag(ctx, fileID, "", name)
+	}
+}
+
+// autoTagSEQ generates tags from SEQ metadata.
+func (s *Scanner) autoTagSEQ(ctx context.Context, fileID int64) {
+	_ = s.queries.RemoveAutoTags(ctx, fileID)
+
+	meta, err := s.queries.GetSeqMeta(ctx, fileID)
+	if err != nil {
+		return
+	}
+
+	if meta.Bpm > 0 {
+		s.addTag(ctx, fileID, "bpm", fmt.Sprintf("%d", int(math.Round(meta.Bpm))))
+	}
+	if meta.Bars > 0 {
+		s.addTag(ctx, fileID, "bars", fmt.Sprintf("%d", meta.Bars))
+	}
 }

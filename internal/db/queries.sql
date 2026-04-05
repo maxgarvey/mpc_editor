@@ -160,3 +160,26 @@ FROM song_steps ss
 LEFT JOIN files f ON f.id = ss.seq_file_id
 WHERE ss.song_file_id = ?
 ORDER BY ss.step;
+
+-- File tags
+
+-- name: ListFileTags :many
+SELECT id, file_id, tag_key, tag_value, auto FROM file_tags
+WHERE file_id = ? ORDER BY tag_key, tag_value;
+
+-- name: AddFileTag :exec
+INSERT OR IGNORE INTO file_tags (file_id, tag_key, tag_value, auto)
+VALUES (?, ?, ?, ?);
+
+-- name: RemoveFileTag :exec
+DELETE FROM file_tags WHERE file_id = ? AND tag_key = ? AND tag_value = ?;
+
+-- name: RemoveAutoTags :exec
+DELETE FROM file_tags WHERE file_id = ? AND auto = 1;
+
+-- name: ListFilesByTag :many
+SELECT DISTINCT f.id, f.path, f.file_type, f.size
+FROM files f
+JOIN file_tags ft ON ft.file_id = f.id
+WHERE ft.tag_value = ? OR (ft.tag_key = ? AND ft.tag_value = ?)
+ORDER BY f.path;

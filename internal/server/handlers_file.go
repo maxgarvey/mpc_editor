@@ -180,6 +180,88 @@ func (s *Server) handleSetWavSource(w http.ResponseWriter, r *http.Request) {
 	s.handleFileDetail(w, r)
 }
 
+// handleTagAdd adds a tag to a file.
+// POST /file/tags/add — form params: id (file_id), tag (raw string like "kick" or "genre:house")
+func (s *Server) handleTagAdd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	fileID, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid file id", http.StatusBadRequest)
+		return
+	}
+
+	raw := strings.TrimSpace(r.FormValue("tag"))
+	if raw == "" {
+		http.Error(w, "empty tag", http.StatusBadRequest)
+		return
+	}
+
+	var key, value string
+	if idx := strings.Index(raw, ":"); idx > 0 {
+		key = raw[:idx]
+		value = raw[idx+1:]
+	} else {
+		value = raw
+	}
+
+	ctx := context.Background()
+	_ = s.queries.AddFileTag(ctx, db.AddFileTagParams{
+		FileID:   fileID,
+		TagKey:   key,
+		TagValue: value,
+		Auto:     0,
+	})
+
+	s.renderTagsSection(w, ctx, fileID)
+}
+
+// handleTagRemove removes a tag from a file.
+// POST /file/tags/remove — form params: id (file_id), key, value
+func (s *Server) handleTagRemove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	fileID, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid file id", http.StatusBadRequest)
+		return
+	}
+
+	ctx := context.Background()
+	_ = s.queries.RemoveFileTag(ctx, db.RemoveFileTagParams{
+		FileID:   fileID,
+		TagKey:   r.FormValue("key"),
+		TagValue: r.FormValue("value"),
+	})
+
+	s.renderTagsSection(w, ctx, fileID)
+}
+
+// renderTagsSection renders the tags partial for a file.
+func (s *Server) renderTagsSection(w http.ResponseWriter, ctx context.Context, fileID int64) {
+	tags, _ := s.queries.ListFileTags(ctx, fileID)
+	data := map[string]any{
+		"FileID": fileID,
+		"Tags":   tags,
+	}
+	s.renderTemplate(w, "tags_section.html", data)
+}
+
+// loadTags fetches tags for a file and returns them (for use in detail renderers).
+func (s *Server) loadTags(ctx context.Context, fileID int64) []db.FileTag {
+	tags, err := s.queries.ListFileTags(ctx, fileID)
+	if err != nil {
+		return nil
+	}
+	return tags
+}
+
 func (s *Server) enrichSeqDetail(ctx context.Context, data *FileDetailData, fileID int64) {
 	meta, err := s.queries.GetSeqMeta(ctx, fileID)
 	if err == nil && meta.Version != "" {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/maxgarvey/mpc_editor/internal/db"
 	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
@@ -16,6 +17,8 @@ type SequenceViewData struct {
 	Version    string
 	CurrentBar int
 	Grid       *seq.StepGrid
+	FileID     int64
+	Tags       []db.FileTag
 }
 
 func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {

@@ -54,6 +54,8 @@
         </ul>
     </div>
     {{end}}
+
+    {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>
 <script src="/static/js/wav_waveform.js"></script>
 <script>WavWaveform.load('{{.RelPath}}');</script>

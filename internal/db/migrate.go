@@ -40,6 +40,7 @@ func Open() (*sql.DB, *Queries, error) {
 	migrateAddWorkspacePath(sqlDB)
 	migrateCreateCatalog(sqlDB)
 	migrateAddWavSource(sqlDB)
+	migrateCreateFileTags(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -127,6 +128,18 @@ func migrateAddWavSource(sqlDB *sql.DB) {
 		// Ignore "duplicate column" — already migrated.
 		return
 	}
+}
+
+// migrateCreateFileTags creates the file_tags table for existing databases.
+func migrateCreateFileTags(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`CREATE TABLE IF NOT EXISTS file_tags (
+		id        INTEGER PRIMARY KEY AUTOINCREMENT,
+		file_id   INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+		tag_key   TEXT NOT NULL DEFAULT '',
+		tag_value TEXT NOT NULL,
+		auto      INTEGER NOT NULL DEFAULT 0,
+		UNIQUE(file_id, tag_key, tag_value)
+	)`)
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

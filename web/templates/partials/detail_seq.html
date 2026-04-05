@@ -12,6 +12,8 @@
         {{template "sequence_grid.html" .}}
     </div>
     {{end}}
+
+    {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>
 <script src="/static/js/sequencer.js"></script>
 {{end}}

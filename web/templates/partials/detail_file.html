@@ -9,5 +9,7 @@
     <div class="detail-section">
         <p style="color:#888">Preview not available for this file type.</p>
     </div>
+
+    {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>
 {{end}}

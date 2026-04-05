@@ -13,5 +13,7 @@
     <div class="detail-section">
         <p style="color:#888">Song editing is planned for a future update. The binary format is not yet reverse-engineered.</p>
     </div>
+
+    {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>
 {{end}}

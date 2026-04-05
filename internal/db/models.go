@@ -17,6 +17,14 @@ type File struct {
 	Scanned  int64
 }
 
+type FileTag struct {
+	ID       int64
+	FileID   int64
+	TagKey   string
+	TagValue string
+	Auto     int64
+}
+
 type PgmMetum struct {
 	FileID        int64
 	MidiPgmChange int64

@@ -1409,3 +1409,66 @@ tr.track-muted .track-label {
     justify-content: flex-end;
     margin-top: 16px;
 }
+
+/* --- Tags --- */
+
+.detail-tags {
+    margin-top: 12px;
+}
+
+.tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 12px;
+    font-size: 11px;
+    color: #ccc;
+}
+
+.tag-chip.tag-auto {
+    border-color: #555;
+    color: #999;
+}
+
+.tag-key {
+    color: #a0c840;
+    font-weight: bold;
+}
+
+.tag-value {
+    /* default color inherited from .tag-chip */
+}
+
+.tag-remove {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.tag-remove:hover {
+    color: #ff6b4a;
+}
+
+.tag-add-form {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tag-input {
+    width: 200px;
+}

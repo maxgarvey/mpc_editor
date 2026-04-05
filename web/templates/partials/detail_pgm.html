@@ -27,5 +27,7 @@
             {{template "pad_params.html" .PadParams}}
         </section>
     </div>
+
+    {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>
 {{end}}

@@ -91,6 +91,16 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 		"Banks":     []int{0, 1, 2, 3},
 		"Bank":      bank,
 	}
+
+	// Look up file ID for tags.
+	workspace := s.session.WorkspacePath
+	if relPath, err := filepath.Rel(workspace, path); err == nil {
+		if f, err := s.queries.GetFileByPath(r.Context(), relPath); err == nil {
+			data["FileID"] = f.ID
+			data["Tags"] = s.loadTags(r.Context(), f.ID)
+		}
+	}
+
 	s.renderTemplate(w, "detail_pgm.html", data)
 }
 
@@ -138,6 +148,8 @@ func (s *Server) renderDetailWAV(w http.ResponseWriter, path string) {
 			}
 			data["UsedBy"] = usedBy
 		}
+
+		data["Tags"] = s.loadTags(ctx, f.ID)
 	}
 
 	s.renderTemplate(w, "detail_wav.html", data)
@@ -168,6 +180,16 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		CurrentBar: bar,
 		Grid:       grid,
 	}
+
+	// Look up file ID for tags.
+	workspace := s.session.WorkspacePath
+	if relPath, err := filepath.Rel(workspace, path); err == nil {
+		if f, err := s.queries.GetFileByPath(r.Context(), relPath); err == nil {
+			data.FileID = f.ID
+			data.Tags = s.loadTags(r.Context(), f.ID)
+		}
+	}
+
 	s.renderTemplate(w, "detail_seq.html", data)
 }
 
@@ -189,6 +211,7 @@ func (s *Server) renderDetailSNG(w http.ResponseWriter, path string) {
 	if err == nil {
 		data["FileID"] = f.ID
 		data["Size"] = f.Size
+		data["Tags"] = s.loadTags(ctx, f.ID)
 	}
 
 	s.renderTemplate(w, "detail_sng.html", data)
@@ -213,6 +236,7 @@ func (s *Server) renderDetailFile(w http.ResponseWriter, path, ext string) {
 	if err == nil {
 		data["FileID"] = f.ID
 		data["Size"] = f.Size
+		data["Tags"] = s.loadTags(ctx, f.ID)
 	}
 
 	s.renderTemplate(w, "detail_file.html", data)

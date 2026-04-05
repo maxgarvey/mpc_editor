@@ -1,0 +1,23 @@
+{{define "tags_section.html"}}
+<div class="detail-section detail-tags" id="tags-section">
+    <h3>Tags</h3>
+    <div class="tag-list">
+        {{range .Tags}}
+        <span class="tag-chip {{if .Auto}}tag-auto{{end}}">
+            {{if .TagKey}}<span class="tag-key">{{.TagKey}}:</span>{{end}}
+            <span class="tag-value">{{.TagValue}}</span>
+            <button class="tag-remove"
+                hx-post="/file/tags/remove"
+                hx-vals='{"id":"{{$.FileID}}", "key":"{{.TagKey}}", "value":"{{.TagValue}}"}'
+                hx-target="#tags-section"
+                hx-swap="outerHTML">&times;</button>
+        </span>
+        {{end}}
+    </div>
+    <form class="tag-add-form" hx-post="/file/tags/add" hx-target="#tags-section" hx-swap="outerHTML">
+        <input type="hidden" name="id" value="{{.FileID}}">
+        <input type="text" name="tag" placeholder="tag or key:value" class="sample-input tag-input">
+        <button type="submit" class="btn-sm btn-set">Add</button>
+    </form>
+</div>
+{{end}}

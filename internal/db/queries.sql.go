@@ -10,6 +10,28 @@ import (
 	"database/sql"
 )
 
+const addFileTag = `-- name: AddFileTag :exec
+INSERT OR IGNORE INTO file_tags (file_id, tag_key, tag_value, auto)
+VALUES (?, ?, ?, ?)
+`
+
+type AddFileTagParams struct {
+	FileID   int64
+	TagKey   string
+	TagValue string
+	Auto     int64
+}
+
+func (q *Queries) AddFileTag(ctx context.Context, arg AddFileTagParams) error {
+	_, err := q.db.ExecContext(ctx, addFileTag,
+		arg.FileID,
+		arg.TagKey,
+		arg.TagValue,
+		arg.Auto,
+	)
+	return err
+}
+
 const countMissingSamples = `-- name: CountMissingSamples :one
 SELECT COUNT(*) FROM pgm_samples
 WHERE pgm_file_id = ? AND sample_file_id IS NULL AND sample_name != ''
@@ -288,6 +310,91 @@ func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
 	return items, nil
 }
 
+const listFileTags = `-- name: ListFileTags :many
+
+SELECT id, file_id, tag_key, tag_value, auto FROM file_tags
+WHERE file_id = ? ORDER BY tag_key, tag_value
+`
+
+// File tags
+func (q *Queries) ListFileTags(ctx context.Context, fileID int64) ([]FileTag, error) {
+	rows, err := q.db.QueryContext(ctx, listFileTags, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FileTag
+	for rows.Next() {
+		var i FileTag
+		if err := rows.Scan(
+			&i.ID,
+			&i.FileID,
+			&i.TagKey,
+			&i.TagValue,
+			&i.Auto,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilesByTag = `-- name: ListFilesByTag :many
+SELECT DISTINCT f.id, f.path, f.file_type, f.size
+FROM files f
+JOIN file_tags ft ON ft.file_id = f.id
+WHERE ft.tag_value = ? OR (ft.tag_key = ? AND ft.tag_value = ?)
+ORDER BY f.path
+`
+
+type ListFilesByTagParams struct {
+	TagValue   string
+	TagKey     string
+	TagValue_2 string
+}
+
+type ListFilesByTagRow struct {
+	ID       int64
+	Path     string
+	FileType string
+	Size     int64
+}
+
+func (q *Queries) ListFilesByTag(ctx context.Context, arg ListFilesByTagParams) ([]ListFilesByTagRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesByTag, arg.TagValue, arg.TagKey, arg.TagValue_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFilesByTagRow
+	for rows.Next() {
+		var i ListFilesByTagRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.FileType,
+			&i.Size,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFilesByType = `-- name: ListFilesByType :many
 SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE file_type = ? ORDER BY path
 `
@@ -496,6 +603,30 @@ func (q *Queries) ListSongSteps(ctx context.Context, songFileID int64) ([]ListSo
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeAutoTags = `-- name: RemoveAutoTags :exec
+DELETE FROM file_tags WHERE file_id = ? AND auto = 1
+`
+
+func (q *Queries) RemoveAutoTags(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, removeAutoTags, fileID)
+	return err
+}
+
+const removeFileTag = `-- name: RemoveFileTag :exec
+DELETE FROM file_tags WHERE file_id = ? AND tag_key = ? AND tag_value = ?
+`
+
+type RemoveFileTagParams struct {
+	FileID   int64
+	TagKey   string
+	TagValue string
+}
+
+func (q *Queries) RemoveFileTag(ctx context.Context, arg RemoveFileTagParams) error {
+	_, err := q.db.ExecContext(ctx, removeFileTag, arg.FileID, arg.TagKey, arg.TagValue)
+	return err
 }
 
 const resolveUnlinkedSamples = `-- name: ResolveUnlinkedSamples :exec
