@@ -876,10 +876,18 @@ body {
 }
 
 .entry-icon {
-    font-family: monospace;
-    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
     color: #888;
-    min-width: 36px;
+}
+
+.entry-icon svg {
+    width: 16px;
+    height: 16px;
 }
 
 .browser-entry.is-dir .entry-icon {
