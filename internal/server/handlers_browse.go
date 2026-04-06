@@ -290,6 +290,11 @@ func (s *Server) handleWorkspaceSet(w http.ResponseWriter, r *http.Request) {
 		log.Printf("save workspace path: %v", err)
 	}
 
+	// Clear the last detail path — it refers to the old workspace.
+	s.session.SelectedDetailPath = ""
+	s.session.Prefs.LastDetailPath = ""
+	_ = s.queries.UpdateLastDetailPath(r.Context(), "")
+
 	// Re-scan the new workspace in the background.
 	go func() {
 		if result, err := s.scanner.ScanWorkspace(absPath); err != nil {

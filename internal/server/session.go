@@ -43,7 +43,7 @@ func NewSession(queries *db.Queries) *Session {
 		log.Printf("create workspace %s: %v", workspace, err)
 	}
 
-	return &Session{
+	sess := &Session{
 		Program:       pgm.NewProgram(),
 		SelectedPad:   0,
 		Profile:       profile,
@@ -51,6 +51,38 @@ func NewSession(queries *db.Queries) *Session {
 		SampleDir:     workspace,
 		Prefs:         prefs,
 	}
+
+	// Restore the last opened program if the file still exists.
+	if prefs.LastPGMPath != "" {
+		if _, err := os.Stat(prefs.LastPGMPath); err == nil {
+			if prog, err := pgm.OpenProgram(prefs.LastPGMPath); err == nil {
+				sess.Program = prog
+				sess.FilePath = prefs.LastPGMPath
+				sess.SampleDir = filepath.Dir(prefs.LastPGMPath)
+				// Populate sample matrix from program.
+				for i := 0; i < 64; i++ {
+					pad := prog.Pad(i)
+					for j := 0; j < 4; j++ {
+						name := pad.Layer(j).GetSampleName()
+						if name != "" {
+							ref := pgm.FindSampleInDirs(name, sess.SampleDir, workspace)
+							sess.Matrix.Set(i, j, &ref)
+						}
+					}
+				}
+				log.Printf("restored program: %s", prefs.LastPGMPath)
+			} else {
+				log.Printf("restore program %s: %v", prefs.LastPGMPath, err)
+			}
+		}
+	}
+
+	// Restore the last viewed detail path.
+	if prefs.LastDetailPath != "" {
+		sess.SelectedDetailPath = prefs.LastDetailPath
+	}
+
+	return sess
 }
 
 func defaultWorkspacePath() string {
@@ -69,11 +101,12 @@ func loadPrefsFromDB(queries *db.Queries) Preferences {
 		return DefaultPreferences()
 	}
 	return Preferences{
-		Profile:       row.Profile,
-		LastPGMPath:   row.LastPgmPath,
-		LastWAVPath:   row.LastWavPath,
-		AuditionMode:  row.AuditionMode,
-		WorkspacePath: row.WorkspacePath,
+		Profile:        row.Profile,
+		LastPGMPath:    row.LastPgmPath,
+		LastWAVPath:    row.LastWavPath,
+		AuditionMode:   row.AuditionMode,
+		WorkspacePath:  row.WorkspacePath,
+		LastDetailPath: row.LastDetailPath,
 	}
 }
 

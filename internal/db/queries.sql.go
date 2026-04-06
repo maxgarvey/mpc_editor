@@ -143,16 +143,17 @@ func (q *Queries) GetPgmMeta(ctx context.Context, fileID int64) (PgmMetum, error
 }
 
 const getPreferences = `-- name: GetPreferences :one
-SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path
+SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path, last_detail_path
 FROM preferences WHERE id = 1
 `
 
 type GetPreferencesRow struct {
-	Profile       string
-	LastPgmPath   string
-	LastWavPath   string
-	AuditionMode  string
-	WorkspacePath string
+	Profile        string
+	LastPgmPath    string
+	LastWavPath    string
+	AuditionMode   string
+	WorkspacePath  string
+	LastDetailPath string
 }
 
 func (q *Queries) GetPreferences(ctx context.Context) (GetPreferencesRow, error) {
@@ -164,6 +165,7 @@ func (q *Queries) GetPreferences(ctx context.Context) (GetPreferencesRow, error)
 		&i.LastWavPath,
 		&i.AuditionMode,
 		&i.WorkspacePath,
+		&i.LastDetailPath,
 	)
 	return i, err
 }
@@ -646,16 +648,17 @@ func (q *Queries) ResolveUnlinkedSamples(ctx context.Context) error {
 }
 
 const updateAllPreferences = `-- name: UpdateAllPreferences :exec
-UPDATE preferences SET profile = ?, last_pgm_path = ?, last_wav_path = ?, audition_mode = ?, workspace_path = ?
+UPDATE preferences SET profile = ?, last_pgm_path = ?, last_wav_path = ?, audition_mode = ?, workspace_path = ?, last_detail_path = ?
 WHERE id = 1
 `
 
 type UpdateAllPreferencesParams struct {
-	Profile       string
-	LastPgmPath   string
-	LastWavPath   string
-	AuditionMode  string
-	WorkspacePath string
+	Profile        string
+	LastPgmPath    string
+	LastWavPath    string
+	AuditionMode   string
+	WorkspacePath  string
+	LastDetailPath string
 }
 
 func (q *Queries) UpdateAllPreferences(ctx context.Context, arg UpdateAllPreferencesParams) error {
@@ -665,6 +668,7 @@ func (q *Queries) UpdateAllPreferences(ctx context.Context, arg UpdateAllPrefere
 		arg.LastWavPath,
 		arg.AuditionMode,
 		arg.WorkspacePath,
+		arg.LastDetailPath,
 	)
 	return err
 }
@@ -675,6 +679,15 @@ UPDATE preferences SET audition_mode = ? WHERE id = 1
 
 func (q *Queries) UpdateAuditionMode(ctx context.Context, auditionMode string) error {
 	_, err := q.db.ExecContext(ctx, updateAuditionMode, auditionMode)
+	return err
+}
+
+const updateLastDetailPath = `-- name: UpdateLastDetailPath :exec
+UPDATE preferences SET last_detail_path = ? WHERE id = 1
+`
+
+func (q *Queries) UpdateLastDetailPath(ctx context.Context, lastDetailPath string) error {
+	_, err := q.db.ExecContext(ctx, updateLastDetailPath, lastDetailPath)
 	return err
 }
 

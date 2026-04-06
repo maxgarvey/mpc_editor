@@ -25,6 +25,9 @@ func (s *Server) handleDetailSelect(w http.ResponseWriter, r *http.Request) {
 		path = s.resolvePath(path)
 	}
 	s.session.SelectedDetailPath = path
+	if err := s.queries.UpdateLastDetailPath(r.Context(), path); err != nil {
+		log.Printf("save last detail path: %v", err)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -38,6 +41,7 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.session.SelectedDetailPath = path
+	_ = s.queries.UpdateLastDetailPath(r.Context(), path)
 
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {

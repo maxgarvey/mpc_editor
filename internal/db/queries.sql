@@ -1,5 +1,5 @@
 -- name: GetPreferences :one
-SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path
+SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path, last_detail_path
 FROM preferences WHERE id = 1;
 
 -- name: UpdateProfile :exec
@@ -17,8 +17,11 @@ UPDATE preferences SET audition_mode = ? WHERE id = 1;
 -- name: UpdateWorkspacePath :exec
 UPDATE preferences SET workspace_path = ? WHERE id = 1;
 
+-- name: UpdateLastDetailPath :exec
+UPDATE preferences SET last_detail_path = ? WHERE id = 1;
+
 -- name: UpdateAllPreferences :exec
-UPDATE preferences SET profile = ?, last_pgm_path = ?, last_wav_path = ?, audition_mode = ?, workspace_path = ?
+UPDATE preferences SET profile = ?, last_pgm_path = ?, last_wav_path = ?, audition_mode = ?, workspace_path = ?, last_detail_path = ?
 WHERE id = 1;
 
 -- File catalog

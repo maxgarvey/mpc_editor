@@ -26,10 +26,19 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		browseData = BrowseData{}
 	}
 
+	// Compute the relative path for the last viewed detail file so JS can auto-open it.
+	var lastDetailRelPath string
+	if s.session.SelectedDetailPath != "" && s.session.WorkspacePath != "" {
+		if rel, err := filepath.Rel(s.session.WorkspacePath, s.session.SelectedDetailPath); err == nil {
+			lastDetailRelPath = rel
+		}
+	}
+
 	data := map[string]any{
-		"Session":    s.session,
-		"BrowseData": browseData,
-		"DetailHTML": nil,
+		"Session":           s.session,
+		"BrowseData":        browseData,
+		"DetailHTML":        nil,
+		"LastDetailRelPath": lastDetailRelPath,
 	}
 	s.renderTemplate(w, "layout.html", data)
 }

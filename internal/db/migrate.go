@@ -41,6 +41,7 @@ func Open() (*sql.DB, *Queries, error) {
 	migrateCreateCatalog(sqlDB)
 	migrateAddWavSource(sqlDB)
 	migrateCreateFileTags(sqlDB)
+	migrateAddLastDetailPath(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -140,6 +141,11 @@ func migrateCreateFileTags(sqlDB *sql.DB) {
 		auto      INTEGER NOT NULL DEFAULT 0,
 		UNIQUE(file_id, tag_key, tag_value)
 	)`)
+}
+
+// migrateAddLastDetailPath adds the last_detail_path column to existing databases.
+func migrateAddLastDetailPath(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`ALTER TABLE preferences ADD COLUMN last_detail_path TEXT NOT NULL DEFAULT ''`)
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

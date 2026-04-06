@@ -40,12 +40,13 @@ type PgmSample struct {
 }
 
 type Preference struct {
-	ID            int64
-	Profile       string
-	LastPgmPath   string
-	LastWavPath   string
-	AuditionMode  string
-	WorkspacePath string
+	ID             int64
+	Profile        string
+	LastPgmPath    string
+	LastWavPath    string
+	AuditionMode   string
+	WorkspacePath  string
+	LastDetailPath string
 }
 
 type SeqMetum struct {
