@@ -303,9 +303,10 @@ func (s *Scanner) autoTagWAV(ctx context.Context, fileID int64) {
 		return
 	}
 
-	if meta.Channels == 1 {
+	switch meta.Channels {
+	case 1:
 		s.addTag(ctx, fileID, "channels", "mono")
-	} else if meta.Channels == 2 {
+	case 2:
 		s.addTag(ctx, fileID, "channels", "stereo")
 	}
 	if meta.SampleRate > 0 {
