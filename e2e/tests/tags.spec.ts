@@ -24,10 +24,8 @@ test.describe('File tagging', () => {
     const tagsSection = page.locator('#tags-section');
     await expect(tagsSection).toBeVisible();
 
-    // Should have auto-tags for channels and sample_rate
-    await expect(tagsSection.locator('.tag-chip')).not.toHaveCount(0);
-    // Auto-tags should have the auto styling
-    await expect(tagsSection.locator('.tag-chip.tag-auto').first()).toBeVisible();
+    // Auto-tags depend on scanner completing; may need a re-click if SQLITE_BUSY delayed it
+    await expect(tagsSection.locator('.tag-chip.tag-auto').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('adding a free-form tag', async ({ page }) => {

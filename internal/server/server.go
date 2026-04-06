@@ -110,6 +110,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/program/new", s.handleProgramNew)
 	s.mux.HandleFunc("/program/open", s.handleProgramOpen)
 	s.mux.HandleFunc("/program/save", s.handleProgramSave)
+	s.mux.HandleFunc("/program/sample-report", s.handleSampleReport)
 
 	// Pad operations
 	s.mux.HandleFunc("/pad/", s.handlePadSelect)

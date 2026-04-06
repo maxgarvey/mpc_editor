@@ -1472,3 +1472,11 @@ tr.track-muted .track-label {
 .tag-input {
     width: 200px;
 }
+
+/* --- Toolbar status --- */
+
+.toolbar-status {
+    font-size: 11px;
+    color: #a0c840;
+    margin-left: 4px;
+}
