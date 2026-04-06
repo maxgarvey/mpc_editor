@@ -46,9 +46,9 @@ func TranscodeToWAV(srcPath, destDir string, outputName ...string) (string, erro
 
 	cmd := exec.Command("ffmpeg",
 		"-i", srcPath,
-		"-acodec", "pcm_s16le", // 16-bit signed little-endian PCM
-		"-ar", "44100", // 44.1kHz sample rate (MPC standard)
-		"-y",     // overwrite output
+		"-acodec", "pcm_s16le",
+		"-ar", "44100",
+		"-y",
 		wavPath,
 	)
 

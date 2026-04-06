@@ -157,6 +157,7 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve relative paths and transcode non-WAV audio.
 	var resolvedPaths []string
+	var tmpDirs []string
 	for _, p := range paths {
 		p = s.resolvePath(p)
 		ext := strings.ToLower(filepath.Ext(p))
@@ -166,7 +167,7 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 				log.Printf("assignpath transcode temp: %v", err)
 				continue
 			}
-			defer os.RemoveAll(tmpDir) //nolint:errcheck
+			tmpDirs = append(tmpDirs, tmpDir)
 			wavPath, err := audio.TranscodeToWAV(p, tmpDir)
 			if err != nil {
 				log.Printf("assignpath transcode %s: %v", p, err)
@@ -176,6 +177,11 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 		}
 		resolvedPaths = append(resolvedPaths, p)
 	}
+	defer func() {
+		for _, d := range tmpDirs {
+			_ = os.RemoveAll(d)
+		}
+	}()
 
 	samples, _ := command.ImportSamples(resolvedPaths)
 
