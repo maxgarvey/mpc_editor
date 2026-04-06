@@ -202,7 +202,7 @@ func (s *Server) handleSampleReport(w http.ResponseWriter, r *http.Request) {
 
 	for i, name := range order {
 		entry := seen[name]
-		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, name))
+		fmt.Fprintf(&b, "%d. %s\n", i+1, name)
 		b.WriteString("   Pads: " + strings.Join(entry.pads, ", ") + "\n")
 
 		if !entry.found {
@@ -227,11 +227,11 @@ func (s *Server) handleSampleReport(w http.ResponseWriter, r *http.Request) {
 					if meta.Channels == 2 {
 						ch = "stereo"
 					}
-					b.WriteString(fmt.Sprintf("   Audio: %dHz %dbit %s",
-						meta.SampleRate, meta.BitsPerSample, ch))
+					fmt.Fprintf(&b, "   Audio: %dHz %dbit %s",
+						meta.SampleRate, meta.BitsPerSample, ch)
 					if meta.SampleRate > 0 {
 						dur := float64(meta.FrameCount) / float64(meta.SampleRate)
-						b.WriteString(fmt.Sprintf(" (%.2fs)", dur))
+						fmt.Fprintf(&b, " (%.2fs)", dur)
 					}
 					b.WriteString("\n")
 					if meta.Source != "" {
