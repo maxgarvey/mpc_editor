@@ -894,6 +894,14 @@ body {
     color: #a0c840;
 }
 
+.browser-entry.is-project .entry-icon {
+    color: #c8a040;
+}
+
+.browser-entry.is-project .entry-name {
+    color: #c8a040;
+}
+
 .entry-name {
     overflow: hidden;
     text-overflow: ellipsis;

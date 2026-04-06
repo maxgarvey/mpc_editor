@@ -100,6 +100,64 @@ func (s *Server) copyToWorkspace(srcPath string) (string, error) {
 	return destPath, nil
 }
 
+// colocateSamples copies all referenced samples into targetDir (next to the .pgm)
+// so the MPC 1000 can find them. Returns the number of files copied.
+func (s *Server) colocateSamples(targetDir string) int {
+	var copied int
+	for i := 0; i < 64; i++ {
+		for j := 0; j < 4; j++ {
+			ref := s.session.Matrix.Get(i, j)
+			if ref == nil || ref.FilePath == "" {
+				continue
+			}
+
+			absRef, err := filepath.Abs(ref.FilePath)
+			if err != nil {
+				continue
+			}
+			absTarget, err := filepath.Abs(targetDir)
+			if err != nil {
+				continue
+			}
+
+			// Already in the target directory — nothing to do.
+			if filepath.Dir(absRef) == absTarget {
+				continue
+			}
+
+			destPath := filepath.Join(absTarget, filepath.Base(absRef))
+			if _, err := os.Stat(destPath); err == nil {
+				// Destination already exists — update reference but don't overwrite.
+				ref.FilePath = destPath
+				continue
+			}
+
+			src, err := os.Open(absRef)
+			if err != nil {
+				log.Printf("colocate open %s: %v", absRef, err)
+				continue
+			}
+			dst, err := os.Create(destPath)
+			if err != nil {
+				_ = src.Close()
+				log.Printf("colocate create %s: %v", destPath, err)
+				continue
+			}
+			_, cpErr := io.Copy(dst, src)
+			_ = src.Close()
+			_ = dst.Close()
+			if cpErr != nil {
+				log.Printf("colocate copy %s: %v", destPath, cpErr)
+				continue
+			}
+
+			ref.FilePath = destPath
+			copied++
+		}
+	}
+	return copied
+}
+
 // copySamplesToWorkspace copies each imported sample into the workspace
 // and updates the SampleRef.FilePath to point to the workspace copy.
 func (s *Server) copySamplesToWorkspace(samples []*pgm.SampleRef) {

@@ -33,6 +33,7 @@ type BrowseEntry struct {
 	Name           string
 	Path           string // absolute path
 	IsDir          bool
+	IsProject      bool // true if directory contains a .pgm file (self-contained beat)
 	Ext            string
 	Size           int64
 	FileID         int64  // catalog file ID (0 if not cataloged)
@@ -359,6 +360,7 @@ func (s *Server) enrichBrowseEntries(entries []BrowseEntry, workspace string) {
 	for i := range entries {
 		e := &entries[i]
 		if e.IsDir {
+			e.IsProject = dirContainsPGM(e.Path)
 			continue
 		}
 
@@ -390,6 +392,20 @@ func (s *Server) enrichBrowseEntries(entries []BrowseEntry, workspace string) {
 			}
 		}
 	}
+}
+
+// dirContainsPGM checks if a directory contains at least one .pgm file (shallow).
+func dirContainsPGM(dirPath string) bool {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.ToLower(filepath.Ext(e.Name())) == ".pgm" {
+			return true
+		}
+	}
+	return false
 }
 
 // filterAllows returns true if the file extension is allowed for the given browse context.

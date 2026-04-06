@@ -108,6 +108,7 @@ func (s *Server) registerRoutes() {
 
 	// Program operations
 	s.mux.HandleFunc("/program/new", s.handleProgramNew)
+	s.mux.HandleFunc("/project/new", s.handleProjectNew)
 	s.mux.HandleFunc("/program/open", s.handleProgramOpen)
 	s.mux.HandleFunc("/program/save", s.handleProgramSave)
 	s.mux.HandleFunc("/program/sample-report", s.handleSampleReport)

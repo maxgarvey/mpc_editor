@@ -58,6 +58,76 @@ func (s *Server) handleProgramNew(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "project name is required", http.StatusBadRequest)
+		return
+	}
+
+	// Sanitize: reject path separators and special names.
+	if strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
+		http.Error(w, "invalid project name", http.StatusBadRequest)
+		return
+	}
+
+	// Enforce MPC 1000 16-char filename limit.
+	if len(name) > 16 {
+		http.Error(w, "name too long (max 16 characters for MPC compatibility)", http.StatusBadRequest)
+		return
+	}
+
+	// Create project folder inside the current browse directory (or workspace root).
+	parentDir := s.session.WorkspacePath
+	if browseDir := r.FormValue("parent"); browseDir != "" {
+		parentDir = s.resolvePath(browseDir)
+	}
+	projectDir := filepath.Join(parentDir, name)
+
+	if err := s.validateWithinWorkspace(projectDir); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		http.Error(w, fmt.Sprintf("create project dir: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Create and save a blank program inside the folder.
+	prog := pgm.NewProgram()
+	pgmPath := filepath.Join(projectDir, name+".pgm")
+	if err := prog.Save(pgmPath); err != nil {
+		http.Error(w, fmt.Sprintf("save program: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Open the new program.
+	s.session.Program = prog
+	s.session.FilePath = pgmPath
+	s.session.SampleDir = projectDir
+	s.session.SelectedPad = 0
+	s.session.Matrix.Clear()
+
+	s.session.Prefs.LastPGMPath = pgmPath
+	_ = s.queries.UpdateLastPGMPath(r.Context(), pgmPath)
+
+	// Trigger a background scan to index the new project.
+	go func() {
+		if _, err := s.scanner.ScanWorkspace(s.session.WorkspacePath); err != nil {
+			log.Printf("post-project-new scan: %v", err)
+		}
+	}()
+
+	w.Header().Set("HX-Redirect", "/")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -120,19 +190,29 @@ func (s *Server) handleProgramSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Co-locate samples: copy any referenced samples into the same
+	// directory as the .pgm so the MPC 1000 can find them.
+	pgmDir := filepath.Dir(path)
+	copied := s.colocateSamples(pgmDir)
+
 	if err := s.session.Program.Save(path); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.session.FilePath = path
+	s.session.SampleDir = pgmDir
 
 	s.session.Prefs.LastPGMPath = path
 	if err := s.queries.UpdateLastPGMPath(r.Context(), path); err != nil {
 		log.Printf("save last pgm path: %v", err)
 	}
 
+	msg := "Saved to " + path
+	if copied > 0 {
+		msg += fmt.Sprintf(" (%d samples copied to project folder)", copied)
+	}
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("Saved to " + path))
+	w.Write([]byte(msg))
 }
 
 func (s *Server) handleSampleReport(w http.ResponseWriter, r *http.Request) {

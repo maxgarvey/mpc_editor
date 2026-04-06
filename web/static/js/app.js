@@ -304,11 +304,27 @@ function openNewModal() {
             '<button class="new-modal-close" onclick="closeNewModal()">&times;</button>' +
         '</div>' +
         '<div class="new-modal-tabs">' +
-            '<button class="new-modal-tab active" data-tab="new-program">New Program</button>' +
+            '<button class="new-modal-tab active" data-tab="new-project">New Project</button>' +
+            '<button class="new-modal-tab" data-tab="new-program">New Program</button>' +
             '<button class="new-modal-tab" data-tab="import-files">Import Files</button>' +
         '</div>' +
         '<div class="new-modal-body">' +
-            '<div id="new-program-tab" class="new-modal-tab-content">' +
+            '<div id="new-project-tab" class="new-modal-tab-content">' +
+                '<p style="color:#aaa;margin-bottom:12px">Create a self-contained project folder with a blank program inside. ' +
+                    'Samples assigned to this program will be saved in the same folder ' +
+                    'so it works directly on MPC 1000 CF cards.</p>' +
+                '<div style="margin-bottom:12px">' +
+                    '<label style="color:#aaa;display:block;margin-bottom:4px">Project name <span style="color:#666">(max 16 chars)</span></label>' +
+                    '<input type="text" id="new-project-name" class="path-input" maxlength="16" ' +
+                        'placeholder="e.g. beat001" style="width:100%" ' +
+                        'oninput="validateProjectName(this)">' +
+                    '<div id="project-name-hint" style="font-size:11px;margin-top:4px;color:#666"></div>' +
+                '</div>' +
+                '<div class="import-actions">' +
+                    '<button class="btn-primary" id="new-project-btn" onclick="confirmNewProject()" disabled>Create Project</button>' +
+                '</div>' +
+            '</div>' +
+            '<div id="new-program-tab" class="new-modal-tab-content" style="display:none">' +
                 '<p style="color:#aaa;margin-bottom:16px">Create a blank program. Unsaved changes will be lost.</p>' +
                 '<div class="import-actions">' +
                     '<button class="btn-primary" onclick="confirmNewProgram()">Create</button>' +
@@ -339,13 +355,16 @@ function openNewModal() {
 
     // Tab switching
     var tabs = modal.querySelectorAll('.new-modal-tab');
+    var tabIds = ['new-project-tab', 'new-program-tab', 'import-files-tab'];
     tabs.forEach(function(tab) {
         tab.addEventListener('click', function() {
             tabs.forEach(function(t) { t.classList.remove('active'); });
             tab.classList.add('active');
             var target = tab.getAttribute('data-tab');
-            document.getElementById('new-program-tab').style.display = target === 'new-program' ? 'block' : 'none';
-            document.getElementById('import-files-tab').style.display = target === 'import-files' ? 'block' : 'none';
+            tabIds.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.display = (id === target + '-tab') ? 'block' : 'none';
+            });
         });
     });
 
@@ -377,6 +396,54 @@ function closeNewModal() {
     var overlay = document.getElementById('new-modal-overlay');
     if (overlay) overlay.remove();
     _importFiles = [];
+}
+
+function validateProjectName(input) {
+    var name = input.value.trim();
+    var btn = document.getElementById('new-project-btn');
+    var hint = document.getElementById('project-name-hint');
+    if (!btn || !hint) return;
+
+    if (name.length === 0) {
+        btn.disabled = true;
+        hint.textContent = '';
+        hint.style.color = '#666';
+        return;
+    }
+
+    // Check for invalid characters
+    if (/[\/\\]/.test(name) || name === '.' || name === '..') {
+        btn.disabled = true;
+        hint.textContent = 'Invalid characters in name';
+        hint.style.color = '#ff6b4a';
+        return;
+    }
+
+    // Warn about spaces (MPC compatibility)
+    if (/\s/.test(name)) {
+        hint.textContent = 'Spaces may cause issues on some MPC firmware';
+        hint.style.color = '#c8a040';
+    } else {
+        hint.textContent = 'Creates: ' + name + '/' + name + '.pgm';
+        hint.style.color = '#666';
+    }
+
+    btn.disabled = false;
+}
+
+function confirmNewProject() {
+    var input = document.getElementById('new-project-name');
+    var name = input ? input.value.trim() : '';
+    if (!name) return;
+
+    var dirInput = document.getElementById('browser-current-dir');
+    var parentDir = dirInput ? dirInput.value : '';
+
+    closeNewModal();
+    htmx.ajax('POST', '/project/new', {
+        target: 'body',
+        values: { name: name, parent: parentDir }
+    });
 }
 
 function confirmNewProgram() {

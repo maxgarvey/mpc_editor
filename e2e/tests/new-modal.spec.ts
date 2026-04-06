@@ -16,34 +16,36 @@ test.afterEach(async () => {
 });
 
 test.describe('New modal', () => {
-  test('modal opens with two tabs', async ({ page }) => {
+  test('modal opens with three tabs', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'New', exact: true }).click();
 
     const modal = page.locator('.new-modal');
     await expect(modal).toBeVisible();
 
-    // Should have two tabs
+    // Should have three tabs
     const tabs = modal.locator('.new-modal-tab');
-    await expect(tabs).toHaveCount(2);
-    await expect(tabs.nth(0)).toContainText('New Program');
-    await expect(tabs.nth(1)).toContainText('Import Files');
+    await expect(tabs).toHaveCount(3);
+    await expect(tabs.nth(0)).toContainText('New Project');
+    await expect(tabs.nth(1)).toContainText('New Program');
+    await expect(tabs.nth(2)).toContainText('Import Files');
   });
 
-  test('New Program tab is default and has Create button', async ({ page }) => {
+  test('New Project tab is default and has Create Project button', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'New', exact: true }).click();
 
     const modal = page.locator('.new-modal');
     await expect(modal).toBeVisible();
 
-    // New Program tab content should be visible
-    const programTab = page.locator('#new-program-tab');
-    await expect(programTab).toBeVisible();
+    // New Project tab content should be visible
+    const projectTab = page.locator('#new-project-tab');
+    await expect(projectTab).toBeVisible();
 
-    // Create button should be present
-    const createBtn = programTab.getByRole('button', { name: 'Create' });
+    // Create Project button should be present (disabled until name entered)
+    const createBtn = projectTab.getByRole('button', { name: 'Create Project' });
     await expect(createBtn).toBeVisible();
+    await expect(createBtn).toBeDisabled();
   });
 
   test('New Program creates blank program', async ({ page }) => {
@@ -55,10 +57,11 @@ test.describe('New modal', () => {
     await pgmEntry.click();
     await htmxDone;
 
-    // Open modal and create new program
+    // Open modal and switch to New Program tab
     await page.getByRole('button', { name: 'New', exact: true }).click();
     const modal = page.locator('.new-modal');
     await expect(modal).toBeVisible();
+    await modal.locator('.new-modal-tab', { hasText: 'New Program' }).click();
     await modal.getByRole('button', { name: 'Create' }).click();
 
     // Wait for page to reload

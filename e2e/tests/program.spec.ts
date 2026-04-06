@@ -47,10 +47,11 @@ test.describe('Program lifecycle', () => {
     const count = await sampledPads.count();
     expect(count).toBeGreaterThan(0);
 
-    // Open the New modal and click Create
+    // Open the New modal, switch to New Program tab, and click Create
     await page.getByRole('button', { name: 'New', exact: true }).click();
     const modal = page.locator('.new-modal');
     await expect(modal).toBeVisible();
+    await modal.locator('.new-modal-tab', { hasText: 'New Program' }).click();
     await modal.getByRole('button', { name: 'Create' }).click();
 
     // Wait for page to reload/update
