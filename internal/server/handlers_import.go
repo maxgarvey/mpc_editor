@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/maxgarvey/mpc_editor/internal/audio"
 )
 
 func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +40,7 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var imported int
+	var imported, transcoded int
 	for _, fh := range files {
 		ext := strings.ToLower(filepath.Ext(fh.Filename))
 		if !isAllowedImportExt(ext) {
@@ -57,22 +59,54 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		destPath := filepath.Join(dest, base)
-		dst, err := os.Create(destPath)
-		if err != nil {
+		if audio.IsTranscodable(ext) {
+			// Save to temp file, then transcode to WAV in destination.
+			tmpFile, err := os.CreateTemp("", "mpc-transcode-*"+ext)
+			if err != nil {
+				_ = src.Close()
+				log.Printf("import temp %s: %v", fh.Filename, err)
+				continue
+			}
+			_, cpErr := io.Copy(tmpFile, src)
 			_ = src.Close()
-			log.Printf("import create %s: %v", destPath, err)
-			continue
-		}
+			tmpPath := tmpFile.Name()
+			_ = tmpFile.Close()
+			if cpErr != nil {
+				_ = os.Remove(tmpPath)
+				log.Printf("import copy temp %s: %v", fh.Filename, cpErr)
+				continue
+			}
 
-		_, cpErr := io.Copy(dst, src)
-		_ = src.Close()
-		_ = dst.Close()
-		if cpErr != nil {
-			log.Printf("import copy %s: %v", destPath, cpErr)
-			continue
+			// Use the original filename (without extension) for the output WAV.
+			origName := strings.TrimSuffix(base, filepath.Ext(base))
+			wavPath, err := audio.TranscodeToWAV(tmpPath, dest, origName)
+			_ = os.Remove(tmpPath)
+			if err != nil {
+				log.Printf("import transcode %s: %v", fh.Filename, err)
+				continue
+			}
+			log.Printf("transcoded %s -> %s", fh.Filename, filepath.Base(wavPath))
+			imported++
+			transcoded++
+		} else {
+			// Direct copy for native formats.
+			destPath := filepath.Join(dest, base)
+			dst, err := os.Create(destPath)
+			if err != nil {
+				_ = src.Close()
+				log.Printf("import create %s: %v", destPath, err)
+				continue
+			}
+
+			_, cpErr := io.Copy(dst, src)
+			_ = src.Close()
+			_ = dst.Close()
+			if cpErr != nil {
+				log.Printf("import copy %s: %v", destPath, cpErr)
+				continue
+			}
+			imported++
 		}
-		imported++
 	}
 
 	// Trigger background scan so new files appear in the catalog.
@@ -86,7 +120,7 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"imported":%d}`, imported)
+	fmt.Fprintf(w, `{"imported":%d,"transcoded":%d}`, imported, transcoded)
 }
 
 func isAllowedImportExt(ext string) bool {
@@ -94,5 +128,5 @@ func isAllowedImportExt(ext string) bool {
 	case ".wav", ".pgm", ".seq", ".mid", ".sng", ".all":
 		return true
 	}
-	return false
+	return audio.IsTranscodable(ext)
 }

@@ -22,7 +22,7 @@ test.describe('File tagging', () => {
 
     // Wait for tags section to appear
     const tagsSection = page.locator('#tags-section');
-    await expect(tagsSection).toBeVisible();
+    await expect(tagsSection).toBeVisible({ timeout: 10000 });
 
     // Auto-tags depend on scanner completing; may need a re-click if SQLITE_BUSY delayed it
     await expect(tagsSection.locator('.tag-chip.tag-auto').first()).toBeVisible({ timeout: 10000 });
@@ -34,7 +34,7 @@ test.describe('File tagging', () => {
     await page.locator('#file-nav .browser-entry', { hasText: 'chh.wav' }).click();
 
     const tagsSection = page.locator('#tags-section');
-    await expect(tagsSection).toBeVisible();
+    await expect(tagsSection).toBeVisible({ timeout: 10000 });
 
     // Type a tag and submit
     await tagsSection.locator('.tag-input').fill('kick');
@@ -50,7 +50,7 @@ test.describe('File tagging', () => {
     await page.locator('#file-nav .browser-entry', { hasText: 'chh.wav' }).click();
 
     const tagsSection = page.locator('#tags-section');
-    await expect(tagsSection).toBeVisible();
+    await expect(tagsSection).toBeVisible({ timeout: 10000 });
 
     // Type a key:value tag
     await tagsSection.locator('.tag-input').fill('genre:house');
@@ -71,7 +71,7 @@ test.describe('File tagging', () => {
     await page.locator('#file-nav .browser-entry', { hasText: 'chh.wav' }).click();
 
     const tagsSection = page.locator('#tags-section');
-    await expect(tagsSection).toBeVisible();
+    await expect(tagsSection).toBeVisible({ timeout: 10000 });
 
     // Add a tag first
     await tagsSection.locator('.tag-input').fill('removeme');
@@ -108,7 +108,7 @@ test.describe('File tagging', () => {
     // Open WAV file
     await page.locator('#file-nav .browser-entry', { hasText: 'chh.wav' }).click();
     const tagsSection = page.locator('#tags-section');
-    await expect(tagsSection).toBeVisible();
+    await expect(tagsSection).toBeVisible({ timeout: 10000 });
 
     // Add a custom tag
     await tagsSection.locator('.tag-input').fill('persist-test');

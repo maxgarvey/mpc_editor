@@ -3,12 +3,14 @@ package server
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/maxgarvey/mpc_editor/internal/audio"
 	"github.com/maxgarvey/mpc_editor/internal/command"
 )
 
@@ -68,6 +70,19 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 		if cpErr != nil {
 			continue
 		}
+
+		// Transcode non-WAV audio to WAV.
+		ext := strings.ToLower(filepath.Ext(fh.Filename))
+		if audio.IsTranscodable(ext) {
+			origName := strings.TrimSuffix(fh.Filename, filepath.Ext(fh.Filename))
+			wavPath, err := audio.TranscodeToWAV(destPath, tmpDir, origName)
+			if err != nil {
+				log.Printf("assign transcode %s: %v", fh.Filename, err)
+				continue
+			}
+			destPath = wavPath
+		}
+
 		savedPaths = append(savedPaths, destPath)
 	}
 
@@ -140,12 +155,29 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve relative paths
-	for i, p := range paths {
-		paths[i] = s.resolvePath(p)
+	// Resolve relative paths and transcode non-WAV audio.
+	var resolvedPaths []string
+	for _, p := range paths {
+		p = s.resolvePath(p)
+		ext := strings.ToLower(filepath.Ext(p))
+		if audio.IsTranscodable(ext) {
+			tmpDir, err := os.MkdirTemp("", "mpceditor-transcode-*")
+			if err != nil {
+				log.Printf("assignpath transcode temp: %v", err)
+				continue
+			}
+			defer os.RemoveAll(tmpDir) //nolint:errcheck
+			wavPath, err := audio.TranscodeToWAV(p, tmpDir)
+			if err != nil {
+				log.Printf("assignpath transcode %s: %v", p, err)
+				continue
+			}
+			p = wavPath
+		}
+		resolvedPaths = append(resolvedPaths, p)
 	}
 
-	samples, _ := command.ImportSamples(paths)
+	samples, _ := command.ImportSamples(resolvedPaths)
 
 	// Copy samples into workspace
 	s.copySamplesToWorkspace(samples)

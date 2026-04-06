@@ -321,9 +321,9 @@ function openNewModal() {
                 '</div>' +
                 '<div class="import-drop-zone" id="import-drop-zone">' +
                     'Drag and drop files here<br>' +
-                    '<span class="import-drop-zone-hint">.wav .pgm .seq .mid .sng .all</span>' +
+                    '<span class="import-drop-zone-hint">.wav .mp3 .flac .ogg .aif .m4a .pgm .seq .mid .sng .all</span>' +
                 '</div>' +
-                '<input type="file" id="import-file-input" multiple accept=".wav,.pgm,.seq,.mid,.sng,.all" style="display:none" onchange="handleImportFileSelect(this)">' +
+                '<input type="file" id="import-file-input" multiple accept=".wav,.mp3,.flac,.ogg,.aif,.aiff,.m4a,.wma,.opus,.pgm,.seq,.mid,.sng,.all" style="display:none" onchange="handleImportFileSelect(this)">' +
                 '<div style="text-align:center;margin-top:8px">' +
                     '<button class="btn-sm" onclick="document.getElementById(\'import-file-input\').click()">Browse Files</button>' +
                 '</div>' +
@@ -459,9 +459,13 @@ function doWorkspaceImport() {
     formData.append('dest', destDir);
 
     var btn = document.getElementById('import-btn');
+    var hasNonWav = _importFiles.some(function(f) {
+        var ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+        return ext !== '.wav' && ext !== '.pgm' && ext !== '.seq' && ext !== '.mid' && ext !== '.sng' && ext !== '.all';
+    });
     if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Importing...';
+        btn.textContent = hasNonWav ? 'Importing (transcoding...)' : 'Importing...';
     }
 
     fetch('/workspace/import', { method: 'POST', body: formData })
