@@ -31,10 +31,10 @@
 </div>
 {{end}}
 <div class="browser-mkdir">
-    <form hx-post="/workspace/mkdir" hx-target="#file-browser" class="inline-form">
+    <form hx-post="/workspace/mkdir" hx-target="#file-browser" hx-validate="true" class="inline-form">
         <input type="hidden" name="parent" value="{{.RelDir}}">
         <input type="hidden" name="context" value="{{.Context}}">
-        <input type="text" name="name" placeholder="New folder" class="path-input" style="width:140px">
+        <input type="text" name="name" placeholder="New folder" class="path-input" style="width:140px" required>
         <button type="submit" class="btn-sm">New Folder</button>
     </form>
 </div>
