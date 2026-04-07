@@ -281,6 +281,70 @@ function confirmSave() {
     });
 }
 
+// --- New Folder Modal ---
+
+function openMkdirModal(parent, context, htmxTarget) {
+    var overlay = document.createElement('div');
+    overlay.id = 'mkdir-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeMkdirModal();
+    });
+
+    var modal = document.createElement('div');
+    modal.className = 'save-confirm-modal';
+    modal.innerHTML =
+        '<div class="save-confirm-header">New Folder</div>' +
+        '<div class="save-confirm-body">' +
+            '<label class="save-confirm-label">Folder name:</label>' +
+            '<input type="text" id="mkdir-name" class="path-input" placeholder="My Folder" style="width:100%" maxlength="255">' +
+        '</div>' +
+        '<div class="save-confirm-actions">' +
+            '<button class="btn-primary" id="mkdir-confirm-btn" onclick="confirmMkdir()">Create</button>' +
+            '<button class="btn-sm" onclick="closeMkdirModal()">Cancel</button>' +
+        '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Store context for the confirm action.
+    window._mkdirParent = parent;
+    window._mkdirContext = context;
+    window._mkdirTarget = htmxTarget;
+
+    var nameInput = document.getElementById('mkdir-name');
+    nameInput.focus();
+    nameInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') confirmMkdir();
+        if (e.key === 'Escape') closeMkdirModal();
+    });
+}
+
+function closeMkdirModal() {
+    var overlay = document.getElementById('mkdir-overlay');
+    if (overlay) overlay.remove();
+}
+
+function confirmMkdir() {
+    var nameInput = document.getElementById('mkdir-name');
+    var name = nameInput ? nameInput.value.trim() : '';
+    if (!name) {
+        nameInput.focus();
+        return;
+    }
+
+    closeMkdirModal();
+
+    htmx.ajax('POST', '/workspace/mkdir', {
+        target: window._mkdirTarget,
+        values: {
+            parent: window._mkdirParent,
+            context: window._mkdirContext,
+            name: name
+        }
+    });
+}
+
 // --- New Modal ---
 
 var _importFiles = [];
