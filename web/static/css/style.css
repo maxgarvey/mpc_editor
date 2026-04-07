@@ -1496,3 +1496,38 @@ tr.track-muted .track-label {
     color: #a0c840;
     margin-left: 4px;
 }
+
+/* --- Device detection indicator --- */
+
+.device-indicator {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.device-indicator.connected {
+    color: #4caf50;
+}
+
+.device-indicator.disconnected {
+    color: #888;
+}
+
+.btn-sm {
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    background: #333;
+    color: #ccc;
+    border: 1px solid #555;
+    border-radius: 3px;
+}
+
+.btn-sm:hover {
+    background: #444;
+    color: #fff;
+}

@@ -26,6 +26,9 @@
                         <option value="MPC500" {{if eq .Session.Profile.Name "MPC500"}}selected{{end}}>MPC500</option>
                     </select>
                 </form>
+                <span class="toolbar-separator">|</span>
+                {{template "device_status.html" .}}
+                <button class="btn-sm" hx-post="/device/detect" hx-target="#device-status" hx-swap="outerHTML">Detect MPC</button>
             </nav>
         </div>
         <div class="file-info">

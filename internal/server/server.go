@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"html/template"
 	"io/fs"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
+	"github.com/maxgarvey/mpc_editor/internal/device"
 	"github.com/maxgarvey/mpc_editor/internal/scanner"
 )
 
@@ -18,6 +20,7 @@ type Server struct {
 	session   *Session
 	queries   *db.Queries
 	scanner   *scanner.Scanner
+	detector  *device.Detector
 	templates *template.Template
 	mux       *http.ServeMux
 	staticFS  fs.FS
@@ -29,6 +32,7 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 		session:  NewSession(queries),
 		queries:  queries,
 		scanner:  scanner.New(sqlDB, queries),
+		detector: device.New(),
 		mux:      http.NewServeMux(),
 		staticFS: staticFS,
 	}
@@ -90,6 +94,9 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 		log.Printf("startup scan: found=%d scanned=%d removed=%d",
 			result.FilesFound, result.FilesScanned, result.FilesRemoved)
 	}()
+
+	// Start MPC device detection in background.
+	go s.detector.Start(context.Background())
 
 	return s
 }
@@ -166,6 +173,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/file/tags/remove", s.handleTagRemove)
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)
 	s.mux.HandleFunc("/file/", s.handleFileDetail)
+
+	// Device detection
+	s.mux.HandleFunc("/device/status", s.handleDeviceStatus)
+	s.mux.HandleFunc("/device/detect", s.handleDeviceDetect)
+	s.mux.HandleFunc("/device/use-as-workspace", s.handleDeviceUseAsWorkspace)
 
 	// Pad grid partial
 	s.mux.HandleFunc("/partials/pad-grid", s.handlePadGrid)

@@ -39,6 +39,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		"BrowseData":        browseData,
 		"DetailHTML":        nil,
 		"LastDetailRelPath": lastDetailRelPath,
+		"Device":            s.detector.Current(),
 	}
 	s.renderTemplate(w, "layout.html", data)
 }
