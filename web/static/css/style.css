@@ -68,7 +68,7 @@ body {
 
 .path-input {
     background: #2a3a2a;
-    color: #111111;
+    color: #d0f060;
     border: 1px solid #a0c840;
     padding: 5px 8px;
     border-radius: 4px;
@@ -500,7 +500,7 @@ body {
 
 .sample-input {
     background: #2a3a2a;
-    color: #111111;
+    color: #d0f060;
     border: 1px solid #a0c840;
     padding: 4px 6px;
     border-radius: 3px;
@@ -511,7 +511,7 @@ body {
 
 .num-input {
     background: #2a3a2a;
-    color: #111111;
+    color: #d0f060;
     border: 1px solid #a0c840;
     padding: 4px;
     border-radius: 3px;

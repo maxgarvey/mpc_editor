@@ -330,7 +330,7 @@ function openMkdirModal(parent, context, htmxTarget) {
         '</div>' +
         '<div class="save-confirm-actions">' +
             '<button class="btn-primary" id="mkdir-confirm-btn" onclick="confirmMkdir()">Create</button>' +
-            '<button class="btn-sm" onclick="closeMkdirModal()">Cancel</button>' +
+            '<button class="btn-primary" onclick="closeMkdirModal()">Cancel</button>' +
         '</div>';
 
     overlay.appendChild(modal);
