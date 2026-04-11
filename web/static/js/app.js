@@ -10,7 +10,10 @@ document.addEventListener('input', function(e) {
     }
 });
 
-// Tab switching (client-side only, no server round-trip)
+// Track active param tab so it survives HTMX re-renders
+var _activeParamTab = 0;
+
+// Param tab switching (client-side only, no server round-trip)
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('param-tab')) {
         const tabs = e.target.parentElement.querySelectorAll('.param-tab');
@@ -20,9 +23,30 @@ document.addEventListener('click', function(e) {
         // Map tab index to section
         const sections = e.target.closest('.pad-params-panel').querySelectorAll('.param-section');
         const idx = Array.from(tabs).indexOf(e.target);
+        _activeParamTab = idx;
         sections.forEach((s, i) => {
             s.style.display = i === idx ? 'block' : 'none';
         });
+    }
+});
+
+// Bank tab highlighting (bank tabs live outside the HTMX swap target)
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('bank-tab')) {
+        const tabs = e.target.parentElement.querySelectorAll('.bank-tab');
+        tabs.forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+    }
+});
+
+// Pad button highlighting (pad grid isn't re-rendered on pad select)
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.pad-btn');
+    if (btn) {
+        document.querySelectorAll('.pad-btn.selected').forEach(function(b) {
+            b.classList.remove('selected');
+        });
+        btn.classList.add('selected');
     }
 });
 
@@ -35,8 +59,13 @@ function initTabs() {
     const panel = document.querySelector('.pad-params-panel');
     if (!panel) return;
     const sections = panel.querySelectorAll('.param-section');
+    const tabs = panel.querySelectorAll('.param-tab');
+    const idx = _activeParamTab;
     sections.forEach((s, i) => {
-        s.style.display = i === 0 ? 'block' : 'none';
+        s.style.display = i === idx ? 'block' : 'none';
+    });
+    tabs.forEach((t, i) => {
+        t.classList.toggle('active', i === idx);
     });
 }
 
