@@ -20,7 +20,10 @@
                 {{if .SampleName}}<button type="button" class="btn-play" onclick="AudioPlayer.playPad({{$.PadIndex}}, {{.Index}})" title="Play layer">&#9654;</button>{{end}}
             </div>
             <form hx-post="/pad/layer/{{.Index}}" hx-target="#pad-params" class="layer-form">
-                <input type="text" name="sample_name" value="{{.SampleName}}" placeholder="(empty)" class="sample-input">
+                <div class="sample-name-row">
+                    <input type="text" name="sample_name" value="{{.SampleName}}" placeholder="(empty)" class="sample-input" id="layer-sample-{{.Index}}">
+                    <button type="button" class="btn-sm btn-browse-sample" onclick="openSamplePicker({{.Index}})" title="Browse samples">&#128269;</button>
+                </div>
                 <label>Level</label>
                 <input type="number" name="level" value="{{.Level}}" min="0" max="100" class="num-input" hx-trigger="change">
                 <label>Tuning</label>

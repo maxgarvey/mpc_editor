@@ -868,3 +868,143 @@ function assignPathToPad(wavPath, padIndex, mode) {
         console.warn('Assign to pad failed:', err);
     });
 }
+
+// --- Sample Picker ---
+
+var _sampleCache = null;
+
+function openSamplePicker(layerIndex) {
+    var overlay = document.createElement('div');
+    overlay.id = 'sample-picker-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeSamplePicker();
+    });
+
+    var modal = document.createElement('div');
+    modal.className = 'sample-picker-modal';
+    modal.innerHTML =
+        '<div class="save-confirm-header">Select Sample</div>' +
+        '<div class="sample-picker-body">' +
+            '<input type="text" id="sample-picker-filter" class="sample-input" placeholder="Type to filter..." autofocus>' +
+            '<div id="sample-picker-list" class="sample-picker-list"></div>' +
+        '</div>' +
+        '<div class="save-confirm-actions">' +
+            '<button class="btn-primary" onclick="clearSampleLayer()">Clear</button>' +
+            '<button class="btn-primary" onclick="closeSamplePicker()">Cancel</button>' +
+        '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    window._pickerLayerIndex = layerIndex;
+
+    var filterInput = document.getElementById('sample-picker-filter');
+    filterInput.addEventListener('input', function() {
+        renderSampleList(this.value);
+    });
+    filterInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeSamplePicker();
+    });
+    filterInput.focus();
+
+    // Load samples (cached after first fetch)
+    if (_sampleCache) {
+        renderSampleList('');
+    } else {
+        fetch('/api/samples')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                _sampleCache = data;
+                renderSampleList('');
+            });
+    }
+}
+
+function renderSampleList(filter) {
+    var list = document.getElementById('sample-picker-list');
+    if (!list || !_sampleCache) return;
+
+    var lower = filter.toLowerCase();
+    var filtered = _sampleCache.filter(function(s) {
+        return !lower || s.name.toLowerCase().indexOf(lower) !== -1;
+    });
+
+    // Cap display to avoid DOM thrashing
+    var max = 200;
+    var html = '';
+    for (var i = 0; i < filtered.length && i < max; i++) {
+        var s = filtered[i];
+        var displayName = s.name;
+        html += '<div class="sample-picker-item" onclick="selectSample(\'' +
+            escapeAttr(s.path) + '\')" title="' + escapeAttr(s.path) + '">' +
+            escapeHtml(displayName) + '</div>';
+    }
+    if (filtered.length > max) {
+        html += '<div class="sample-picker-overflow">' + (filtered.length - max) + ' more...</div>';
+    }
+    if (filtered.length === 0) {
+        html = '<div class="sample-picker-empty">No matching samples</div>';
+    }
+    list.innerHTML = html;
+}
+
+function selectSample(relPath) {
+    var layerIndex = window._pickerLayerIndex;
+    closeSamplePicker();
+
+    // Extract just the filename without extension for the sample name
+    var parts = relPath.split('/');
+    var filename = parts[parts.length - 1];
+    var sampleName = filename.replace(/\.[^.]+$/, '');
+
+    // Set the sample name via the layer update endpoint
+    fetch('/pad/layer/' + layerIndex, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'sample_name=' + encodeURIComponent(sampleName)
+    }).then(function(r) { return r.text(); })
+    .then(function(html) {
+        var target = document.getElementById('pad-params');
+        if (target) {
+            target.innerHTML = html;
+            if (typeof htmx !== 'undefined') htmx.process(target);
+            if (typeof initTabs === 'function') initTabs();
+        }
+    });
+}
+
+function clearSampleLayer() {
+    var layerIndex = window._pickerLayerIndex;
+    closeSamplePicker();
+
+    fetch('/pad/layer/' + layerIndex, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'sample_name='
+    }).then(function(r) { return r.text(); })
+    .then(function(html) {
+        var target = document.getElementById('pad-params');
+        if (target) {
+            target.innerHTML = html;
+            if (typeof htmx !== 'undefined') htmx.process(target);
+            if (typeof initTabs === 'function') initTabs();
+        }
+    });
+}
+
+function closeSamplePicker() {
+    var overlay = document.getElementById('sample-picker-overlay');
+    if (overlay) overlay.remove();
+    window._pickerLayerIndex = null;
+}
+
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function escapeAttr(str) {
+    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}

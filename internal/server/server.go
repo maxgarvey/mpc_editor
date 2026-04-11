@@ -183,6 +183,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/device/detect", s.handleDeviceDetect)
 	s.mux.HandleFunc("/device/use-as-workspace", s.handleDeviceUseAsWorkspace)
 
+	// API
+	s.mux.HandleFunc("/api/samples", s.handleAPISamples)
+
 	// Pad grid partial
 	s.mux.HandleFunc("/partials/pad-grid", s.handlePadGrid)
 	s.mux.HandleFunc("/partials/pad-params", s.handlePadParamsPartial)

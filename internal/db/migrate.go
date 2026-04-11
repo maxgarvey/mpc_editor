@@ -27,7 +27,7 @@ func Open() (*sql.DB, *Queries, error) {
 	}
 	dbPath := filepath.Join(dir, "mpc_editor.db")
 
-	sqlDB, err := sql.Open("sqlite", dbPath)
+	sqlDB, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 	if err != nil {
 		return nil, nil, err
 	}

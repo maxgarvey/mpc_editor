@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
 
 func (s *Server) handlePadSelect(w http.ResponseWriter, r *http.Request) {
@@ -133,8 +135,15 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 	padIdx := s.session.SelectedPad
 	layer := s.session.Program.Pad(padIdx).Layer(layerIdx)
 
-	if v := r.FormValue("sample_name"); v != "" {
-		_ = layer.SetSampleName(v)
+	if _, ok := r.Form["sample_name"]; ok {
+		name := r.FormValue("sample_name")
+		_ = layer.SetSampleName(name)
+		if name == "" {
+			s.session.Matrix.Set(padIdx, layerIdx, nil)
+		} else {
+			ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
+			s.session.Matrix.Set(padIdx, layerIdx, &ref)
+		}
 	}
 	if v := r.FormValue("level"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
