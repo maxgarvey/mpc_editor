@@ -1419,6 +1419,10 @@ tr.track-muted .track-label {
     color: #ff4040;
 }
 
+.import-attribution {
+    margin-top: 12px;
+}
+
 .import-actions {
     display: flex;
     gap: 8px;

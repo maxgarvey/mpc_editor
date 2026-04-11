@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/audio"
+	"github.com/maxgarvey/mpc_editor/internal/db"
 )
 
 func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +42,10 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	source := r.FormValue("source")
+
 	var imported, transcoded int
+	var importedWAVs []string // relative paths of imported WAV files for source attribution
 	for _, fh := range files {
 		ext := strings.ToLower(filepath.Ext(fh.Filename))
 		if !isAllowedImportExt(ext) {
@@ -86,6 +91,11 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			log.Printf("transcoded %s -> %s", fh.Filename, filepath.Base(wavPath))
+			if source != "" {
+				if rel, err := filepath.Rel(s.session.WorkspacePath, wavPath); err == nil {
+					importedWAVs = append(importedWAVs, rel)
+				}
+			}
 			imported++
 			transcoded++
 		} else {
@@ -105,17 +115,41 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 				log.Printf("import copy %s: %v", destPath, cpErr)
 				continue
 			}
+			if source != "" && strings.ToLower(filepath.Ext(base)) == ".wav" {
+				if rel, err := filepath.Rel(s.session.WorkspacePath, destPath); err == nil {
+					importedWAVs = append(importedWAVs, rel)
+				}
+			}
 			imported++
 		}
 	}
 
-	// Trigger background scan so new files appear in the catalog.
+	// Trigger background scan so new files appear in the catalog,
+	// then apply source attribution to imported WAVs.
 	go func() {
 		if result, err := s.scanner.ScanWorkspace(s.session.WorkspacePath); err != nil {
 			log.Printf("post-import scan: %v", err)
 		} else {
 			log.Printf("post-import scan: found=%d scanned=%d",
 				result.FilesFound, result.FilesScanned)
+		}
+
+		if source != "" && len(importedWAVs) > 0 {
+			ctx := context.Background()
+			for _, relPath := range importedWAVs {
+				f, err := s.queries.GetFileByPath(ctx, relPath)
+				if err != nil {
+					log.Printf("import attribution lookup %s: %v", relPath, err)
+					continue
+				}
+				if err := s.queries.UpdateWavSource(ctx, db.UpdateWavSourceParams{
+					Source: source,
+					FileID: f.ID,
+				}); err != nil {
+					log.Printf("import attribution set %s: %v", relPath, err)
+				}
+			}
+			log.Printf("applied source %q to %d imported WAVs", source, len(importedWAVs))
 		}
 	}()
 

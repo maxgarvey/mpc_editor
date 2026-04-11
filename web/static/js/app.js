@@ -498,8 +498,13 @@ function openNewModal() {
                     '<button class="btn-sm" onclick="document.getElementById(\'import-file-input\').click()">Browse Files</button>' +
                 '</div>' +
                 '<div class="import-file-list" id="import-file-list"></div>' +
+                '<div class="import-attribution">' +
+                    '<label class="settings-label">Source / Attribution (optional)</label>' +
+                    '<input type="text" id="import-source" class="path-input" style="width:100%" placeholder="e.g. Splice, freesound.org, recorded live">' +
+                    '<p class="settings-hint">Applied to all imported WAV files as their source.</p>' +
+                '</div>' +
                 '<div class="import-actions">' +
-                    '<button class="btn-primary" id="import-btn" onclick="doWorkspaceImport()" disabled>Import</button>' +
+                    '<button class="btn-primary" id="import-btn" onclick="confirmImportDest()" disabled>Import</button>' +
                 '</div>' +
             '</div>' +
         '</div>';
@@ -668,6 +673,26 @@ function renderImportFileList() {
     if (btn) btn.disabled = false;
 }
 
+function confirmImportDest() {
+    if (_importFiles.length === 0) return;
+
+    var destInput = document.getElementById('import-dest-path');
+    var destDir = destInput ? destInput.value : '';
+    var displayDest = destDir || 'workspace root';
+    var count = _importFiles.length;
+    var sourceInput = document.getElementById('import-source');
+    var source = sourceInput ? sourceInput.value.trim() : '';
+
+    var msg = 'Import ' + count + ' file' + (count > 1 ? 's' : '') + ' to:\n' + displayDest;
+    if (source) {
+        msg += '\n\nSource attribution: ' + source;
+    }
+
+    if (confirm(msg)) {
+        doWorkspaceImport();
+    }
+}
+
 function doWorkspaceImport() {
     if (_importFiles.length === 0) return;
 
@@ -678,6 +703,12 @@ function doWorkspaceImport() {
     var destInput = document.getElementById('import-dest-path');
     var destDir = destInput ? destInput.value : '';
     formData.append('dest', destDir);
+
+    var sourceInput = document.getElementById('import-source');
+    var source = sourceInput ? sourceInput.value.trim() : '';
+    if (source) {
+        formData.append('source', source);
+    }
 
     var btn = document.getElementById('import-btn');
     var hasNonWav = _importFiles.some(function(f) {
