@@ -871,6 +871,14 @@ body {
     background: #2a2a2a;
 }
 
+.browser-entry[draggable="true"] {
+    cursor: grab;
+}
+
+.browser-entry[draggable="true"]:active {
+    cursor: grabbing;
+}
+
 .browser-entry.is-dir .entry-name {
     font-weight: bold;
 }

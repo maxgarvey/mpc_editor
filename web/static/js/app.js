@@ -145,6 +145,23 @@ function handleDrop(e) {
     e.stopPropagation();
     e.currentTarget.classList.remove('drag-over');
 
+    // Check for internal browser-to-pad drag (WAV file from file browser).
+    var wavPath = e.dataTransfer.getData('text/wav-path');
+    if (wavPath) {
+        var hxGet = e.currentTarget.getAttribute('hx-get');
+        var match = hxGet && hxGet.match(/\/pad\/(\d+)/);
+        var padIndex = match ? parseInt(match[1]) : 0;
+        var hasSample = e.currentTarget.classList.contains('has-sample');
+
+        if (hasSample) {
+            openAssignModal(wavPath, padIndex);
+        } else {
+            assignPathToPad(wavPath, padIndex, 'per-pad');
+        }
+        return;
+    }
+
+    // OS file drop handling.
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
 
@@ -783,5 +800,71 @@ function assignWavToPad(wavPath) {
     })
     .catch(function(err) {
         console.warn('Assignment failed:', err);
+    });
+}
+
+// --- Drag-to-Pad Assignment Modal ---
+
+function openAssignModal(wavPath, padIndex) {
+    var bank = String.fromCharCode(65 + Math.floor(padIndex / 16));
+    var padLabel = bank + ((padIndex % 16) + 1);
+    var sampleName = wavPath.split('/').pop();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'assign-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeAssignModal();
+    });
+
+    var modal = document.createElement('div');
+    modal.className = 'save-confirm-modal';
+    modal.innerHTML =
+        '<div class="save-confirm-header">Assign Sample</div>' +
+        '<div class="save-confirm-body">' +
+            '<p>Pad ' + padLabel + ' already has a sample.</p>' +
+            '<p>Assign <strong>' + sampleName + '</strong>?</p>' +
+        '</div>' +
+        '<div class="save-confirm-actions">' +
+            '<button class="btn-primary" onclick="assignReplace()">Replace</button>' +
+            '<button class="btn-primary" onclick="assignAddLayer()">Layer</button>' +
+            '<button class="btn-primary" onclick="closeAssignModal()">Cancel</button>' +
+        '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    window._pendingAssign = { wavPath: wavPath, padIndex: padIndex };
+}
+
+function closeAssignModal() {
+    var overlay = document.getElementById('assign-overlay');
+    if (overlay) overlay.remove();
+    window._pendingAssign = null;
+}
+
+function assignReplace() {
+    var a = window._pendingAssign;
+    closeAssignModal();
+    if (a) assignPathToPad(a.wavPath, a.padIndex, 'replace');
+}
+
+function assignAddLayer() {
+    var a = window._pendingAssign;
+    closeAssignModal();
+    if (a) assignPathToPad(a.wavPath, a.padIndex, 'per-layer');
+}
+
+function assignPathToPad(wavPath, padIndex, mode) {
+    fetch('/assign/path', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'path=' + encodeURIComponent(wavPath) + '&pad=' + padIndex + '&mode=' + mode
+    }).then(function(resp) {
+        AudioPlayer.clearCache();
+        AudioPlayer.invalidatePad(padIndex);
+        window.location.reload();
+    }).catch(function(err) {
+        console.warn('Assign to pad failed:', err);
     });
 }

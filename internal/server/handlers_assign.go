@@ -193,6 +193,14 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 		assignMode = command.AssignPerLayer
 	}
 
+	// Replace mode: clear layer 0 on the target pad so SimpleAssign fills it.
+	if mode == "replace" {
+		pad := s.session.Program.Pad(padIdx)
+		_ = pad.Layer(0).SetSampleName("")
+		s.session.Matrix.Set(padIdx, 0, nil)
+		assignMode = command.AssignPerPad
+	}
+
 	if mode == "multisample" {
 		command.MultisampleAssign(s.session.Program, &s.session.Matrix, samples)
 	} else {
