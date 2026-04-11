@@ -359,5 +359,6 @@ func (s *Server) handleSampleReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("HX-Trigger", "refreshBrowser")
 	w.Write([]byte("Report saved to " + filepath.Base(txtPath)))
 }

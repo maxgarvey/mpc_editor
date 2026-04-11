@@ -1598,3 +1598,98 @@ tr.track-muted .track-label {
     padding: 12px 16px;
     border-top: 1px solid #333;
 }
+
+/* --- Text file / Sample Report viewer --- */
+
+.detail-txt {
+    padding: 16px;
+}
+
+.txt-content pre {
+    background: #1a1a1a;
+    color: #ccc;
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.sample-report {
+    padding: 8px 0;
+}
+
+.report-title {
+    color: #a0c840;
+    font-size: 16px;
+    margin: 0 0 16px;
+}
+
+.report-entry {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    padding: 10px 14px;
+}
+
+.report-entry.report-found {
+    border-left: 3px solid #4caf50;
+}
+
+.report-entry.report-missing {
+    border-left: 3px solid #cc4444;
+}
+
+.report-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.report-num {
+    color: #888;
+    font-size: 12px;
+    min-width: 20px;
+}
+
+.report-name {
+    color: #d0f060;
+    font-weight: bold;
+    font-size: 14px;
+    font-family: monospace;
+}
+
+.report-status {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: 3px;
+}
+
+.status-found {
+    background: #1a3a1a;
+    color: #4caf50;
+}
+
+.status-missing {
+    background: #3a1a1a;
+    color: #cc4444;
+}
+
+.report-entry-details {
+    padding-left: 28px;
+}
+
+.report-field {
+    font-size: 12px;
+    color: #aaa;
+    line-height: 1.6;
+}
+
+.report-label {
+    color: #888;
+}

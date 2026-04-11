@@ -419,6 +419,6 @@ func filterAllows(ctx, ext string) bool {
 		return false // directories only
 	default:
 		return ext == ".pgm" || ext == ".wav" || ext == ".mid" ||
-			ext == ".seq" || ext == ".sng" || ext == ".all"
+			ext == ".seq" || ext == ".sng" || ext == ".all" || ext == ".txt"
 	}
 }

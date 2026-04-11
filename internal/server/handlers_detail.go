@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
@@ -53,6 +55,8 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 		s.renderDetailSEQ(w, r, path)
 	case ".sng":
 		s.renderDetailSNG(w, path)
+	case ".txt":
+		s.renderDetailTXT(w, path)
 	default:
 		s.renderDetailFile(w, path, ext)
 	}
@@ -244,4 +248,104 @@ func (s *Server) renderDetailFile(w http.ResponseWriter, path, ext string) {
 	}
 
 	s.renderTemplate(w, "detail_file.html", data)
+}
+
+// SampleReportEntry holds parsed data for one sample in a report.
+type SampleReportEntry struct {
+	Number int
+	Name   string
+	Pads   string
+	Status string // "found" or "NOT FOUND"
+	Found  bool
+	Audio  string
+	Source string
+	Tags   string
+	AlsoIn string
+}
+
+func (s *Server) renderDetailTXT(w http.ResponseWriter, path string) {
+	workspace := s.session.WorkspacePath
+	relPath, err := filepath.Rel(workspace, path)
+	if err != nil {
+		relPath = path
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	text := string(content)
+	isSampleReport := strings.HasPrefix(text, "Sample Report for ")
+
+	data := map[string]any{
+		"Path":           path,
+		"RelPath":        relPath,
+		"Content":        text,
+		"IsSampleReport": isSampleReport,
+	}
+
+	if isSampleReport {
+		data["ReportEntries"] = parseSampleReport(text)
+		// Extract the title (first line).
+		if idx := strings.Index(text, "\n"); idx > 0 {
+			data["ReportTitle"] = text[:idx]
+		}
+	}
+
+	s.renderTemplate(w, "detail_txt.html", data)
+}
+
+// parseSampleReport extracts structured entries from a sample report text file.
+func parseSampleReport(text string) []SampleReportEntry {
+	var entries []SampleReportEntry
+	lines := strings.Split(text, "\n")
+
+	var current *SampleReportEntry
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Numbered entry: "1. SampleName"
+		if len(trimmed) > 2 && trimmed[0] >= '0' && trimmed[0] <= '9' {
+			dotIdx := strings.Index(trimmed, ". ")
+			if dotIdx > 0 {
+				num, err := strconv.Atoi(trimmed[:dotIdx])
+				if err == nil && num > 0 {
+					if current != nil {
+						entries = append(entries, *current)
+					}
+					current = &SampleReportEntry{
+						Number: num,
+						Name:   trimmed[dotIdx+2:],
+					}
+					continue
+				}
+			}
+		}
+
+		if current == nil {
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "Pads: ") {
+			current.Pads = strings.TrimPrefix(trimmed, "Pads: ")
+		} else if strings.HasPrefix(trimmed, "Status: ") {
+			current.Status = strings.TrimPrefix(trimmed, "Status: ")
+			current.Found = current.Status == "found"
+		} else if strings.HasPrefix(trimmed, "Audio: ") {
+			current.Audio = strings.TrimPrefix(trimmed, "Audio: ")
+		} else if strings.HasPrefix(trimmed, "Source: ") {
+			current.Source = strings.TrimPrefix(trimmed, "Source: ")
+		} else if strings.HasPrefix(trimmed, "Tags: ") {
+			current.Tags = strings.TrimPrefix(trimmed, "Tags: ")
+		} else if strings.HasPrefix(trimmed, "Also used in: ") {
+			current.AlsoIn = strings.TrimPrefix(trimmed, "Also used in: ")
+		}
+	}
+	if current != nil {
+		entries = append(entries, *current)
+	}
+
+	return entries
 }

@@ -705,6 +705,12 @@ function doWorkspaceImport() {
         });
 }
 
+// --- Browser Refresh (triggered by server via HX-Trigger) ---
+
+document.addEventListener('refreshBrowser', function() {
+    htmx.ajax('GET', '/browse/nav', { target: '#file-nav' });
+});
+
 // --- Browser Nav Highlighting ---
 
 // After browser nav re-renders (directory navigation, mkdir), re-apply tab highlighting

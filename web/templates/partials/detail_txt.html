@@ -1,0 +1,34 @@
+{{define "detail_txt.html"}}
+<div class="detail-txt">
+    <div class="detail-header">
+        <span class="detail-type">[TXT]</span>
+        <span class="detail-path">{{.RelPath}}</span>
+    </div>
+
+    {{if .IsSampleReport}}
+    <div class="sample-report">
+        <h2 class="report-title">{{.ReportTitle}}</h2>
+        {{range .ReportEntries}}
+        <div class="report-entry {{if .Found}}report-found{{else}}report-missing{{end}}">
+            <div class="report-entry-header">
+                <span class="report-num">{{.Number}}.</span>
+                <span class="report-name">{{.Name}}</span>
+                <span class="report-status {{if .Found}}status-found{{else}}status-missing{{end}}">{{.Status}}</span>
+            </div>
+            <div class="report-entry-details">
+                {{if .Pads}}<div class="report-field"><span class="report-label">Pads:</span> {{.Pads}}</div>{{end}}
+                {{if .Audio}}<div class="report-field"><span class="report-label">Audio:</span> {{.Audio}}</div>{{end}}
+                {{if .Source}}<div class="report-field"><span class="report-label">Source:</span> {{.Source}}</div>{{end}}
+                {{if .Tags}}<div class="report-field"><span class="report-label">Tags:</span> {{.Tags}}</div>{{end}}
+                {{if .AlsoIn}}<div class="report-field"><span class="report-label">Also in:</span> {{.AlsoIn}}</div>{{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="txt-content">
+        <pre>{{.Content}}</pre>
+    </div>
+    {{end}}
+</div>
+{{end}}
