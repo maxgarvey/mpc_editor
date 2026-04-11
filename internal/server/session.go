@@ -86,11 +86,32 @@ func NewSession(queries *db.Queries) *Session {
 }
 
 func defaultWorkspacePath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join(".", "MPC1000")
+	// Default to the directory containing the binary.
+	if exe, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exe)
+		// Avoid using a temp dir (e.g. "go run" puts the binary in a temp path).
+		if !isTempDir(dir) {
+			return dir
+		}
 	}
-	return filepath.Join(home, "MPC1000")
+	// Fallback: current working directory.
+	if cwd, err := os.Getwd(); err == nil {
+		return cwd
+	}
+	return "."
+}
+
+func isTempDir(dir string) bool {
+	tmp := os.TempDir()
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	absTmp, err := filepath.Abs(tmp)
+	if err != nil {
+		return false
+	}
+	return len(abs) >= len(absTmp) && abs[:len(absTmp)] == absTmp
 }
 
 // loadPrefsFromDB reads preferences from the database, falling back to defaults.

@@ -1,0 +1,20 @@
+{{define "settings.html"}}
+<div class="settings-panel">
+    <h3>Workspace</h3>
+    <div class="settings-row">
+        <label class="settings-label">Workspace Path</label>
+        <input type="text" id="settings-workspace" class="path-input" style="width:100%" value="{{.Session.WorkspacePath}}">
+        <p class="settings-hint">Directory where MPC files (programs, samples, sequences) are stored.</p>
+    </div>
+
+    <h3>Profile</h3>
+    <div class="settings-row">
+        <label class="settings-label">MPC Model</label>
+        <select id="settings-profile" class="settings-select">
+            <option value="MPC1000" {{if eq .Session.Profile.Name "MPC1000"}}selected{{end}}>MPC 1000</option>
+            <option value="MPC500" {{if eq .Session.Profile.Name "MPC500"}}selected{{end}}>MPC 500</option>
+        </select>
+        <p class="settings-hint">Controls pad count and default parameters.</p>
+    </div>
+</div>
+{{end}}

@@ -310,6 +310,67 @@ function confirmSave() {
     });
 }
 
+// --- Settings Modal ---
+
+function openSettingsModal() {
+    var overlay = document.createElement('div');
+    overlay.id = 'settings-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeSettingsModal();
+    });
+
+    var modal = document.createElement('div');
+    modal.className = 'settings-modal';
+    modal.id = 'settings-modal';
+    modal.innerHTML = '<div class="settings-header">Settings</div>' +
+        '<div id="settings-content" class="settings-body">Loading...</div>' +
+        '<div class="settings-actions">' +
+            '<button class="btn-primary" onclick="saveSettings()">Save</button>' +
+            '<button class="btn-primary" onclick="closeSettingsModal()">Cancel</button>' +
+        '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Fetch settings content from server
+    fetch('/settings')
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            document.getElementById('settings-content').innerHTML = html;
+        });
+}
+
+function closeSettingsModal() {
+    var overlay = document.getElementById('settings-overlay');
+    if (overlay) overlay.remove();
+}
+
+function saveSettings() {
+    var workspace = document.getElementById('settings-workspace');
+    var profile = document.getElementById('settings-profile');
+
+    var params = new URLSearchParams();
+    if (workspace) params.set('workspace', workspace.value);
+    if (profile) params.set('profile', profile.value);
+
+    fetch('/settings/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+    }).then(function(r) {
+        if (r.ok) {
+            // Check for HX-Redirect header
+            var redirect = r.headers.get('HX-Redirect');
+            if (redirect) {
+                window.location.href = redirect;
+            } else {
+                window.location.reload();
+            }
+        }
+    });
+}
+
 // --- New Folder Modal ---
 
 function openMkdirModal(parent, context, htmxTarget) {

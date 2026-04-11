@@ -174,6 +174,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)
 	s.mux.HandleFunc("/file/", s.handleFileDetail)
 
+	// Settings
+	s.mux.HandleFunc("/settings", s.handleSettingsGet)
+	s.mux.HandleFunc("/settings/save", s.handleSettingsPost)
+
 	// Device detection
 	s.mux.HandleFunc("/device/status", s.handleDeviceStatus)
 	s.mux.HandleFunc("/device/detect", s.handleDeviceDetect)

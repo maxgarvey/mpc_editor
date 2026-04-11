@@ -29,6 +29,8 @@
                 <span class="toolbar-separator">|</span>
                 {{template "device_status.html" .}}
                 <button class="btn-sm" hx-post="/device/detect" hx-target="#device-status" hx-swap="outerHTML">Detect MPC</button>
+                <span class="toolbar-separator">|</span>
+                <button class="btn-sm" onclick="openSettingsModal()">Settings</button>
             </nav>
         </div>
         <div class="file-info">
