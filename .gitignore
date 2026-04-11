@@ -25,6 +25,10 @@ Thumbs.db
 # Preferences (runtime generated)
 ~/.mpc_editor/
 
+# Default workspace (user content, not source)
+workspace/*
+!workspace/.gitkeep
+
 # Playwright
 e2e/node_modules/
 e2e/test-results/

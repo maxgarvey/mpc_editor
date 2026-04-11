@@ -86,19 +86,18 @@ func NewSession(queries *db.Queries) *Session {
 }
 
 func defaultWorkspacePath() string {
-	// Default to the directory containing the binary.
+	// Default to the "workspace" subdirectory next to the binary.
 	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exe)
-		// Avoid using a temp dir (e.g. "go run" puts the binary in a temp path).
 		if !isTempDir(dir) {
-			return dir
+			return filepath.Join(dir, "workspace")
 		}
 	}
-	// Fallback: current working directory.
+	// Fallback: "workspace" subdirectory in the current working directory.
 	if cwd, err := os.Getwd(); err == nil {
-		return cwd
+		return filepath.Join(cwd, "workspace")
 	}
-	return "."
+	return filepath.Join(".", "workspace")
 }
 
 func isTempDir(dir string) bool {
