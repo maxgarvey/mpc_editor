@@ -1212,17 +1212,22 @@ function pickPad(padIndex) {
     var st = _padPickerState;
     if (!st) return;
 
+    var pgmPath = st.pgmPath;
+
     fetch('/api/assign-to-program', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'pgm_path=' + encodeURIComponent(st.pgmPath) +
+        body: 'pgm_path=' + encodeURIComponent(pgmPath) +
               '&wav_path=' + encodeURIComponent(st.wavPath) +
               '&pad=' + padIndex
     }).then(function(r) { return r.json(); })
     .then(function(data) {
         closePadPicker();
         AudioPlayer.clearCache();
-        refreshPadGridAndParams(padIndex);
+        // Switch to the PGM tab so the user sees the updated program.
+        // TabManager.openFile will activate the existing tab (re-fetching
+        // from the server) or create a new one.
+        TabManager.openFile(pgmPath);
     })
     .catch(function(err) {
         console.warn('Assign to program failed:', err);
