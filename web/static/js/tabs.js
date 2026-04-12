@@ -81,6 +81,15 @@ const TabManager = (function() {
                 // Process any inline scripts in the response
                 var scripts = content.querySelectorAll('script');
                 scripts.forEach(function(oldScript) {
+                    if (oldScript.src) {
+                        // Skip external scripts already loaded in the page
+                        // to avoid redeclaring top-level const/let bindings.
+                        var existing = document.querySelector('script[src="' + oldScript.getAttribute('src') + '"]');
+                        if (existing) {
+                            oldScript.remove();
+                            return;
+                        }
+                    }
                     var newScript = document.createElement('script');
                     if (oldScript.src) {
                         newScript.src = oldScript.src;

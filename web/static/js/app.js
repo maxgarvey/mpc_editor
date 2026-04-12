@@ -860,13 +860,45 @@ function assignPathToPad(wavPath, padIndex, mode) {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'path=' + encodeURIComponent(wavPath) + '&pad=' + padIndex + '&mode=' + mode
-    }).then(function(resp) {
+    }).then(function() {
         AudioPlayer.clearCache();
         AudioPlayer.invalidatePad(padIndex);
-        window.location.reload();
+        refreshPadGridAndParams(padIndex);
     }).catch(function(err) {
         console.warn('Assign to pad failed:', err);
     });
+}
+
+// --- Pad Grid / Params Refresh ---
+
+function refreshPadGridAndParams(padIndex) {
+    var bank = Math.floor(padIndex / 16);
+    var padGrid = document.querySelector('.pad-grid');
+    var padParams = document.getElementById('pad-params');
+
+    if (padGrid) {
+        fetch('/partials/pad-grid?bank=' + bank)
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                padGrid.outerHTML = html;
+                if (typeof initDragDrop === 'function') initDragDrop();
+                // Highlight the assigned pad.
+                var btns = document.querySelectorAll('.pad-btn');
+                btns.forEach(function(b) {
+                    b.classList.toggle('selected', b.getAttribute('hx-get') === '/pad/' + padIndex);
+                });
+            });
+    }
+
+    if (padParams) {
+        fetch('/partials/pad-params')
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                padParams.innerHTML = html;
+                if (typeof htmx !== 'undefined') htmx.process(padParams);
+                if (typeof initTabs === 'function') initTabs();
+            });
+    }
 }
 
 // --- Sample Picker ---
@@ -1190,11 +1222,7 @@ function pickPad(padIndex) {
     .then(function(data) {
         closePadPicker();
         AudioPlayer.clearCache();
-        // If assigning to the session's current program, reload to reflect changes.
-        var pgmDetail = document.querySelector('.detail-pgm');
-        if (pgmDetail) {
-            window.location.reload();
-        }
+        refreshPadGridAndParams(padIndex);
     })
     .catch(function(err) {
         console.warn('Assign to program failed:', err);

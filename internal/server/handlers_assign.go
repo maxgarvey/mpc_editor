@@ -207,6 +207,8 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 		command.SimpleAssign(s.session.Program, &s.session.Matrix, samples, padIdx, assignMode)
 	}
 
+	s.session.SelectedPad = padIdx
+
 	// Redirect to refresh the full page
 	bank := padIdx / 16
 	w.Header().Set("HX-Redirect", "/?bank="+strconv.Itoa(bank))

@@ -206,10 +206,11 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// If this is the session program, update the matrix.
+	// If this is the session program, update the matrix and selected pad.
 	if isSessionPgm {
 		ref := pgm.FindSampleInDirs(sampleName, s.session.SampleDir, s.session.WorkspacePath)
 		s.session.Matrix.Set(padIdx, targetLayer, &ref)
+		s.session.SelectedPad = padIdx
 	}
 
 	// Background rescan to keep DB current.
