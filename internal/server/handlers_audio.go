@@ -37,7 +37,7 @@ func (s *Server) handleAudioPad(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "audio/wav")
-	w.Header().Set("Cache-Control", "max-age=300")
+	w.Header().Set("Cache-Control", "no-cache")
 	http.ServeFile(w, r, ref.FilePath)
 }
 
@@ -89,7 +89,7 @@ func (s *Server) handleAudioFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "audio/wav")
-	w.Header().Set("Cache-Control", "max-age=300")
+	w.Header().Set("Cache-Control", "no-cache")
 	http.ServeFile(w, r, path)
 }
 

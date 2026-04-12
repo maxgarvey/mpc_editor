@@ -914,6 +914,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .browser-empty {
@@ -945,6 +947,10 @@ body {
     border-radius: 3px;
     margin-left: auto;
     white-space: nowrap;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .badge-warn {

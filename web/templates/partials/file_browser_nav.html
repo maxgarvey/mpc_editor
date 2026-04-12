@@ -8,6 +8,7 @@
     {{end}}
     {{range .Entries}}
     <div class="browser-entry {{if .IsDir}}is-dir{{end}} {{if .IsProject}}is-project{{end}}" data-path="{{.Path}}"
+         title="{{.Name}}{{if .WavInfo}} — {{.WavInfo}}{{end}}{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}} — {{.MissingSamples}} missing{{end}}"
          {{if .IsDir}}
          hx-get="/browse/nav?dir={{.Path}}"
          hx-target="#file-nav"

@@ -1,6 +1,6 @@
 {{define "pad_params.html"}}
 <div class="pad-params-panel">
-    <h2>Pad {{.BankLabel}}{{.PadDisplay}} {{if gt .LayerCountTotal 0}}<button type="button" class="btn-play" onclick="AudioPlayer.playAllPadLayers({{.PadIndex}}, {{.LayerCountTotal}})" title="Play all layers">&#9654;</button>{{end}}</h2>
+    <h2>Pad {{.BankLabel}}{{.PadDisplay}} {{if gt .LayerCountTotal 0}}<button type="button" class="btn-play" onclick="AudioPlayer.playAllPadLayers({{.PadIndex}})" title="Play all layers">&#9654;</button>{{end}}</h2>
 
     <div class="param-tabs">
         <span class="param-tab active">Samples</span>
@@ -38,7 +38,6 @@
                     <option value="0" {{if eq .PlayMode 0}}selected{{end}}>One Shot</option>
                     <option value="1" {{if eq .PlayMode 1}}selected{{end}}>Note On</option>
                 </select>
-                <button type="submit" class="btn-sm btn-set">Set</button>
             </form>
         </div>
         {{end}}

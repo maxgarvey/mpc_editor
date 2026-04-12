@@ -104,9 +104,9 @@ const AudioPlayer = (function() {
             layerIndex = layerIndex || 0;
             play(`/audio/pad/${padIndex}/${layerIndex}`);
         },
-        playAllPadLayers: function(padIndex, layerCount) {
+        playAllPadLayers: function(padIndex) {
             stopAll();
-            for (var i = 0; i < layerCount; i++) {
+            for (var i = 0; i < 4; i++) {
                 playLayerSource(`/audio/pad/${padIndex}/${i}`);
             }
         },

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -106,6 +107,10 @@ func (s *Server) handlePadParams(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err := s.session.Program.Save(s.session.FilePath); err != nil {
+		log.Printf("save program: %v", err)
+	}
+
 	s.renderTemplate(w, "pad_params.html", s.padParamsData())
 }
 
@@ -162,6 +167,10 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 		if n, err := strconv.Atoi(v); err == nil {
 			layer.SetPlayMode(n)
 		}
+	}
+
+	if err := s.session.Program.Save(s.session.FilePath); err != nil {
+		log.Printf("save program: %v", err)
 	}
 
 	s.renderTemplate(w, "pad_params.html", s.padParamsData())
