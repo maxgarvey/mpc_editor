@@ -162,13 +162,13 @@ function handleDrop(e) {
     }
 
     // OS file drop handling.
-    const files = e.dataTransfer.files;
+    var files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
 
     // Get pad index from the button's hx-get attribute
-    const hxGet = e.currentTarget.getAttribute('hx-get');
-    const match = hxGet && hxGet.match(/\/pad\/(\d+)/);
-    const padIndex = match ? parseInt(match[1]) : 0;
+    var hxGet = e.currentTarget.getAttribute('hx-get');
+    var match = hxGet && hxGet.match(/\/pad\/(\d+)/);
+    var padIndex = match ? parseInt(match[1]) : 0;
 
     uploadFiles(files, padIndex, files.length > 1 ? 'per-pad' : 'per-pad');
 }
