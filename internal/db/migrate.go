@@ -31,6 +31,10 @@ func Open() (*sql.DB, *Queries, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	// SQLite only supports one concurrent writer. Limiting to a single
+	// connection lets Go's pool serialize all operations, preventing
+	// SQLITE_BUSY errors between background scans and UI writes.
+	sqlDB.SetMaxOpenConns(1)
 
 	if _, err := sqlDB.Exec(schemaDDL); err != nil {
 		_ = sqlDB.Close()
