@@ -63,25 +63,29 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path string) {
-	prog, err := pgm.OpenProgram(path)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	// Reuse the in-memory program if it's already loaded for this path,
+	// so unsaved changes (e.g. from drag-drop assignment) are preserved.
+	if path != s.session.FilePath || s.session.Program == nil {
+		prog, err := pgm.OpenProgram(path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	s.session.Program = prog
-	s.session.FilePath = path
-	s.session.SampleDir = filepath.Dir(path)
-	s.session.SelectedPad = 0
-	s.session.Matrix.Clear()
+		s.session.Program = prog
+		s.session.FilePath = path
+		s.session.SampleDir = filepath.Dir(path)
+		s.session.SelectedPad = 0
+		s.session.Matrix.Clear()
 
-	for i := range 64 {
-		pad := prog.Pad(i)
-		for j := range 4 {
-			name := pad.Layer(j).GetSampleName()
-			if name != "" {
-				ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
-				s.session.Matrix.Set(i, j, &ref)
+		for i := range 64 {
+			pad := prog.Pad(i)
+			for j := range 4 {
+				name := pad.Layer(j).GetSampleName()
+				if name != "" {
+					ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
+					s.session.Matrix.Set(i, j, &ref)
+				}
 			}
 		}
 	}
