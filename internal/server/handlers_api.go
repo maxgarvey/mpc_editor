@@ -3,8 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -167,7 +169,20 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 	}
 
 	pgmAbs := s.resolvePath(pgmRel)
+	wavAbs := s.resolvePath(wavRel)
 	sampleName := strings.TrimSuffix(filepath.Base(wavRel), filepath.Ext(wavRel))
+	// MPC programs have a 16-character sample name limit.
+	if len(sampleName) > 16 {
+		sampleName = sampleName[:16]
+		// Copy the WAV to the PGM's directory with the truncated name so
+		// FindSampleInDirs can locate it.
+		destPath := filepath.Join(filepath.Dir(pgmAbs), sampleName+".wav")
+		if _, err := os.Stat(destPath); os.IsNotExist(err) {
+			if err := copyFile(wavAbs, destPath); err != nil {
+				log.Printf("assign-to-program: copy renamed sample: %v", err)
+			}
+		}
+	}
 
 	// Check if this is the session's current program.
 	isSessionPgm := pgmAbs == s.session.FilePath && s.session.Program != nil
@@ -206,11 +221,29 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// If this is the session program, update the matrix and selected pad.
+	// Update session state so renderDetailPGM reuses it with the correct
+	// SelectedPad and a fully populated Matrix.
 	if isSessionPgm {
 		ref := pgm.FindSampleInDirs(sampleName, s.session.SampleDir, s.session.WorkspacePath)
 		s.session.Matrix.Set(padIdx, targetLayer, &ref)
 		s.session.SelectedPad = padIdx
+	} else {
+		// Switch session to the target program.
+		s.session.Program = prog
+		s.session.FilePath = pgmAbs
+		s.session.SampleDir = filepath.Dir(pgmAbs)
+		s.session.SelectedPad = padIdx
+		s.session.Matrix.Clear()
+		for i := range 64 {
+			pad := prog.Pad(i)
+			for j := range 4 {
+				name := pad.Layer(j).GetSampleName()
+				if name != "" {
+					ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
+					s.session.Matrix.Set(i, j, &ref)
+				}
+			}
+		}
 	}
 
 	// Background rescan to keep DB current.
@@ -225,4 +258,22 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"pad":%d,"layer":%d,"sample":%q}`, padIdx, targetLayer, sampleName)
+}
+
+// copyFile copies src to dst.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }
