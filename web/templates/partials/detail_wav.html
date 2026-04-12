@@ -16,7 +16,7 @@
         <button class="btn-sm btn-set" onclick="AudioPlayer.play('/audio/file?path={{.RelPath}}')">Play</button>
         <button class="btn-sm" onclick="AudioPlayer.stop()">Stop</button>
         {{if .HasProgram}}
-        <button class="btn-sm btn-assign" onclick="assignWavToPad('{{.RelPath}}')">Assign to Pad</button>
+        <button class="btn-sm btn-assign" onclick="openPadPicker('{{.RelPath}}')">Assign to Pad</button>
         {{end}}
     </div>
 

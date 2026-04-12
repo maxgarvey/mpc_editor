@@ -185,6 +185,9 @@ func (s *Server) registerRoutes() {
 
 	// API
 	s.mux.HandleFunc("/api/samples", s.handleAPISamples)
+	s.mux.HandleFunc("/api/programs", s.handleAPIPrograms)
+	s.mux.HandleFunc("/api/program-pads", s.handleAPIProgramPads)
+	s.mux.HandleFunc("/api/assign-to-program", s.handleAPIAssignToProgram)
 
 	// Pad grid partial
 	s.mux.HandleFunc("/partials/pad-grid", s.handlePadGrid)

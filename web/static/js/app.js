@@ -1008,3 +1008,195 @@ function escapeHtml(str) {
 function escapeAttr(str) {
     return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
+
+// --- Pad Picker (Assign to Pad from WAV detail) ---
+
+var _padPickerPrograms = null;
+var _padPickerState = null; // { wavPath, pgmPath, bank }
+
+function openPadPicker(wavPath) {
+    var sampleName = wavPath.split('/').pop();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'pad-picker-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closePadPicker();
+    });
+
+    var modal = document.createElement('div');
+    modal.className = 'pad-picker-modal';
+    modal.innerHTML =
+        '<div class="save-confirm-header">Assign ' + escapeHtml(sampleName) + ' to Pad</div>' +
+        '<div class="pad-picker-body">' +
+            '<div class="pad-picker-program-row">' +
+                '<label>Program:</label>' +
+                '<div class="pad-picker-program-select" id="pad-picker-pgm-select">' +
+                    '<span class="pad-picker-pgm-name" id="pad-picker-pgm-name" onclick="toggleProgramDropdown()">Loading...</span>' +
+                    '<div class="pad-picker-pgm-dropdown" id="pad-picker-pgm-dropdown" style="display:none">' +
+                        '<input type="text" id="pad-picker-pgm-filter" class="sample-input" placeholder="Filter programs..." oninput="filterProgramList(this.value)">' +
+                        '<div id="pad-picker-pgm-list" class="pad-picker-pgm-list"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="pad-picker-banks" id="pad-picker-banks">' +
+                '<span class="pad-picker-bank active" onclick="switchPickerBank(0)">A</span>' +
+                '<span class="pad-picker-bank" onclick="switchPickerBank(1)">B</span>' +
+                '<span class="pad-picker-bank" onclick="switchPickerBank(2)">C</span>' +
+                '<span class="pad-picker-bank" onclick="switchPickerBank(3)">D</span>' +
+            '</div>' +
+            '<div class="pad-picker-grid" id="pad-picker-grid"></div>' +
+        '</div>' +
+        '<div class="save-confirm-actions">' +
+            '<button class="btn-primary" onclick="closePadPicker()">Cancel</button>' +
+        '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    _padPickerState = { wavPath: wavPath, pgmPath: null, bank: 0 };
+
+    // Load programs list, then load pads for the default program.
+    fetch('/api/programs')
+        .then(function(r) { return r.json(); })
+        .then(function(programs) {
+            _padPickerPrograms = programs;
+            // Default to current session program, or first in list.
+            var defaultPgm = programs.find(function(p) { return p.current; }) || programs[0];
+            if (defaultPgm) {
+                _padPickerState.pgmPath = defaultPgm.path;
+                document.getElementById('pad-picker-pgm-name').textContent = defaultPgm.name;
+                renderProgramDropdownList('');
+                loadPickerPads();
+            } else {
+                document.getElementById('pad-picker-pgm-name').textContent = '(no programs)';
+            }
+        });
+}
+
+function closePadPicker() {
+    var overlay = document.getElementById('pad-picker-overlay');
+    if (overlay) overlay.remove();
+    _padPickerState = null;
+}
+
+function toggleProgramDropdown() {
+    var dd = document.getElementById('pad-picker-pgm-dropdown');
+    if (!dd) return;
+    var visible = dd.style.display !== 'none';
+    dd.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+        var filterInput = document.getElementById('pad-picker-pgm-filter');
+        if (filterInput) {
+            filterInput.value = '';
+            filterInput.focus();
+        }
+        renderProgramDropdownList('');
+    }
+}
+
+function filterProgramList(filter) {
+    renderProgramDropdownList(filter);
+}
+
+function renderProgramDropdownList(filter) {
+    var list = document.getElementById('pad-picker-pgm-list');
+    if (!list || !_padPickerPrograms) return;
+
+    var lower = filter.toLowerCase();
+    var filtered = _padPickerPrograms.filter(function(p) {
+        return !lower || p.name.toLowerCase().indexOf(lower) !== -1 || p.path.toLowerCase().indexOf(lower) !== -1;
+    });
+
+    var html = '';
+    for (var i = 0; i < filtered.length; i++) {
+        var p = filtered[i];
+        var cls = (_padPickerState && p.path === _padPickerState.pgmPath) ? ' active' : '';
+        html += '<div class="pad-picker-pgm-item' + cls + '" onclick="selectPickerProgram(\'' +
+            escapeAttr(p.path) + '\', \'' + escapeAttr(p.name) + '\')">' +
+            escapeHtml(p.path) + '</div>';
+    }
+    if (filtered.length === 0) {
+        html = '<div class="pad-picker-pgm-item" style="color:#888;font-style:italic">No matching programs</div>';
+    }
+    list.innerHTML = html;
+}
+
+function selectPickerProgram(path, name) {
+    _padPickerState.pgmPath = path;
+    _padPickerState.bank = 0;
+    document.getElementById('pad-picker-pgm-name').textContent = name;
+    document.getElementById('pad-picker-pgm-dropdown').style.display = 'none';
+    // Reset bank tabs.
+    var tabs = document.querySelectorAll('.pad-picker-bank');
+    tabs.forEach(function(t, i) { t.classList.toggle('active', i === 0); });
+    loadPickerPads();
+}
+
+function switchPickerBank(bank) {
+    _padPickerState.bank = bank;
+    var tabs = document.querySelectorAll('.pad-picker-bank');
+    tabs.forEach(function(t, i) { t.classList.toggle('active', i === bank); });
+    loadPickerPads();
+}
+
+function loadPickerPads() {
+    var st = _padPickerState;
+    if (!st || !st.pgmPath) return;
+
+    var grid = document.getElementById('pad-picker-grid');
+    if (!grid) return;
+    grid.innerHTML = '<div style="color:#888;padding:8px">Loading...</div>';
+
+    fetch('/api/program-pads?path=' + encodeURIComponent(st.pgmPath) + '&bank=' + st.bank)
+        .then(function(r) { return r.json(); })
+        .then(function(pads) {
+            var html = '';
+            for (var i = 0; i < pads.length; i++) {
+                var p = pads[i];
+                var cls = 'pad-picker-btn';
+                if (p.layers > 0) cls += ' has-sample';
+                var title = p.name || '(empty)';
+                if (p.layers > 1) title += ' (' + p.layers + ' layers)';
+                html += '<button class="' + cls + '" onclick="pickPad(' + p.index + ')" title="' +
+                    escapeAttr(title) + '">' +
+                    '<span class="pad-number">' + p.display + '</span>';
+                if (p.name) {
+                    html += '<span class="pad-name">' + escapeHtml(p.name) + '</span>';
+                }
+                if (p.layers > 1) {
+                    html += '<span class="pad-layers">' + p.layers + 'L</span>';
+                }
+                html += '</button>';
+            }
+            grid.innerHTML = html;
+        })
+        .catch(function(err) {
+            grid.innerHTML = '<div style="color:#f88;padding:8px">Error loading pads</div>';
+        });
+}
+
+function pickPad(padIndex) {
+    var st = _padPickerState;
+    if (!st) return;
+
+    fetch('/api/assign-to-program', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'pgm_path=' + encodeURIComponent(st.pgmPath) +
+              '&wav_path=' + encodeURIComponent(st.wavPath) +
+              '&pad=' + padIndex
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        closePadPicker();
+        AudioPlayer.clearCache();
+        // If assigning to the session's current program, reload to reflect changes.
+        var pgmDetail = document.querySelector('.detail-pgm');
+        if (pgmDetail) {
+            window.location.reload();
+        }
+    })
+    .catch(function(err) {
+        console.warn('Assign to program failed:', err);
+    });
+}

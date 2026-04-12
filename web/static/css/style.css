@@ -1778,3 +1778,179 @@ tr.track-muted .track-label {
     font-size: 12px;
     font-style: italic;
 }
+
+/* Pad Picker Modal */
+.pad-picker-modal {
+    background: #1e2e1e;
+    border: 2px solid #4a6a4a;
+    border-radius: 8px;
+    padding: 20px;
+    min-width: 420px;
+    max-width: 480px;
+    width: 90%;
+}
+
+.pad-picker-body {
+    margin: 12px 0;
+}
+
+.pad-picker-program-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.pad-picker-program-row label {
+    font-size: 13px;
+    color: #aaa;
+    white-space: nowrap;
+}
+
+.pad-picker-program-select {
+    flex: 1;
+    position: relative;
+}
+
+.pad-picker-pgm-name {
+    display: block;
+    padding: 6px 10px;
+    background: #162016;
+    border: 1px solid #3a5a3a;
+    border-radius: 4px;
+    color: #d0f060;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pad-picker-pgm-name:hover {
+    border-color: #5a8a5a;
+}
+
+.pad-picker-pgm-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: #162016;
+    border: 1px solid #3a5a3a;
+    border-radius: 4px;
+    margin-top: 2px;
+    max-height: 250px;
+    display: flex;
+    flex-direction: column;
+}
+
+.pad-picker-pgm-dropdown .sample-input {
+    margin: 6px;
+    width: calc(100% - 12px);
+}
+
+.pad-picker-pgm-list {
+    overflow-y: auto;
+    max-height: 200px;
+}
+
+.pad-picker-pgm-item {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #d4d4d4;
+    border-bottom: 1px solid #1a2a1a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pad-picker-pgm-item:hover {
+    background: #2a4a2a;
+    color: #fff;
+}
+
+.pad-picker-pgm-item.active {
+    color: #d0f060;
+}
+
+.pad-picker-banks {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.pad-picker-bank {
+    padding: 4px 12px;
+    background: #2a3a2a;
+    border: 1px solid #3a5a3a;
+    border-radius: 4px;
+    color: #aaa;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.pad-picker-bank:hover {
+    background: #3a4a3a;
+}
+
+.pad-picker-bank.active {
+    background: #4a6a4a;
+    color: #d0f060;
+    border-color: #6a8a6a;
+}
+
+.pad-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.pad-picker-btn {
+    background: #2a3a2a;
+    border: 1px solid #3a5a3a;
+    border-radius: 4px;
+    color: #aaa;
+    padding: 8px 4px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 11px;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.pad-picker-btn:hover {
+    background: #3a5a3a;
+    border-color: #5a8a5a;
+    color: #fff;
+}
+
+.pad-picker-btn.has-sample {
+    background: #3a4a3a;
+    color: #d4d4d4;
+}
+
+.pad-picker-btn .pad-number {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.pad-picker-btn .pad-name {
+    font-size: 9px;
+    color: #a0c840;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.pad-picker-btn .pad-layers {
+    font-size: 8px;
+    color: #888;
+}
