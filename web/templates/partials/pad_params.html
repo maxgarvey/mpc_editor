@@ -21,8 +21,13 @@
             </div>
             <form hx-post="/pad/layer/{{.Index}}" hx-target="#pad-params" class="layer-form">
                 <div class="sample-name-row">
-                    <input type="text" name="sample_name" value="{{.SampleName}}" placeholder="(empty)" class="sample-input" id="layer-sample-{{.Index}}">
-                    <button type="button" class="btn-sm btn-browse-sample" onclick="openSamplePicker({{.Index}})" title="Browse samples">&#128269;</button>
+                    {{if .SampleName}}
+                    <span class="sample-label" onclick="openSamplePicker({{.Index}})" title="Click to change sample">{{.SampleName}}</span>
+                    <button type="button" class="btn-clear-sample" onclick="clearSampleDirect({{.Index}})" title="Remove sample">&times;</button>
+                    {{else}}
+                    <span class="sample-placeholder" onclick="openSamplePicker({{.Index}})">Select a sample...</span>
+                    {{end}}
+                    <input type="hidden" name="sample_name" value="{{.SampleName}}" id="layer-sample-{{.Index}}">
                 </div>
                 <label>Level</label>
                 <input type="number" name="level" value="{{.Level}}" min="0" max="100" class="num-input" hx-trigger="change">

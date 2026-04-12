@@ -137,6 +137,9 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 
 	if _, ok := r.Form["sample_name"]; ok {
 		name := r.FormValue("sample_name")
+		if len(name) > 16 {
+			name = name[:16]
+		}
 		_ = layer.SetSampleName(name)
 		if name == "" {
 			s.session.Matrix.Set(padIdx, layerIdx, nil)

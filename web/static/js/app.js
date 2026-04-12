@@ -881,6 +881,8 @@ function refreshPadGridAndParams(padIndex) {
             .then(function(r) { return r.text(); })
             .then(function(html) {
                 padGrid.outerHTML = html;
+                var newGrid = document.querySelector('.pad-grid');
+                if (newGrid && typeof htmx !== 'undefined') htmx.process(newGrid);
                 if (typeof initDragDrop === 'function') initDragDrop();
                 // Highlight the assigned pad.
                 var btns = document.querySelectorAll('.pad-btn');
@@ -985,12 +987,17 @@ function selectSample(relPath) {
     var layerIndex = window._pickerLayerIndex;
     closeSamplePicker();
 
-    // Extract just the filename without extension for the sample name
+    // Extract just the filename without extension for the sample name.
+    // Truncate to 16 chars to match the MPC's limit.
     var parts = relPath.split('/');
     var filename = parts[parts.length - 1];
     var sampleName = filename.replace(/\.[^.]+$/, '');
+    if (sampleName.length > 16) {
+        sampleName = sampleName.substring(0, 16);
+    }
 
     // Set the sample name via the layer update endpoint
+    AudioPlayer.clearCache();
     fetch('/pad/layer/' + layerIndex, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1003,13 +1010,31 @@ function selectSample(relPath) {
             if (typeof htmx !== 'undefined') htmx.process(target);
             if (typeof initTabs === 'function') initTabs();
         }
+        // Refresh pad grid to show new sample assignment.
+        var padGrid = document.querySelector('.pad-grid');
+        if (padGrid) {
+            var activeBank = document.querySelector('.bank-tab.active');
+            var bank = activeBank ? activeBank.textContent.trim().replace('Bank ', '').charCodeAt(0) - 65 : 0;
+            fetch('/partials/pad-grid?bank=' + bank)
+                .then(function(r) { return r.text(); })
+                .then(function(gridHtml) {
+                    padGrid.outerHTML = gridHtml;
+                    var newGrid = document.querySelector('.pad-grid');
+                    if (newGrid && typeof htmx !== 'undefined') htmx.process(newGrid);
+                    if (typeof initDragDrop === 'function') initDragDrop();
+                });
+        }
     });
 }
 
 function clearSampleLayer() {
     var layerIndex = window._pickerLayerIndex;
     closeSamplePicker();
+    clearSampleDirect(layerIndex);
+}
 
+function clearSampleDirect(layerIndex) {
+    AudioPlayer.clearCache();
     fetch('/pad/layer/' + layerIndex, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1021,6 +1046,20 @@ function clearSampleLayer() {
             target.innerHTML = html;
             if (typeof htmx !== 'undefined') htmx.process(target);
             if (typeof initTabs === 'function') initTabs();
+        }
+        // Refresh pad grid to reflect removed sample.
+        var padGrid = document.querySelector('.pad-grid');
+        if (padGrid) {
+            var activeBank = document.querySelector('.bank-tab.active');
+            var bank = activeBank ? activeBank.textContent.trim().replace('Bank ', '').charCodeAt(0) - 65 : 0;
+            fetch('/partials/pad-grid?bank=' + bank)
+                .then(function(r) { return r.text(); })
+                .then(function(gridHtml) {
+                    padGrid.outerHTML = gridHtml;
+                    var newGrid = document.querySelector('.pad-grid');
+                    if (newGrid && typeof htmx !== 'undefined') htmx.process(newGrid);
+                    if (typeof initDragDrop === 'function') initDragDrop();
+                });
         }
     });
 }

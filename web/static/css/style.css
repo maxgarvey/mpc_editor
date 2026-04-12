@@ -1706,22 +1706,57 @@ tr.track-muted .track-label {
     color: #888;
 }
 
-/* Sample name row with browse button */
+/* Sample name row */
 .sample-name-row {
     display: flex;
     gap: 4px;
     align-items: center;
 }
 
-.sample-name-row .sample-input {
+.sample-label {
     flex: 1;
+    color: #cfc;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.btn-browse-sample {
-    padding: 2px 6px;
-    font-size: 14px;
+.sample-label:hover {
+    background: rgba(255,255,255,0.08);
+    text-decoration: underline;
+}
+
+.sample-placeholder {
+    flex: 1;
+    color: #777;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 13px;
+    font-style: italic;
+}
+
+.sample-placeholder:hover {
+    color: #aaa;
+    text-decoration: underline;
+}
+
+.btn-clear-sample {
+    background: none;
+    border: none;
+    color: #c55;
+    font-size: 16px;
     line-height: 1;
     cursor: pointer;
+    padding: 0 4px;
+    font-weight: bold;
+}
+
+.btn-clear-sample:hover {
+    color: #f66;
 }
 
 /* Sample Picker Modal */
