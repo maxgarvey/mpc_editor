@@ -68,11 +68,19 @@ func (s *Server) padParamsData() map[string]any {
 		}
 	}
 
+	layerCountTotal := 0
+	for _, l := range layers {
+		if l.SampleName != "" {
+			layerCountTotal++
+		}
+	}
+
 	return map[string]any{
-		"PadIndex":     idx,
-		"PadDisplay":   (idx % 16) + 1,
-		"BankLabel":    string(rune('A' + idx/16)),
-		"Layers":       layers,
+		"PadIndex":        idx,
+		"PadDisplay":      (idx % 16) + 1,
+		"BankLabel":       string(rune('A' + idx/16)),
+		"Layers":          layers,
+		"LayerCountTotal": layerCountTotal,
 		"VoiceOverlap": pad.GetVoiceOverlap(),
 		"MuteGroup":    pad.GetMuteGroup(),
 		"MIDINote":     pad.GetMIDINote(),

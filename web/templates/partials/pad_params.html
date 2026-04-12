@@ -1,6 +1,6 @@
 {{define "pad_params.html"}}
 <div class="pad-params-panel">
-    <h2>Pad {{.BankLabel}}{{.PadDisplay}}</h2>
+    <h2>Pad {{.BankLabel}}{{.PadDisplay}} {{if gt .LayerCountTotal 0}}<button type="button" class="btn-play" onclick="AudioPlayer.playAllPadLayers({{.PadIndex}}, {{.LayerCountTotal}})" title="Play all layers">&#9654;</button>{{end}}</h2>
 
     <div class="param-tabs">
         <span class="param-tab active">Samples</span>

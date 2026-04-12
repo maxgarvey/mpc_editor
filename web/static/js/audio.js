@@ -3,7 +3,7 @@
 const AudioPlayer = (function() {
     let audioCtx = null;
     const bufferCache = new Map();
-    let activeSource = null;
+    let activeSources = [];
 
     function getContext() {
         if (!audioCtx) {
@@ -35,11 +35,15 @@ const AudioPlayer = (function() {
         return audioBuffer;
     }
 
-    function play(url) {
-        // Stop any currently playing sound
-        if (activeSource) {
-            try { activeSource.stop(); } catch(e) {}
+    function stopAll() {
+        for (let i = 0; i < activeSources.length; i++) {
+            try { activeSources[i].stop(); } catch(e) {}
         }
+        activeSources = [];
+    }
+
+    function play(url) {
+        stopAll();
 
         fetchAndDecode(url).then(buffer => {
             const ctx = getContext();
@@ -47,22 +51,35 @@ const AudioPlayer = (function() {
             source.buffer = buffer;
             source.connect(ctx.destination);
             source.start(0);
-            activeSource = source;
+            activeSources.push(source);
             source.onended = function() {
-                if (activeSource === source) {
-                    activeSource = null;
-                }
+                const idx = activeSources.indexOf(source);
+                if (idx >= 0) activeSources.splice(idx, 1);
             };
         }).catch(err => {
             console.warn('Audio playback failed:', err.message);
         });
     }
 
+    function playLayerSource(url) {
+        fetchAndDecode(url).then(buffer => {
+            const ctx = getContext();
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start(0);
+            activeSources.push(source);
+            source.onended = function() {
+                const idx = activeSources.indexOf(source);
+                if (idx >= 0) activeSources.splice(idx, 1);
+            };
+        }).catch(err => {
+            // Silently skip layers that can't be loaded (e.g. missing samples)
+        });
+    }
+
     function stop() {
-        if (activeSource) {
-            try { activeSource.stop(); } catch(e) {}
-            activeSource = null;
-        }
+        stopAll();
     }
 
     function clearCache() {
@@ -86,6 +103,12 @@ const AudioPlayer = (function() {
         playPad: function(padIndex, layerIndex) {
             layerIndex = layerIndex || 0;
             play(`/audio/pad/${padIndex}/${layerIndex}`);
+        },
+        playAllPadLayers: function(padIndex, layerCount) {
+            stopAll();
+            for (var i = 0; i < layerCount; i++) {
+                playLayerSource(`/audio/pad/${padIndex}/${i}`);
+            }
         },
         playSlice: function(sliceIndex) {
             play(`/audio/slice/${sliceIndex}`);
