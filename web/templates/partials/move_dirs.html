@@ -1,0 +1,17 @@
+{{define "move_dirs.html"}}
+<div class="move-dirs-breadcrumbs">
+    {{range $i, $b := .Breadcrumbs}}{{if $i}}<span class="breadcrumb-sep">/</span>{{end}}<a class="breadcrumb-link move-dir-nav" href="#" data-dir="{{$b.Path}}">{{$b.Name}}</a>{{end}}
+</div>
+<div class="move-dirs-list">
+    {{if not .Dirs}}
+    <div class="browser-empty">No subdirectories</div>
+    {{end}}
+    {{range .Dirs}}
+    <div class="move-dir-entry" data-path="{{.Path}}">
+        <span class="entry-icon"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h5l2 2h7v9H1V3zm1 1v9h12V6H7.5L5.5 4H2z"/><rect x="2" y="6" width="12" height="7" opacity=".15"/></svg></span>
+        <span class="entry-name">{{.Name}}</span>
+    </div>
+    {{end}}
+</div>
+<input type="hidden" id="move-current-dir" value="{{.CurrentDir}}">
+{{end}}

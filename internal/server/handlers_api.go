@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
@@ -278,4 +279,56 @@ func copyFile(src, dst string) error {
 		err = closeErr
 	}
 	return err
+}
+
+// handleAPIPadParams returns full pad/layer parameters as JSON.
+func (s *Server) handleAPIPadParams(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/pad-params/")
+	idx, err := strconv.Atoi(strings.TrimRight(path, "/"))
+	if err != nil || idx < 0 || idx >= 64 {
+		http.Error(w, "invalid pad index", http.StatusBadRequest)
+		return
+	}
+
+	pad := s.session.Program.Pad(idx)
+
+	type layerJSON struct {
+		Index     int     `json:"index"`
+		Level     int     `json:"level"`
+		Tuning    float64 `json:"tuning"`
+		PlayMode  int     `json:"playMode"`
+		HasSample bool    `json:"hasSample"`
+	}
+
+	layers := make([]layerJSON, 4)
+	for i := range layers {
+		l := pad.Layer(i)
+		layers[i] = layerJSON{
+			Index:     i,
+			Level:     l.GetLevel(),
+			Tuning:    l.GetTuning(),
+			PlayMode:  l.GetPlayMode(),
+			HasSample: l.GetSampleName() != "",
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"padIndex": idx,
+		"layers":   layers,
+		"envelope": map[string]any{
+			"attack":    pad.Envelope().GetAttack(),
+			"decay":     pad.Envelope().GetDecay(),
+			"decayMode": pad.Envelope().GetDecayMode(),
+		},
+		"filter1": map[string]any{
+			"type":      pad.Filter1().GetType(),
+			"freq":      pad.Filter1().GetFrequency(),
+			"resonance": pad.Filter1().GetResonance(),
+		},
+		"mixer": map[string]any{
+			"level": pad.Mixer().GetLevel(),
+			"pan":   pad.Mixer().GetPan(),
+		},
+	})
 }

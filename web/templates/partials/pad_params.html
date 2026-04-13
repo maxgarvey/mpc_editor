@@ -19,7 +19,7 @@
                 <label>Layer {{add .Index 1}}</label>
                 {{if .SampleName}}<button type="button" class="btn-play" onclick="AudioPlayer.playPad({{$.PadIndex}}, {{.Index}})" title="Play layer">&#9654;</button>{{end}}
             </div>
-            <form hx-post="/pad/layer/{{.Index}}" hx-target="#pad-params" class="layer-form">
+            <form hx-post="/pad/layer/{{.Index}}" hx-target="#pad-params" hx-trigger="change" class="layer-form">
                 <div class="sample-name-row">
                     {{if .SampleName}}
                     <span class="sample-label" onclick="openSamplePicker({{.Index}})" title="Click to change sample">{{.SampleName}}</span>
@@ -30,11 +30,11 @@
                     <input type="hidden" name="sample_name" value="{{.SampleName}}" id="layer-sample-{{.Index}}">
                 </div>
                 <label>Level</label>
-                <input type="number" name="level" value="{{.Level}}" min="0" max="100" class="num-input" hx-trigger="change">
+                <input type="number" name="level" value="{{.Level}}" min="0" max="100" class="num-input">
                 <label>Tuning</label>
-                <input type="number" name="tuning" value="{{printf "%.2f" .Tuning}}" step="0.01" min="-36" max="36" class="num-input" hx-trigger="change">
+                <input type="number" name="tuning" value="{{printf "%.2f" .Tuning}}" step="0.01" min="-36" max="36" class="num-input">
                 <label>Mode</label>
-                <select name="play_mode" hx-trigger="change">
+                <select name="play_mode">
                     <option value="0" {{if eq .PlayMode 0}}selected{{end}}>One Shot</option>
                     <option value="1" {{if eq .PlayMode 1}}selected{{end}}>Note On</option>
                 </select>
@@ -144,4 +144,15 @@
         </form>
     </div>
 </div>
+<script>
+window.__padParams = {
+    padIndex: {{.PadIndex}},
+    layers: [{{range .Layers}}
+        {index:{{.Index}}, level:{{.Level}}, tuning:{{printf "%.2f" .Tuning}}, playMode:{{.PlayMode}}, hasSample:{{if .SampleName}}true{{else}}false{{end}}},{{end}}
+    ],
+    envelope: {attack:{{.Attack}}, decay:{{.Decay}}, decayMode:{{.DecayMode}}},
+    filter1: {type:{{.Filter1Type}}, freq:{{.Filter1Freq}}, resonance:{{.Filter1Res}}},
+    mixer: {level:{{.MixerLevel}}, pan:{{.MixerPan}}}
+};
+</script>
 {{end}}

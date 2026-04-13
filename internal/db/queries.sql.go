@@ -682,6 +682,20 @@ func (q *Queries) UpdateAuditionMode(ctx context.Context, auditionMode string) e
 	return err
 }
 
+const updateFilePath = `-- name: UpdateFilePath :exec
+UPDATE files SET path = ? WHERE path = ?
+`
+
+type UpdateFilePathParams struct {
+	Path   string
+	Path_2 string
+}
+
+func (q *Queries) UpdateFilePath(ctx context.Context, arg UpdateFilePathParams) error {
+	_, err := q.db.ExecContext(ctx, updateFilePath, arg.Path, arg.Path_2)
+	return err
+}
+
 const updateLastDetailPath = `-- name: UpdateLastDetailPath :exec
 UPDATE preferences SET last_detail_path = ? WHERE id = 1
 `

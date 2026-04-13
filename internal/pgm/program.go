@@ -27,13 +27,22 @@ type Program struct {
 	buf *Buffer
 }
 
-// NewProgram creates a blank program with default header.
+// NewProgram creates a blank program with default header and pad defaults.
 func NewProgram() *Program {
 	p := &Program{buf: NewEmptyBuffer(ProgramFileSize)}
 	// Write file size header
 	p.buf.SetInt(headerFileSize, ProgramFileSize)
 	// Write file type/version
 	_ = p.buf.SetString(headerFileType, fileVersion)
+	// Initialize all pads with MPC defaults.
+	for i := range padCount {
+		pad := p.Pad(i)
+		for j := range layersPerPad {
+			pad.Layer(j).SetLevel(100)
+		}
+		pad.Mixer().SetLevel(100)
+		pad.Mixer().SetPan(50)
+	}
 	return p
 }
 

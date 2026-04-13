@@ -50,6 +50,9 @@ SELECT id, path, file_type, size, mod_time, scanned FROM files ORDER BY path;
 -- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?;
 
+-- name: UpdateFilePath :exec
+UPDATE files SET path = ? WHERE path = ?;
+
 -- name: DeleteFileByPath :exec
 DELETE FROM files WHERE path = ?;
 

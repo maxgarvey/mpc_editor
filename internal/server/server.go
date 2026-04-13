@@ -167,6 +167,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/browse", s.handleBrowse)
 	s.mux.HandleFunc("/workspace/set", s.handleWorkspaceSet)
 	s.mux.HandleFunc("/workspace/mkdir", s.handleWorkspaceMkdir)
+	s.mux.HandleFunc("/workspace/rename", s.handleWorkspaceRename)
+	s.mux.HandleFunc("/workspace/move", s.handleWorkspaceMove)
+	s.mux.HandleFunc("/workspace/dirs", s.handleWorkspaceDirs)
 	s.mux.HandleFunc("/workspace/scan", s.handleWorkspaceScan)
 	s.mux.HandleFunc("/workspace/import", s.handleWorkspaceImport)
 	s.mux.HandleFunc("/file/tags/add", s.handleTagAdd)
@@ -188,6 +191,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/programs", s.handleAPIPrograms)
 	s.mux.HandleFunc("/api/program-pads", s.handleAPIProgramPads)
 	s.mux.HandleFunc("/api/assign-to-program", s.handleAPIAssignToProgram)
+	s.mux.HandleFunc("/api/pad-params/", s.handleAPIPadParams)
 
 	// Pad grid partial
 	s.mux.HandleFunc("/partials/pad-grid", s.handlePadGrid)

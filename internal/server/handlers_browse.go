@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/maxgarvey/mpc_editor/internal/db"
 )
 
 // BrowseData holds template data for the file browser.
@@ -406,6 +408,244 @@ func dirContainsPGM(dirPath string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Server) handleWorkspaceRename(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	oldPath := r.FormValue("path")
+	newName := r.FormValue("name")
+
+	if oldPath == "" || newName == "" {
+		http.Error(w, "path and name are required", http.StatusBadRequest)
+		return
+	}
+
+	if strings.ContainsAny(newName, `/\`) || newName == ".." || newName == "." {
+		http.Error(w, "invalid file name", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.validateWithinWorkspace(oldPath); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	newPath := filepath.Join(filepath.Dir(oldPath), newName)
+	if err := s.validateWithinWorkspace(newPath); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	if _, err := os.Stat(newPath); err == nil {
+		http.Error(w, "a file with that name already exists", http.StatusConflict)
+		return
+	}
+
+	if err := os.Rename(oldPath, newPath); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Update catalog database path.
+	s.updateCatalogPath(r.Context(), oldPath, newPath)
+
+	// Update session if the renamed file was the active program.
+	if s.session.FilePath == oldPath {
+		s.session.FilePath = newPath
+		s.session.SampleDir = filepath.Dir(newPath)
+	}
+
+	parentDir := filepath.Dir(oldPath)
+	relDir, _ := filepath.Rel(s.session.WorkspacePath, parentDir)
+	if relDir == "." {
+		relDir = ""
+	}
+	r.Form.Set("dir", relDir)
+	s.handleBrowseNav(w, r)
+}
+
+func (s *Server) handleWorkspaceMove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	srcPath := r.FormValue("path")
+	destDir := r.FormValue("dest")
+
+	if srcPath == "" || destDir == "" {
+		http.Error(w, "path and dest are required", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.validateWithinWorkspace(srcPath); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	if err := s.validateWithinWorkspace(destDir); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	destInfo, err := os.Stat(destDir)
+	if err != nil || !destInfo.IsDir() {
+		http.Error(w, "destination must be an existing directory", http.StatusBadRequest)
+		return
+	}
+
+	// Prevent moving a directory into itself.
+	absSrc, _ := filepath.Abs(srcPath)
+	absDest, _ := filepath.Abs(destDir)
+	if strings.HasPrefix(absDest, absSrc+string(filepath.Separator)) {
+		http.Error(w, "cannot move a directory into itself", http.StatusBadRequest)
+		return
+	}
+
+	newPath := filepath.Join(destDir, filepath.Base(srcPath))
+	if _, err := os.Stat(newPath); err == nil {
+		http.Error(w, "a file with that name already exists in the destination", http.StatusConflict)
+		return
+	}
+
+	if err := os.Rename(srcPath, newPath); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Update catalog database path.
+	s.updateCatalogPath(r.Context(), srcPath, newPath)
+
+	// Update session if the moved file was the active program.
+	if s.session.FilePath == srcPath {
+		s.session.FilePath = newPath
+		s.session.SampleDir = filepath.Dir(newPath)
+	}
+
+	// Re-render the nav at the parent of the source (where the file disappeared from).
+	parentDir := filepath.Dir(srcPath)
+	relDir, _ := filepath.Rel(s.session.WorkspacePath, parentDir)
+	if relDir == "." {
+		relDir = ""
+	}
+	r.Form.Set("dir", relDir)
+	s.handleBrowseNav(w, r)
+}
+
+func (s *Server) handleWorkspaceDirs(w http.ResponseWriter, r *http.Request) {
+	workspace := s.session.WorkspacePath
+	if workspace == "" {
+		http.Error(w, "no workspace configured", http.StatusBadRequest)
+		return
+	}
+
+	dir := r.FormValue("dir")
+	var absDir string
+	if dir == "" {
+		absDir = workspace
+	} else if filepath.IsAbs(dir) {
+		absDir = dir
+	} else {
+		absDir = filepath.Join(workspace, dir)
+	}
+	absDir = filepath.Clean(absDir)
+
+	if err := s.validateWithinWorkspace(absDir); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	entries, err := os.ReadDir(absDir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	type dirEntry struct {
+		Name string
+		Path string
+	}
+
+	var dirs []dirEntry
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		dirs = append(dirs, dirEntry{
+			Name: e.Name(),
+			Path: filepath.Join(absDir, e.Name()),
+		})
+	}
+
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name)
+	})
+
+	// Build breadcrumbs for the directory picker.
+	relDir, _ := filepath.Rel(workspace, absDir)
+	if relDir == "." {
+		relDir = ""
+	}
+
+	breadcrumbs := []BreadcrumbItem{{Name: filepath.Base(workspace), Path: ""}}
+	if relDir != "" {
+		parts := strings.Split(relDir, string(filepath.Separator))
+		for i, part := range parts {
+			breadcrumbs = append(breadcrumbs, BreadcrumbItem{
+				Name: part,
+				Path: filepath.Join(parts[:i+1]...),
+			})
+		}
+	}
+
+	s.renderTemplate(w, "move_dirs.html", map[string]any{
+		"Breadcrumbs": breadcrumbs,
+		"Dirs":        dirs,
+		"CurrentDir":  absDir,
+	})
+}
+
+// updateCatalogPath updates the catalog database when a file or directory is renamed/moved.
+func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
+	workspace := s.session.WorkspacePath
+	oldRel, err := filepath.Rel(workspace, oldAbs)
+	if err != nil {
+		return
+	}
+	newRel, err := filepath.Rel(workspace, newAbs)
+	if err != nil {
+		return
+	}
+
+	// For a single file, update its path directly.
+	if err := s.queries.UpdateFilePath(ctx, db.UpdateFilePathParams{
+		Path:   newRel,
+		Path_2: oldRel,
+	}); err != nil {
+		log.Printf("update catalog path: %v", err)
+	}
+
+	// For directories, update all files under the old path prefix.
+	oldPrefix := oldRel + string(filepath.Separator)
+	newPrefix := newRel + string(filepath.Separator)
+	files, err := s.queries.ListAllFiles(ctx)
+	if err != nil {
+		return
+	}
+	for _, f := range files {
+		if strings.HasPrefix(f.Path, oldPrefix) {
+			updated := newPrefix + strings.TrimPrefix(f.Path, oldPrefix)
+			if err := s.queries.UpdateFilePath(ctx, db.UpdateFilePathParams{
+				Path:   updated,
+				Path_2: f.Path,
+			}); err != nil {
+				log.Printf("update catalog path %q: %v", f.Path, err)
+			}
+		}
+	}
 }
 
 // filterAllows returns true if the file extension is allowed for the given browse context.

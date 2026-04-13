@@ -1995,3 +1995,93 @@ tr.track-muted .track-label {
     font-size: 8px;
     color: #888;
 }
+
+/* --- Context Menu --- */
+
+.context-menu {
+    position: fixed;
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 2000;
+    min-width: 140px;
+    padding: 4px 0;
+}
+
+.context-menu-item {
+    padding: 6px 16px;
+    font-size: 13px;
+    color: #d4d4d4;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.context-menu-item:hover {
+    background: #3a3a3a;
+}
+
+/* --- Inline Rename Input --- */
+
+.rename-input {
+    background: #1a1a1a;
+    color: #d4d4d4;
+    border: 1px solid #5a9fd4;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+    min-width: 0;
+}
+
+/* --- Move Modal --- */
+
+.move-dirs-breadcrumbs {
+    padding: 8px 16px;
+    font-size: 12px;
+    border-bottom: 1px solid #333;
+}
+
+.move-dirs-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.move-dir-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #d4d4d4;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.move-dir-entry:hover {
+    background: #2a2a2a;
+}
+
+.move-dir-entry.selected {
+    background: #2a4a6a;
+}
+
+.move-dir-entry .entry-icon {
+    width: 16px;
+    min-width: 16px;
+    height: 16px;
+    color: #a0c840;
+}
+
+.move-dest-label {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: #888;
+    border-top: 1px solid #333;
+}
+
+.move-dest-label strong {
+    color: #d4d4d4;
+}
