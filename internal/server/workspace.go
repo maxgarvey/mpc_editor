@@ -170,7 +170,7 @@ func (s *Server) copyFileQuiet(src, dst string) {
 		log.Printf("copy file open %s: %v", src, err)
 		return
 	}
-	defer in.Close() //nolint:errcheck
+	defer in.Close() //nolint:errcheck // best-effort close on read-only file
 
 	out, err := os.Create(dst)
 	if err != nil {
