@@ -83,8 +83,8 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create project folder inside the current browse directory (or workspace root).
-	parentDir := s.session.WorkspacePath
+	// Create project folder inside the current browse directory (or programs/).
+	parentDir := filepath.Join(s.session.WorkspacePath, "programs")
 	if browseDir := r.FormValue("parent"); browseDir != "" {
 		parentDir = s.resolvePath(browseDir)
 	}
@@ -100,6 +100,12 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create samples subdirectory for portable sample storage.
+	samplesDir := filepath.Join(projectDir, "samples")
+	if err := os.MkdirAll(samplesDir, 0o755); err != nil {
+		log.Printf("create samples dir: %v", err)
+	}
+
 	// Create and save a blank program inside the folder.
 	prog := pgm.NewProgram()
 	pgmPath := filepath.Join(projectDir, name+".pgm")
@@ -111,7 +117,7 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	// Open the new program.
 	s.session.Program = prog
 	s.session.FilePath = pgmPath
-	s.session.SampleDir = projectDir
+	s.session.SampleDir = samplesDir
 	s.session.SelectedPad = 0
 	s.session.Matrix.Clear()
 
@@ -147,9 +153,12 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	pgmDir := filepath.Dir(path)
+	samplesDir := filepath.Join(pgmDir, "samples")
+
 	s.session.Program = prog
 	s.session.FilePath = path
-	s.session.SampleDir = filepath.Dir(path)
+	s.session.SampleDir = pgmDir
 	s.session.SelectedPad = 0
 	s.session.Matrix.Clear()
 
@@ -158,13 +167,13 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 		log.Printf("save last pgm path: %v", err)
 	}
 
-	// Populate sample matrix from program
+	// Populate sample matrix from program, searching samples/ subdir first.
 	for i := 0; i < 64; i++ {
 		pad := prog.Pad(i)
 		for j := 0; j < 4; j++ {
 			name := pad.Layer(j).GetSampleName()
 			if name != "" {
-				ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
+				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, s.session.WorkspacePath)
 				s.session.Matrix.Set(i, j, &ref)
 			}
 		}
@@ -260,7 +269,9 @@ func (s *Server) handleSampleReport(w http.ResponseWriter, r *http.Request) {
 			if entry, ok := seen[name]; ok {
 				entry.pads = append(entry.pads, label)
 			} else {
-				ref := pgm.FindSampleInDirs(name, s.session.SampleDir, workspace)
+				pgmDir := filepath.Dir(pgmPath)
+				samplesDir := filepath.Join(pgmDir, "samples")
+				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, workspace)
 				seen[name] = &sampleEntry{
 					name:  name,
 					pads:  []string{label},

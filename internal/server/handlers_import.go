@@ -27,7 +27,7 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 
 	dest := r.FormValue("dest")
 	if dest == "" {
-		dest = s.session.WorkspacePath
+		dest = filepath.Join(s.session.WorkspacePath, "sample_library")
 	}
 	dest = filepath.Clean(dest)
 

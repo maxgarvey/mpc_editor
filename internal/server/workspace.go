@@ -66,12 +66,14 @@ func (s *Server) copyToWorkspace(srcPath string) (string, error) {
 		return absSrc, nil
 	}
 
-	// Determine destination directory: same as current program, or workspace root.
-	destDir := absWorkspace
+	// Determine destination directory: program's samples/ dir, or sample_library/.
+	destDir := filepath.Join(absWorkspace, "sample_library")
 	if s.session.FilePath != "" {
 		pgmDir, err := filepath.Abs(filepath.Dir(s.session.FilePath))
 		if err == nil && strings.HasPrefix(pgmDir, absWorkspace) {
-			destDir = pgmDir
+			samplesDir := filepath.Join(pgmDir, "samples")
+			_ = os.MkdirAll(samplesDir, 0o755)
+			destDir = samplesDir
 		}
 	}
 
@@ -100,9 +102,12 @@ func (s *Server) copyToWorkspace(srcPath string) (string, error) {
 	return destPath, nil
 }
 
-// colocateSamples copies all referenced samples into targetDir (next to the .pgm)
-// so the MPC 1000 can find them. Returns the number of files copied.
+// colocateSamples copies all referenced samples into a samples/ subdirectory
+// next to the .pgm so programs are portable. Returns the number of files copied.
 func (s *Server) colocateSamples(targetDir string) int {
+	samplesDir := filepath.Join(targetDir, "samples")
+	_ = os.MkdirAll(samplesDir, 0o755)
+
 	var copied int
 	for i := 0; i < 64; i++ {
 		for j := 0; j < 4; j++ {
@@ -115,7 +120,7 @@ func (s *Server) colocateSamples(targetDir string) int {
 			if err != nil {
 				continue
 			}
-			absTarget, err := filepath.Abs(targetDir)
+			absTarget, err := filepath.Abs(samplesDir)
 			if err != nil {
 				continue
 			}
@@ -125,7 +130,7 @@ func (s *Server) colocateSamples(targetDir string) int {
 				continue
 			}
 
-			destPath := filepath.Join(absTarget, filepath.Base(absRef))
+			destPath := filepath.Join(samplesDir, filepath.Base(absRef))
 			if _, err := os.Stat(destPath); err == nil {
 				// Destination already exists — update reference but don't overwrite.
 				ref.FilePath = destPath
@@ -156,6 +161,29 @@ func (s *Server) colocateSamples(targetDir string) int {
 		}
 	}
 	return copied
+}
+
+// copyFileQuiet copies src to dst, logging errors but not returning them.
+func (s *Server) copyFileQuiet(src, dst string) {
+	in, err := os.Open(src)
+	if err != nil {
+		log.Printf("copy file open %s: %v", src, err)
+		return
+	}
+	defer in.Close() //nolint:errcheck
+
+	out, err := os.Create(dst)
+	if err != nil {
+		log.Printf("copy file create %s: %v", dst, err)
+		return
+	}
+	_, cpErr := io.Copy(out, in)
+	if closeErr := out.Close(); cpErr == nil {
+		cpErr = closeErr
+	}
+	if cpErr != nil {
+		log.Printf("copy file %s -> %s: %v", src, dst, cpErr)
+	}
 }
 
 // copySamplesToWorkspace copies each imported sample into the workspace

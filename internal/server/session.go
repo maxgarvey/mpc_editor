@@ -42,6 +42,7 @@ func NewSession(queries *db.Queries) *Session {
 	if err := os.MkdirAll(workspace, 0o755); err != nil {
 		log.Printf("create workspace %s: %v", workspace, err)
 	}
+	ensureWorkspaceDirs(workspace)
 
 	sess := &Session{
 		Program:       pgm.NewProgram(),
@@ -58,14 +59,16 @@ func NewSession(queries *db.Queries) *Session {
 			if prog, err := pgm.OpenProgram(prefs.LastPGMPath); err == nil {
 				sess.Program = prog
 				sess.FilePath = prefs.LastPGMPath
-				sess.SampleDir = filepath.Dir(prefs.LastPGMPath)
+				pgmDir := filepath.Dir(prefs.LastPGMPath)
+				sess.SampleDir = pgmDir
+				samplesDir := filepath.Join(pgmDir, "samples")
 				// Populate sample matrix from program.
 				for i := 0; i < 64; i++ {
 					pad := prog.Pad(i)
 					for j := 0; j < 4; j++ {
 						name := pad.Layer(j).GetSampleName()
 						if name != "" {
-							ref := pgm.FindSampleInDirs(name, sess.SampleDir, workspace)
+							ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, workspace)
 							sess.Matrix.Set(i, j, &ref)
 						}
 					}
@@ -83,6 +86,16 @@ func NewSession(queries *db.Queries) *Session {
 	}
 
 	return sess
+}
+
+// ensureWorkspaceDirs creates the standard workspace subdirectories if they don't exist.
+func ensureWorkspaceDirs(workspace string) {
+	for _, sub := range []string{"sample_library", "programs"} {
+		dir := filepath.Join(workspace, sub)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			log.Printf("create workspace dir %s: %v", dir, err)
+		}
+	}
 }
 
 func defaultWorkspacePath() string {

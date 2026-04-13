@@ -214,6 +214,17 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	// Copy the WAV into the program's samples/ subdirectory.
+	pgmDir := filepath.Dir(pgmAbs)
+	samplesDir := filepath.Join(pgmDir, "samples")
+	_ = os.MkdirAll(samplesDir, 0o755)
+	localWav := filepath.Join(samplesDir, sampleName+".wav")
+	if _, err := os.Stat(localWav); os.IsNotExist(err) {
+		if err := copyFile(wavAbs, localWav); err != nil {
+			log.Printf("assign-to-program: copy sample to samples dir: %v", err)
+		}
+	}
+
 	_ = pad.Layer(targetLayer).SetSampleName(sampleName)
 
 	// Save PGM to disk.
@@ -225,14 +236,14 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 	// Update session state so renderDetailPGM reuses it with the correct
 	// SelectedPad and a fully populated Matrix.
 	if isSessionPgm {
-		ref := pgm.FindSampleInDirs(sampleName, s.session.SampleDir, s.session.WorkspacePath)
+		ref := pgm.FindSampleInDirs(sampleName, samplesDir, pgmDir, s.session.WorkspacePath)
 		s.session.Matrix.Set(padIdx, targetLayer, &ref)
 		s.session.SelectedPad = padIdx
 	} else {
 		// Switch session to the target program.
 		s.session.Program = prog
 		s.session.FilePath = pgmAbs
-		s.session.SampleDir = filepath.Dir(pgmAbs)
+		s.session.SampleDir = pgmDir
 		s.session.SelectedPad = padIdx
 		s.session.Matrix.Clear()
 		for i := range 64 {
@@ -240,7 +251,7 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 			for j := range 4 {
 				name := pad.Layer(j).GetSampleName()
 				if name != "" {
-					ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
+					ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, s.session.WorkspacePath)
 					s.session.Matrix.Set(i, j, &ref)
 				}
 			}

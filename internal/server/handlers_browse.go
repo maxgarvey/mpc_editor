@@ -286,6 +286,7 @@ func (s *Server) handleWorkspaceSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	ensureWorkspaceDirs(absPath)
 
 	s.session.WorkspacePath = absPath
 	s.session.Prefs.WorkspacePath = absPath

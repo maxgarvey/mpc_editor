@@ -3,6 +3,8 @@ package server
 import (
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -149,7 +151,20 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 		if name == "" {
 			s.session.Matrix.Set(padIdx, layerIdx, nil)
 		} else {
-			ref := pgm.FindSampleInDirs(name, s.session.SampleDir, s.session.WorkspacePath)
+			pgmDir := filepath.Dir(s.session.FilePath)
+			samplesDir := filepath.Join(pgmDir, "samples")
+
+			// Find the source sample, then copy it to the program's samples/ dir.
+			ref := pgm.FindSampleInDirs(name, samplesDir, s.session.SampleDir, s.session.WorkspacePath)
+			if ref.FilePath != "" {
+				_ = os.MkdirAll(samplesDir, 0o755)
+				localPath := filepath.Join(samplesDir, name+".wav")
+				if _, err := os.Stat(localPath); os.IsNotExist(err) {
+					s.copyFileQuiet(ref.FilePath, localPath)
+				}
+				// Update ref to point to local copy.
+				ref.FilePath = localPath
+			}
 			s.session.Matrix.Set(padIdx, layerIdx, &ref)
 		}
 	}
