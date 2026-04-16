@@ -1102,12 +1102,122 @@ body {
     background: #0f0f0f;
     border-radius: 4px;
     overflow: hidden;
+    position: relative;
 }
 
 .wav-waveform-container canvas {
     display: block;
     width: 100%;
     height: 100%;
+}
+
+.wav-waveform-container canvas#wav-waveform-canvas {
+    cursor: crosshair;
+}
+
+.wav-waveform-container .wav-playhead-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+.wav-sel-buttons {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 10;
+}
+
+.wav-sel-buttons button {
+    display: block;
+    padding: 2px 7px;
+    font-size: 10px;
+    line-height: 14px;
+    border: 1px solid #50b4ff;
+    border-radius: 3px;
+    background: rgba(15, 15, 15, 0.85);
+    color: #50b4ff;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.wav-sel-buttons button:hover {
+    background: rgba(80, 180, 255, 0.25);
+}
+
+.wav-ts {
+    position: absolute;
+    top: 2px;
+    z-index: 11;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    pointer-events: auto;
+}
+
+.wav-ts-label {
+    font: 9px/14px monospace;
+    color: #888;
+    margin-right: 2px;
+    white-space: nowrap;
+}
+
+.wav-ts-value {
+    font: 10px/14px monospace;
+    color: #50b4ff;
+    background: rgba(15, 15, 15, 0.8);
+    padding: 1px 4px;
+    border-radius: 2px;
+    cursor: text;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.wav-ts-nudge button + button {
+    border-top: none;
+}
+
+.wav-ts-input {
+    font: 10px/14px monospace;
+    color: #50b4ff;
+    background: rgba(15, 15, 15, 0.9);
+    border: 1px solid #50b4ff;
+    border-radius: 2px;
+    padding: 0 3px;
+    width: 58px;
+    outline: none;
+}
+
+.wav-ts-nudge {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    margin-left: 1px;
+}
+
+.wav-ts:hover .wav-ts-nudge {
+    display: flex;
+}
+
+.wav-ts-nudge button {
+    display: block;
+    padding: 0;
+    width: 12px;
+    height: 8px;
+    font-size: 7px;
+    line-height: 7px;
+    text-align: center;
+    border: 1px solid #50b4ff;
+    border-radius: 1px;
+    background: rgba(15, 15, 15, 0.85);
+    color: #50b4ff;
+    cursor: pointer;
+}
+
+.wav-ts-nudge button:hover {
+    background: rgba(80, 180, 255, 0.3);
 }
 
 /* Sequence viewer */
@@ -2019,6 +2129,10 @@ tr.track-muted .track-label {
 
 .context-menu-item:hover {
     background: #3a3a3a;
+}
+
+.context-menu-item-danger {
+    color: #c44;
 }
 
 /* --- Inline Rename Input --- */

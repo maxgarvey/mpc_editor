@@ -225,7 +225,16 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	_ = pad.Layer(targetLayer).SetSampleName(sampleName)
+	layer := pad.Layer(targetLayer)
+	_ = layer.SetSampleName(sampleName)
+	// Ensure audible defaults when assigning to a pad with zeroed-out levels.
+	if layer.GetLevel() == 0 {
+		layer.SetLevel(100)
+	}
+	if pad.Mixer().GetLevel() == 0 {
+		pad.Mixer().SetLevel(100)
+		pad.Mixer().SetPan(50)
+	}
 
 	// Save PGM to disk.
 	if err := prog.Save(pgmAbs); err != nil {
@@ -236,7 +245,8 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 	// Update session state so renderDetailPGM reuses it with the correct
 	// SelectedPad and a fully populated Matrix.
 	if isSessionPgm {
-		ref := pgm.FindSampleInDirs(sampleName, samplesDir, pgmDir, s.session.WorkspacePath)
+		sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
+		ref := pgm.FindSampleInDirs(sampleName, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
 		s.session.Matrix.Set(padIdx, targetLayer, &ref)
 		s.session.SelectedPad = padIdx
 	} else {
@@ -251,7 +261,8 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 			for j := range 4 {
 				name := pad.Layer(j).GetSampleName()
 				if name != "" {
-					ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, s.session.WorkspacePath)
+					sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
+					ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
 					s.session.Matrix.Set(i, j, &ref)
 				}
 			}

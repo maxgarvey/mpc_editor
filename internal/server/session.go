@@ -68,7 +68,8 @@ func NewSession(queries *db.Queries) *Session {
 					for j := 0; j < 4; j++ {
 						name := pad.Layer(j).GetSampleName()
 						if name != "" {
-							ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, workspace)
+							sampleLibrary := filepath.Join(workspace, "sample_library")
+							ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, workspace)
 							sess.Matrix.Set(i, j, &ref)
 						}
 					}

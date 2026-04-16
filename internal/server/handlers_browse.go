@@ -649,6 +649,62 @@ func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
 	}
 }
 
+// handleWorkspaceDelete deletes a file or directory from disk and/or the catalog.
+// POST /workspace/delete?path=<relPath>&mode=disk|catalog
+func (s *Server) handleWorkspaceDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	relPath := r.FormValue("path")
+	if relPath == "" {
+		http.Error(w, "path is required", http.StatusBadRequest)
+		return
+	}
+
+	mode := r.FormValue("mode")
+	if mode != "disk" && mode != "catalog" {
+		http.Error(w, "mode must be 'disk' or 'catalog'", http.StatusBadRequest)
+		return
+	}
+
+	absPath := s.resolvePath(relPath)
+	if absPath == "" {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.validateWithinWorkspace(absPath); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	ctx := r.Context()
+
+	// Remove from catalog: delete the file entry and any files under a directory prefix.
+	_ = s.queries.DeleteFileByPath(ctx, relPath)
+	dirPrefix := relPath + string(filepath.Separator)
+	if files, err := s.queries.ListAllFiles(ctx); err == nil {
+		for _, f := range files {
+			if strings.HasPrefix(f.Path, dirPrefix) {
+				_ = s.queries.DeleteFileByPath(ctx, f.Path)
+			}
+		}
+	}
+
+	// For disk mode, also remove the file/directory from the filesystem.
+	if mode == "disk" {
+		if err := os.RemoveAll(absPath); err != nil {
+			http.Error(w, fmt.Sprintf("delete: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("HX-Trigger", "refreshBrowser")
+	w.WriteHeader(http.StatusOK)
+}
+
 // filterAllows returns true if the file extension is allowed for the given browse context.
 func filterAllows(ctx, ext string) bool {
 	switch ctx {

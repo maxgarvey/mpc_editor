@@ -173,7 +173,8 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 		for j := 0; j < 4; j++ {
 			name := pad.Layer(j).GetSampleName()
 			if name != "" {
-				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, s.session.WorkspacePath)
+				sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
+				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
 				s.session.Matrix.Set(i, j, &ref)
 			}
 		}
@@ -271,7 +272,8 @@ func (s *Server) handleSampleReport(w http.ResponseWriter, r *http.Request) {
 			} else {
 				pgmDir := filepath.Dir(pgmPath)
 				samplesDir := filepath.Join(pgmDir, "samples")
-				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, workspace)
+				sampleLibrary := filepath.Join(workspace, "sample_library")
+				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, workspace)
 				seen[name] = &sampleEntry{
 					name:  name,
 					pads:  []string{label},

@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS wav_meta (
     source          TEXT NOT NULL DEFAULT ''
 );
 
--- Metadata extracted from .seq files (when parser exists).
+-- Metadata extracted from .seq files.
 CREATE TABLE IF NOT EXISTS seq_meta (
     file_id INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
     bpm     REAL NOT NULL DEFAULT 0,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS pgm_samples (
     UNIQUE(pgm_file_id, pad, layer)
 );
 
--- Track-to-program assignments in .seq files (when parser exists).
+-- Track-to-program assignments in .seq files.
 CREATE TABLE IF NOT EXISTS seq_tracks (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     seq_file_id  INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS seq_tracks (
     UNIQUE(seq_file_id, track)
 );
 
--- Song step entries (when parser exists).
+-- Song step entries.
 CREATE TABLE IF NOT EXISTS song_steps (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     song_file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,

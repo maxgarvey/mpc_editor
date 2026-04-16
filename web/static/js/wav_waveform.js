@@ -83,6 +83,7 @@ const WavWaveform = (function() {
 
     return {
         load: load,
-        render: render
+        render: render,
+        getCanvas: function() { return canvas; }
     };
 })();

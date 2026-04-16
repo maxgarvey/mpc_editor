@@ -86,7 +86,8 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 			for j := range 4 {
 				name := pad.Layer(j).GetSampleName()
 				if name != "" {
-					ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, s.session.WorkspacePath)
+					sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
+					ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
 					s.session.Matrix.Set(i, j, &ref)
 				}
 			}

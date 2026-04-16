@@ -20,6 +20,12 @@ Runs locally as a single-binary web app on `http://127.0.0.1:8080`.
 - Chromatic layout and copy-settings-to-all-pads utilities
 - MPC1000 and MPC500 profile support
 - Persistent user preferences
+- Workspace file browser with right-click context menu (rename, move, delete)
+- Workspace scanner indexes WAV/PGM files into a local SQLite catalog
+- MPC device auto-detection (USB mass storage) with use-as-workspace shortcut
+- Sequence viewer for .seq files
+- File tagging and source-URL tracking
+- Import samples from external directories into workspace
 
 ## Build & Run
 
@@ -42,8 +48,12 @@ internal/
   pgm/       Binary .pgm format: read/write, pads, layers, parameters
   audio/     WAV file I/O, beat detection slicer, marker management
   midi/      Standard MIDI File Type 0 writer/reader
+  seq/       Binary .seq sequence format: read, events, timing
   command/   Import, export, sample assignment, batch creation
   server/    HTTP handlers, session state, preferences
+  db/        SQLite queries (sqlc-generated) for workspace file catalog
+  scanner/   Workspace directory scanner, indexes WAV/PGM files into DB
+  device/    MPC USB device auto-detection (macOS/Linux)
 web/
   templates/ Go html/template files (layout + HTMX partials)
   static/    CSS, JS (HTMX 2.0, Web Audio API, Canvas waveform)
@@ -65,8 +75,10 @@ make test-cover   # run tests with coverage report
 make lint         # run golangci-lint (auto-installs)
 make check        # vet + lint + tests
 make fmt          # format code
+make generate     # regenerate sqlc DB code from SQL definitions
 make dev          # live reload (requires watchexec)
+make test-e2e     # run Playwright end-to-end tests (headless)
 make help         # show all targets
 ```
 
-Test fixtures are in `testdata/` (`.pgm` and `.wav` files).
+Test fixtures are in `testdata/` (`.pgm` and `.wav` files). End-to-end tests are in `e2e/` (Playwright).

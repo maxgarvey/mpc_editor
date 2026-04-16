@@ -3,7 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -154,4 +157,92 @@ func (s *Server) handleAudioInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"pads": pads})
+}
+
+// handleAudioCrop crops a WAV file to the given frame range.
+// POST /audio/crop?path=<relPath>&from=<frame>&to=<frame>&mode=replace|copy
+func (s *Server) handleAudioCrop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	relPath := r.FormValue("path")
+	if relPath == "" {
+		http.Error(w, "path is required", http.StatusBadRequest)
+		return
+	}
+
+	absPath := s.resolvePath(relPath)
+	if absPath == "" {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.validateWithinWorkspace(absPath); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	from := parseIntParam(r, "from", -1)
+	to := parseIntParam(r, "to", -1)
+	if from < 0 || to <= from {
+		http.Error(w, "invalid frame range", http.StatusBadRequest)
+		return
+	}
+
+	mode := r.FormValue("mode")
+	if mode != "replace" && mode != "copy" {
+		http.Error(w, "mode must be 'replace' or 'copy'", http.StatusBadRequest)
+		return
+	}
+
+	sample, err := audio.OpenWAV(absPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("open WAV: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if to > sample.FrameLength {
+		to = sample.FrameLength
+	}
+
+	cropped := sample.SubRegion(from, to)
+
+	var savePath string
+	if mode == "replace" {
+		savePath = absPath
+	} else {
+		// Generate a new filename: original_crop.wav
+		ext := filepath.Ext(absPath)
+		base := strings.TrimSuffix(absPath, ext)
+		savePath = base + "_crop" + ext
+		// Avoid overwriting existing crop files.
+		for i := 2; ; i++ {
+			if _, err := os.Stat(savePath); err != nil {
+				break
+			}
+			savePath = fmt.Sprintf("%s_crop%d%s", base, i, ext)
+		}
+	}
+
+	if err := cropped.SaveWAV(savePath); err != nil {
+		http.Error(w, fmt.Sprintf("save cropped WAV: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Rescan so the new/modified file is indexed before the client opens it.
+	if _, err := s.scanner.ScanWorkspace(s.session.WorkspacePath); err != nil {
+		log.Printf("post-crop scan: %v", err)
+	}
+
+	saveRel, _ := filepath.Rel(s.session.WorkspacePath, savePath)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("HX-Trigger", "refreshBrowser")
+	json.NewEncoder(w).Encode(map[string]any{
+		"path":    saveRel,
+		"frames":  cropped.FrameLength,
+		"mode":    mode,
+		"message": fmt.Sprintf("Saved %d frames to %s", cropped.FrameLength, filepath.Base(savePath)),
+	})
 }

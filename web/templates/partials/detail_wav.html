@@ -12,9 +12,9 @@
         </div>
     </div>
 
-    <div class="detail-section">
-        <button class="btn-sm btn-set" onclick="AudioPlayer.play('/audio/file?path={{.RelPath}}')">Play</button>
-        <button class="btn-sm" onclick="AudioPlayer.stop()">Stop</button>
+    <div class="detail-section wav-transport">
+        <button id="wav-play-pause-btn" class="btn-sm btn-set" onclick="WavDetailPlayer.toggle()">Play</button>
+        <button class="btn-sm" onclick="WavDetailPlayer.stop()">Stop</button>
         {{if .HasProgram}}
         <button class="btn-sm btn-assign" onclick="openPadPicker('{{.RelPath}}')">Assign to Pad</button>
         {{end}}
@@ -49,7 +49,7 @@
         <h3>Used by Programs</h3>
         <ul class="detail-list">
             {{range .UsedBy}}
-            <li><a hx-get="/detail?path={{.Path}}" hx-target="#detail-panel">{{.Path}}</a></li>
+            <li><a href="#" onclick="TabManager.openFile('{{.Path}}'); return false;">{{.Path}}</a></li>
             {{end}}
         </ul>
     </div>
@@ -57,6 +57,8 @@
 
     {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>
-<script src="/static/js/wav_waveform.js"></script>
-<script>WavWaveform.load('{{.RelPath}}');</script>
+<script>
+WavWaveform.load('{{.RelPath}}');
+WavDetailPlayer.init('/audio/file?path={{.RelPath}}', '{{.RelPath}}');
+</script>
 {{end}}

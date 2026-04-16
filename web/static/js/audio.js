@@ -4,6 +4,7 @@ const AudioPlayer = (function() {
     let audioCtx = null;
     const bufferCache = new Map();
     let activeSources = [];
+    let stopCallbacks = [];
 
     function getContext() {
         if (!audioCtx) {
@@ -35,6 +36,9 @@ const AudioPlayer = (function() {
             try { activeSources[i].stop(); } catch(e) {}
         }
         activeSources = [];
+        for (let i = 0; i < stopCallbacks.length; i++) {
+            try { stopCallbacks[i](); } catch(e) {}
+        }
     }
 
     // --- Parameter mapping functions ---
@@ -225,6 +229,9 @@ const AudioPlayer = (function() {
         stop: stop,
         clearCache: clearCache,
         invalidatePad: invalidatePad,
+        getContext: getContext,
+        getBuffer: fetchAndDecode,
+        onStopAll: function(cb) { stopCallbacks.push(cb); },
 
         playPad: function(padIndex, layerIndex) {
             stopAll();

@@ -135,6 +135,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/audio/file", s.handleAudioFile)
 	s.mux.HandleFunc("/audio/waveform", s.handleAudioWaveform)
 	s.mux.HandleFunc("/audio/info", s.handleAudioInfo)
+	s.mux.HandleFunc("/audio/crop", s.handleAudioCrop)
 
 	// Slicer
 	s.mux.HandleFunc("/slicer", s.handleSlicerPage)
@@ -172,6 +173,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/workspace/dirs", s.handleWorkspaceDirs)
 	s.mux.HandleFunc("/workspace/scan", s.handleWorkspaceScan)
 	s.mux.HandleFunc("/workspace/import", s.handleWorkspaceImport)
+	s.mux.HandleFunc("/workspace/delete", s.handleWorkspaceDelete)
 	s.mux.HandleFunc("/file/tags/add", s.handleTagAdd)
 	s.mux.HandleFunc("/file/tags/remove", s.handleTagRemove)
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)

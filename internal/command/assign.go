@@ -26,7 +26,16 @@ func SimpleAssign(prog *pgm.Program, matrix *pgm.SampleMatrix, samples []*pgm.Sa
 			}
 			sample := samples[si]
 			matrix.Set(i, j, sample)
-			_ = pad.Layer(j).SetSampleName(sample.Name)
+			layer := pad.Layer(j)
+			_ = layer.SetSampleName(sample.Name)
+			// Ensure audible defaults when assigning to a pad with zeroed-out levels.
+			if layer.GetLevel() == 0 {
+				layer.SetLevel(100)
+			}
+			if pad.Mixer().GetLevel() == 0 {
+				pad.Mixer().SetLevel(100)
+				pad.Mixer().SetPan(50)
+			}
 			modified = append(modified, i)
 			si++
 			if mode == AssignPerPad {

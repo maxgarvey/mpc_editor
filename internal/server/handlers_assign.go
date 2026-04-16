@@ -97,6 +97,23 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	// Copy samples into workspace
 	s.copySamplesToWorkspace(samples)
 
+	// Copy each sample into the program's samples/ dir with the PGM-compatible name.
+	if s.session.FilePath != "" {
+		pgmDir := filepath.Dir(s.session.FilePath)
+		samplesDir := filepath.Join(pgmDir, "samples")
+		_ = os.MkdirAll(samplesDir, 0o755)
+		for _, ref := range samples {
+			if ref == nil || ref.FilePath == "" {
+				continue
+			}
+			localWav := filepath.Join(samplesDir, ref.Name+".wav")
+			if _, err := os.Stat(localWav); os.IsNotExist(err) {
+				s.copyFileQuiet(ref.FilePath, localWav)
+			}
+			ref.FilePath = localWav
+		}
+	}
+
 	// Determine assign mode
 	assignMode := command.AssignPerPad
 	if mode == "per-layer" {
@@ -112,6 +129,13 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 		modified := command.SimpleAssign(s.session.Program, &s.session.Matrix, samples, padIdx, assignMode)
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"modified":%d,"report":%q}`, len(modified), result.Report())
+	}
+
+	// Save the program so the assignment persists on disk.
+	if s.session.FilePath != "" {
+		if err := s.session.Program.Save(s.session.FilePath); err != nil {
+			log.Printf("assign save program: %v", err)
+		}
 	}
 }
 
@@ -188,6 +212,25 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 	// Copy samples into workspace
 	s.copySamplesToWorkspace(samples)
 
+	// Copy each sample into the program's samples/ dir with the PGM-compatible
+	// (possibly truncated) name so FindSampleInDirs can locate it later.
+	if s.session.FilePath != "" {
+		pgmDir := filepath.Dir(s.session.FilePath)
+		samplesDir := filepath.Join(pgmDir, "samples")
+		_ = os.MkdirAll(samplesDir, 0o755)
+		for _, ref := range samples {
+			if ref == nil || ref.FilePath == "" {
+				continue
+			}
+			localWav := filepath.Join(samplesDir, ref.Name+".wav")
+			if _, err := os.Stat(localWav); os.IsNotExist(err) {
+				s.copyFileQuiet(ref.FilePath, localWav)
+			}
+			// Update ref to point to local copy so Matrix uses the stable path.
+			ref.FilePath = localWav
+		}
+	}
+
 	assignMode := command.AssignPerPad
 	if mode == "per-layer" {
 		assignMode = command.AssignPerLayer
@@ -208,6 +251,11 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.session.SelectedPad = padIdx
+
+	// Save the program so the assignment persists on disk.
+	if err := s.session.Program.Save(s.session.FilePath); err != nil {
+		log.Printf("assignPath save program: %v", err)
+	}
 
 	// Redirect to refresh the full page
 	bank := padIdx / 16

@@ -133,7 +133,7 @@ UPDATE pgm_samples SET sample_file_id = (
 )
 WHERE sample_file_id IS NULL AND sample_name != '';
 
--- SEQ track references (future)
+-- SEQ track references
 
 -- name: DeleteSeqTracks :exec
 DELETE FROM seq_tracks WHERE seq_file_id = ?;
@@ -150,7 +150,7 @@ LEFT JOIN files f ON f.id = st.pgm_file_id
 WHERE st.seq_file_id = ?
 ORDER BY st.track;
 
--- Song step references (future)
+-- Song step references
 
 -- name: DeleteSongSteps :exec
 DELETE FROM song_steps WHERE song_file_id = ?;

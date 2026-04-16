@@ -1313,8 +1313,18 @@ function pickPad(padIndex) {
             openMoveModal(path, isDir);
         });
 
+        var deleteItem = document.createElement('div');
+        deleteItem.className = 'context-menu-item context-menu-item-danger';
+        deleteItem.textContent = 'Delete';
+        deleteItem.addEventListener('click', function() {
+            dismissMenu();
+            var isDir = entry.classList.contains('is-dir');
+            openDeleteModal(path, isDir);
+        });
+
         menu.appendChild(renameItem);
         menu.appendChild(moveItem);
+        menu.appendChild(deleteItem);
 
         // Position at cursor, keep on screen
         document.body.appendChild(menu);
@@ -1417,6 +1427,55 @@ function pickPad(padIndex) {
         input.addEventListener('click', function(e) { e.stopPropagation(); });
     }
 })();
+
+// --- Delete Modal ---
+
+function openDeleteModal(path, isDir) {
+    var itemType = isDir ? 'directory' : 'file';
+    var name = path.split('/').pop();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'delete-overlay';
+    overlay.className = 'file-browser-overlay';
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeDeleteModal();
+    });
+
+    var modal = document.createElement('div');
+    modal.className = 'file-browser-modal';
+    modal.style.maxWidth = '420px';
+    modal.innerHTML =
+        '<h3>Delete ' + itemType + '</h3>' +
+        '<p style="margin:8px 0;word-break:break-all"><strong>' + name + '</strong></p>' +
+        '<p style="margin:8px 0;color:#aaa;font-size:12px">' + path + '</p>' +
+        '<div class="save-confirm-actions" style="flex-direction:column;gap:8px;margin-top:16px">' +
+            '<button class="btn-primary" style="background:#c44" onclick="confirmDelete(\'' + escapeAttr(path) + '\', \'disk\')">Delete from disk</button>' +
+            '<button class="btn-primary" onclick="confirmDelete(\'' + escapeAttr(path) + '\', \'catalog\')">Remove from catalog only</button>' +
+            '<button class="btn-primary" onclick="closeDeleteModal()">Cancel</button>' +
+        '</div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+}
+
+function closeDeleteModal() {
+    var overlay = document.getElementById('delete-overlay');
+    if (overlay) overlay.remove();
+}
+
+function confirmDelete(path, mode) {
+    closeDeleteModal();
+    fetch('/workspace/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'path=' + encodeURIComponent(path) + '&mode=' + mode
+    }).then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+        htmx.ajax('GET', '/browse', { target: '#file-nav' });
+    }).catch(function(err) {
+        alert('Delete failed: ' + err.message);
+    });
+}
 
 // --- Move Modal ---
 

@@ -151,11 +151,21 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 		if name == "" {
 			s.session.Matrix.Set(padIdx, layerIdx, nil)
 		} else {
+			// Ensure audible defaults when assigning to a pad with zeroed-out levels.
+			pad := s.session.Program.Pad(padIdx)
+			if layer.GetLevel() == 0 {
+				layer.SetLevel(100)
+			}
+			if pad.Mixer().GetLevel() == 0 {
+				pad.Mixer().SetLevel(100)
+				pad.Mixer().SetPan(50)
+			}
 			pgmDir := filepath.Dir(s.session.FilePath)
 			samplesDir := filepath.Join(pgmDir, "samples")
 
 			// Find the source sample, then copy it to the program's samples/ dir.
-			ref := pgm.FindSampleInDirs(name, samplesDir, s.session.SampleDir, s.session.WorkspacePath)
+			sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
+			ref := pgm.FindSampleInDirs(name, samplesDir, s.session.SampleDir, sampleLibrary, s.session.WorkspacePath)
 			if ref.FilePath != "" {
 				_ = os.MkdirAll(samplesDir, 0o755)
 				localPath := filepath.Join(samplesDir, name+".wav")
