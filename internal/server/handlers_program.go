@@ -26,13 +26,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		browseData = BrowseData{}
 	}
 
-	// Compute the relative path for the last viewed detail file so JS can auto-open it.
-	var lastDetailRelPath string
-	if s.session.SelectedDetailPath != "" && s.session.WorkspacePath != "" {
-		if rel, err := filepath.Rel(s.session.WorkspacePath, s.session.SelectedDetailPath); err == nil {
-			lastDetailRelPath = rel
-		}
-	}
+	// Pass the absolute path so TabManager stores the same key format used by
+	// the file browser (which also uses absolute paths), enabling tab deduplication.
+	lastDetailRelPath := s.session.SelectedDetailPath
 
 	data := map[string]any{
 		"Session":           s.session,
@@ -123,6 +119,8 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 
 	s.session.Prefs.LastPGMPath = pgmPath
 	_ = s.queries.UpdateLastPGMPath(r.Context(), pgmPath)
+	s.session.SelectedDetailPath = pgmPath
+	_ = s.queries.UpdateLastDetailPath(r.Context(), pgmPath)
 
 	// Trigger a background scan to index the new project.
 	go func() {
@@ -131,8 +129,8 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	w.Header().Set("HX-Redirect", "/")
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"pgm_abs":%q,"project_dir":%q}`, pgmPath, projectDir)
 }
 
 func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {

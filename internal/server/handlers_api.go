@@ -280,7 +280,7 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 	}()
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"pad":%d,"layer":%d,"sample":%q}`, padIdx, targetLayer, sampleName)
+	fmt.Fprintf(w, `{"pad":%d,"layer":%d,"sample":%q,"pgm_abs":%q}`, padIdx, targetLayer, sampleName, pgmAbs)
 }
 
 // copyFile copies src to dst.

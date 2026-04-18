@@ -337,7 +337,7 @@ body {
     align-items: center;
     justify-content: center;
     padding: 4px;
-    transition: all 0.15s;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
     color: #222;
 }
 

@@ -137,7 +137,11 @@ function handleDragOver(e) {
 
 function handleDragLeave(e) {
     e.preventDefault();
-    e.currentTarget.classList.remove('drag-over');
+    // Only remove the class when the cursor actually leaves the element,
+    // not when it moves to a child (pad-number, pad-name, etc.).
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+        e.currentTarget.classList.remove('drag-over');
+    }
 }
 
 function handleDrop(e) {
@@ -475,8 +479,7 @@ function openNewModal() {
             '<button class="new-modal-close" onclick="closeNewModal()">&times;</button>' +
         '</div>' +
         '<div class="new-modal-tabs">' +
-            '<button class="new-modal-tab active" data-tab="new-project">New Project</button>' +
-            '<button class="new-modal-tab" data-tab="new-program">New Program</button>' +
+            '<button class="new-modal-tab active" data-tab="new-project">New Program</button>' +
             '<button class="new-modal-tab" data-tab="import-files">Import Files</button>' +
         '</div>' +
         '<div class="new-modal-body">' +
@@ -492,13 +495,7 @@ function openNewModal() {
                     '<div id="project-name-hint" style="font-size:11px;margin-top:4px;color:#666"></div>' +
                 '</div>' +
                 '<div class="import-actions">' +
-                    '<button class="btn-primary" id="new-project-btn" onclick="confirmNewProject()" disabled>Create Project</button>' +
-                '</div>' +
-            '</div>' +
-            '<div id="new-program-tab" class="new-modal-tab-content" style="display:none">' +
-                '<p style="color:#aaa;margin-bottom:16px">Create a blank program. Unsaved changes will be lost.</p>' +
-                '<div class="import-actions">' +
-                    '<button class="btn-primary" onclick="confirmNewProgram()">Create</button>' +
+                    '<button class="btn-primary" id="new-project-btn" onclick="confirmNewProject()" disabled>Create Program</button>' +
                 '</div>' +
             '</div>' +
             '<div id="import-files-tab" class="new-modal-tab-content" style="display:none">' +
@@ -531,7 +528,7 @@ function openNewModal() {
 
     // Tab switching
     var tabs = modal.querySelectorAll('.new-modal-tab');
-    var tabIds = ['new-project-tab', 'new-program-tab', 'import-files-tab'];
+    var tabIds = ['new-project-tab', 'import-files-tab'];
     tabs.forEach(function(tab) {
         tab.addEventListener('click', function() {
             tabs.forEach(function(t) { t.classList.remove('active'); });
@@ -600,7 +597,7 @@ function validateProjectName(input) {
         hint.textContent = 'Spaces may cause issues on some MPC firmware';
         hint.style.color = '#c8a040';
     } else {
-        hint.textContent = 'Creates: ' + name + '/' + name + '.pgm';
+        hint.textContent = 'Creates: programs/' + name + '/' + name + '.pgm';
         hint.style.color = '#666';
     }
 
@@ -612,13 +609,19 @@ function confirmNewProject() {
     var name = input ? input.value.trim() : '';
     if (!name) return;
 
-    var dirInput = document.getElementById('browser-current-dir');
-    var parentDir = dirInput ? dirInput.value : '';
-
     closeNewModal();
-    htmx.ajax('POST', '/project/new', {
-        target: 'body',
-        values: { name: name, parent: parentDir }
+    fetch('/project/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'name=' + encodeURIComponent(name)
+    }).then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+        return r.json();
+    }).then(function(data) {
+        TabManager.openFile(data.pgm_abs);
+        htmx.ajax('GET', '/browse/nav?dir=' + encodeURIComponent(data.project_dir), { target: '#file-nav' });
+    }).catch(function(err) {
+        alert('Create program failed: ' + err.message);
     });
 }
 
@@ -1263,10 +1266,10 @@ function pickPad(padIndex) {
     .then(function(data) {
         closePadPicker();
         AudioPlayer.clearCache();
-        // Switch to the PGM tab so the user sees the updated program.
-        // TabManager.openFile will activate the existing tab (re-fetching
-        // from the server) or create a new one.
-        TabManager.openFile(pgmPath);
+        // Use the absolute path from the response so TabManager.openFile
+        // matches any existing tab opened via the file browser (which stores
+        // absolute paths) rather than opening a duplicate tab.
+        TabManager.openFile(data.pgm_abs || pgmPath);
     })
     .catch(function(err) {
         console.warn('Assign to program failed:', err);
@@ -1471,7 +1474,13 @@ function confirmDelete(path, mode) {
         body: 'path=' + encodeURIComponent(path) + '&mode=' + mode
     }).then(function(r) {
         if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
-        htmx.ajax('GET', '/browse', { target: '#file-nav' });
+        var prefix = path + '/';
+        TabManager.getTabs().forEach(function(tab) {
+            if (tab.path === path || tab.path.startsWith(prefix)) {
+                TabManager.close(tab.id);
+            }
+        });
+        htmx.ajax('GET', '/browse/nav', { target: '#file-nav' });
     }).catch(function(err) {
         alert('Delete failed: ' + err.message);
     });
