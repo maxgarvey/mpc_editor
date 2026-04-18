@@ -262,6 +262,9 @@ func copyPath(src, dst string) (int, []string) { //nolint:gocritic // unnamedRes
 	var total int
 	var errs []string
 	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
 		n, childErrs := copyPath(filepath.Join(src, e.Name()), filepath.Join(dst, e.Name()))
 		total += n
 		errs = append(errs, childErrs...)
