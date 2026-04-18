@@ -188,12 +188,12 @@ func (s *Server) handleDeviceTransfer(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		dest := filepath.Join(destAbs, filepath.Base(srcAbs))
-		if err := copyPath(srcAbs, dest); err != nil {
+		n, errs := copyPath(srcAbs, dest)
+		transferred += n
+		for _, e := range errs {
 			failed++
-			errMsgs = append(errMsgs, fmt.Sprintf("%s: %v", filepath.Base(srcAbs), err))
-			log.Printf("transfer %s -> %s: %v", srcAbs, dest, err)
-		} else {
-			transferred++
+			errMsgs = append(errMsgs, e)
+			log.Printf("transfer error: %s", e)
 		}
 	}
 
@@ -239,25 +239,32 @@ func isWithin(target, base string) bool {
 }
 
 // copyPath copies a file or directory recursively from src to dst.
-func copyPath(src, dst string) error {
+// Returns the count of files copied and any per-file errors encountered.
+// It does not fail-fast: all copyable items are attempted even if some fail.
+func copyPath(src, dst string) (int, []string) {
 	info, err := os.Stat(src)
 	if err != nil {
-		return err
+		return 0, []string{fmt.Sprintf("%s: %v", filepath.Base(src), err)}
 	}
 	if !info.IsDir() {
-		return copyFile(src, dst)
+		if err := copyFile(src, dst); err != nil {
+			return 0, []string{fmt.Sprintf("%s: %v", filepath.Base(src), err)}
+		}
+		return 1, nil
 	}
 	if err := os.MkdirAll(dst, 0o755); err != nil {
-		return err
+		return 0, []string{fmt.Sprintf("%s: %v", filepath.Base(src), err)}
 	}
 	entries, err := os.ReadDir(src)
 	if err != nil {
-		return err
+		return 0, []string{fmt.Sprintf("%s: %v", filepath.Base(src), err)}
 	}
+	var total int
+	var errs []string
 	for _, e := range entries {
-		if err := copyPath(filepath.Join(src, e.Name()), filepath.Join(dst, e.Name())); err != nil {
-			return err
-		}
+		n, childErrs := copyPath(filepath.Join(src, e.Name()), filepath.Join(dst, e.Name()))
+		total += n
+		errs = append(errs, childErrs...)
 	}
-	return nil
+	return total, errs
 }

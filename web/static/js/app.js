@@ -1863,10 +1863,12 @@ function executeDeviceTransfer() {
         if (msg) {
             if (data.failed > 0) {
                 msg.style.color = '#f88';
-                msg.textContent = data.transferred + ' copied, ' + data.failed + ' failed';
+                var failMsg = data.transferred + ' copied, ' + data.failed + ' failed';
+                if (data.messages && data.messages.length > 0) failMsg += ': ' + data.messages.join('; ');
+                msg.textContent = failMsg;
             } else {
                 msg.style.color = '#a0c840';
-                msg.textContent = '\u2713 ' + data.transferred + ' item(s) copied';
+                msg.textContent = '\u2713 ' + data.transferred + ' file(s) copied';
             }
         }
         if (btn) btn.disabled = false;
