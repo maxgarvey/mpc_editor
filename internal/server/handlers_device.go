@@ -241,7 +241,7 @@ func isWithin(target, base string) bool {
 // copyPath copies a file or directory recursively from src to dst.
 // Returns the count of files copied and any per-file errors encountered.
 // It does not fail-fast: all copyable items are attempted even if some fail.
-func copyPath(src, dst string) (int, []string) {
+func copyPath(src, dst string) (int, []string) { //nolint:gocritic // unnamedResult: naming would shadow the inner errs slice
 	info, err := os.Stat(src)
 	if err != nil {
 		return 0, []string{fmt.Sprintf("%s: %v", filepath.Base(src), err)}
