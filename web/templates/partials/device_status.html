@@ -7,9 +7,7 @@
     <span class="device-indicator connected" title="{{.Device.MountPath}} — {{.Device.PGMCount}} programs">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6"/></svg>
       MPC: {{.Device.VolumeName}}
-      <button class="btn-sm"
-              hx-post="/device/use-as-workspace"
-              hx-confirm="Set {{.Device.MountPath}} as workspace?">Use as Workspace</button>
+      <button class="btn-sm" onclick="openDeviceModal()">Move Files</button>
     </span>
   {{else}}
     <span class="device-indicator disconnected" title="No MPC 1000 detected">

@@ -183,10 +183,12 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/settings", s.handleSettingsGet)
 	s.mux.HandleFunc("/settings/save", s.handleSettingsPost)
 
-	// Device detection
+	// Device detection and file transfer
 	s.mux.HandleFunc("/device/status", s.handleDeviceStatus)
 	s.mux.HandleFunc("/device/detect", s.handleDeviceDetect)
-	s.mux.HandleFunc("/device/use-as-workspace", s.handleDeviceUseAsWorkspace)
+	s.mux.HandleFunc("/device/ls", s.handleDeviceLs)
+	s.mux.HandleFunc("/device/mkdir", s.handleDeviceMkdir)
+	s.mux.HandleFunc("/device/transfer", s.handleDeviceTransfer)
 
 	// API
 	s.mux.HandleFunc("/api/samples", s.handleAPISamples)
