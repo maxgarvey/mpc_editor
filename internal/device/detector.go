@@ -102,7 +102,8 @@ func (d *Detector) scan() {
 }
 
 // detectMPC scans the base path for a volume that looks like an MPC 1000 CF card.
-// The primary heuristic is the presence of an AUTOLOAD directory.
+// Two heuristics are tried: presence of an AUTOLOAD directory, or a volume name
+// that contains "MPC" (case-insensitive, e.g. MPC1000DISK, MPC_CF, MPC1000).
 func detectMPC(basePath string) *MPCDevice {
 	entries, err := os.ReadDir(basePath)
 	if err != nil {
@@ -119,8 +120,15 @@ func detectMPC(basePath string) *MPCDevice {
 
 		// Check for the AUTOLOAD directory — strong MPC 1000 signal.
 		autoloadPath := filepath.Join(volPath, "AUTOLOAD")
-		info, err := os.Stat(autoloadPath)
-		if err != nil || !info.IsDir() {
+		hasAutoload := false
+		if info, err := os.Stat(autoloadPath); err == nil && info.IsDir() {
+			hasAutoload = true
+		}
+
+		// Volume name contains "MPC" — matches MPC1000DISK, MPC_CF, MPC1000, etc.
+		nameMatchesMPC := strings.Contains(strings.ToUpper(name), "MPC")
+
+		if !hasAutoload && !nameMatchesMPC {
 			continue
 		}
 
@@ -130,7 +138,7 @@ func detectMPC(basePath string) *MPCDevice {
 		return &MPCDevice{
 			VolumeName:  name,
 			MountPath:   volPath,
-			HasAutoload: true,
+			HasAutoload: hasAutoload,
 			PGMCount:    pgmCount,
 		}
 	}

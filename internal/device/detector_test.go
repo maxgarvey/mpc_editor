@@ -49,6 +49,27 @@ func TestDetectMPC_WithAutoload(t *testing.T) {
 	}
 }
 
+func TestDetectMPC_ByVolumeName(t *testing.T) {
+	base := t.TempDir()
+	vol := filepath.Join(base, "MPC1000DISK")
+	mustMkdir(t, vol)
+	mustWrite(t, filepath.Join(vol, "beat.pgm"), []byte("pgm"))
+
+	dev := detectMPC(base)
+	if dev == nil {
+		t.Fatal("expected device detected by volume name")
+	}
+	if dev.VolumeName != "MPC1000DISK" {
+		t.Errorf("VolumeName = %q, want %q", dev.VolumeName, "MPC1000DISK")
+	}
+	if dev.HasAutoload {
+		t.Error("expected HasAutoload = false")
+	}
+	if dev.PGMCount != 1 {
+		t.Errorf("PGMCount = %d, want 1", dev.PGMCount)
+	}
+}
+
 func TestDetectMPC_NoAutoload(t *testing.T) {
 	base := t.TempDir()
 	vol := filepath.Join(base, "USBDRIVE")
