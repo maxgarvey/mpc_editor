@@ -26,5 +26,5 @@
 <div class="nav-mkdir">
     <button class="btn-sm" onclick="openMkdirModal('{{.RelDir}}', 'browse', '#file-nav')">New Folder</button>
 </div>
-<input type="hidden" id="browser-current-dir" value="{{.CurrentDir}}">
+<input type="hidden" id="browser-current-dir" value="{{.CurrentDir}}" data-workspace="{{.Workspace}}">
 {{end}}

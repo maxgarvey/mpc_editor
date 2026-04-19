@@ -45,6 +45,12 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	source := r.FormValue("source")
+	flatten := r.FormValue("flatten") == "1"
+
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		http.Error(w, fmt.Sprintf("mkdir dest: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	var imported, transcoded int
 	var importedWAVs []string // relative paths of imported WAV files for source attribution
@@ -54,10 +60,27 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Reject path separators in filename.
+		// Reject path separators that could escape the destination.
 		base := filepath.Base(fh.Filename)
 		if base == "." || base == ".." {
 			continue
+		}
+
+		// Determine the target directory, preserving relative subdirs unless flattening.
+		fileDestDir := dest
+		if !flatten && strings.ContainsAny(fh.Filename, "/\\") {
+			relDir := filepath.Dir(filepath.ToSlash(fh.Filename))
+			fileDestDir = filepath.Join(dest, filepath.FromSlash(relDir))
+			// Security: ensure the resolved path stays within dest.
+			cleanDest := filepath.Clean(dest)
+			if cleanFileDestDir := filepath.Clean(fileDestDir); !strings.HasPrefix(cleanFileDestDir, cleanDest+string(filepath.Separator)) && cleanFileDestDir != cleanDest {
+				log.Printf("import: relative path %q escapes dest, skipping", fh.Filename)
+				continue
+			}
+			if err := os.MkdirAll(fileDestDir, 0o755); err != nil {
+				log.Printf("import mkdir %s: %v", fileDestDir, err)
+				continue
+			}
 		}
 
 		src, err := fh.Open()
@@ -86,7 +109,7 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 
 			// Use the original filename (without extension) for the output WAV.
 			origName := strings.TrimSuffix(base, filepath.Ext(base))
-			wavPath, err := audio.TranscodeToWAV(tmpPath, dest, origName)
+			wavPath, err := audio.TranscodeToWAV(tmpPath, fileDestDir, origName)
 			_ = os.Remove(tmpPath)
 			if err != nil {
 				log.Printf("import transcode %s: %v", fh.Filename, err)
@@ -102,7 +125,7 @@ func (s *Server) handleWorkspaceImport(w http.ResponseWriter, r *http.Request) {
 			transcoded++
 		} else {
 			// Direct copy for native formats.
-			destPath := filepath.Join(dest, base)
+			destPath := filepath.Join(fileDestDir, base)
 			dst, err := os.Create(destPath)
 			if err != nil {
 				_ = src.Close()

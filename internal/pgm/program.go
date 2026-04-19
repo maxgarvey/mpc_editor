@@ -39,6 +39,7 @@ func NewProgram() *Program {
 		pad := p.Pad(i)
 		for j := range layersPerPad {
 			pad.Layer(j).SetLevel(100)
+			pad.Layer(j).SetRange(Range{Low: 0, High: 127})
 		}
 		pad.Mixer().SetLevel(100)
 		pad.Mixer().SetPan(50)

@@ -157,6 +157,9 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 			if layer.GetLevel() == 0 {
 				layer.SetLevel(100)
 			}
+			if r := layer.GetRange(); r.Low == 0 && r.High == 0 {
+				layer.SetRange(pgm.Range{Low: 0, High: 127})
+			}
 			if pad.Mixer().GetLevel() == 0 {
 				pad.Mixer().SetLevel(100)
 				pad.Mixer().SetPan(50)

@@ -463,7 +463,8 @@ var _importDirs = [];
 
 function openNewModal() {
     var dirInput = document.getElementById('browser-current-dir');
-    var destDir = dirInput ? dirInput.value : '';
+    var workspace = dirInput ? dirInput.dataset.workspace : '';
+    var destDir = workspace ? workspace + '/sample_library' : (dirInput ? dirInput.value : '');
 
     var overlay = document.createElement('div');
     overlay.id = 'new-modal-overlay';
@@ -505,13 +506,14 @@ function openNewModal() {
                     '<span class="import-dest-path" onclick="changeImportDest()">' + (destDir || 'workspace root') + '</span>' +
                 '</div>' +
                 '<div class="import-drop-zone" id="import-drop-zone">' +
-                    'Drag and drop files here<br>' +
+                    'Drag and drop files or folders here<br>' +
                     '<span class="import-drop-zone-hint">.wav .mp3 .flac .ogg .aif .m4a .pgm .seq .mid .sng .all</span>' +
                 '</div>' +
                 '<input type="file" id="import-file-input" multiple accept=".wav,.mp3,.flac,.ogg,.aif,.aiff,.m4a,.wma,.opus,.pgm,.seq,.mid,.sng,.all" style="display:none" onchange="handleImportFileSelect(this)">' +
+                '<input type="file" id="import-folder-input" webkitdirectory multiple style="display:none" onchange="handleImportFolderSelect(this)">' +
                 '<div style="text-align:center;margin-top:8px">' +
                     '<button class="btn-sm" onclick="document.getElementById(\'import-file-input\').click()">Browse Files</button>' +
-                    '<button class="btn-sm" onclick="browseFolderForImport()" style="margin-left:6px">Browse Folder</button>' +
+                    '<button class="btn-sm" onclick="document.getElementById(\'import-folder-input\').click()" style="margin-left:6px">Browse Folder</button>' +
                 '</div>' +
                 '<div class="import-file-list" id="import-file-list"></div>' +
                 '<div style="margin:6px 0 2px">' +
@@ -663,6 +665,13 @@ function handleImportFileSelect(input) {
     input.value = '';
 }
 
+function handleImportFolderSelect(input) {
+    if (input.files && input.files.length > 0) {
+        addImportFiles(input.files);
+    }
+    input.value = '';
+}
+
 function addImportFiles(fileList) {
     for (var i = 0; i < fileList.length; i++) {
         _importFiles.push(fileList[i]);
@@ -706,8 +715,9 @@ function renderImportFileList() {
         var size = f.size < 1024 ? f.size + ' B' :
                    f.size < 1048576 ? Math.round(f.size / 1024) + ' KB' :
                    (f.size / 1048576).toFixed(1) + ' MB';
+        var displayName = f.webkitRelativePath || f.name;
         html += '<div class="import-file-item">' +
-            '<span>' + ext.toUpperCase().replace('.', '[') + '] ' + f.name + ' <span style="color:#888">(' + size + ')</span></span>' +
+            '<span>' + ext.toUpperCase().replace('.', '[') + '] ' + displayName + ' <span style="color:#888">(' + size + ')</span></span>' +
             '<button class="import-file-remove" onclick="removeImportFile(' + i + ')">&times;</button>' +
             '</div>';
     }
@@ -800,9 +810,12 @@ function doWorkspaceImport() {
     if (_importFiles.length > 0) {
         var formData = new FormData();
         for (var i = 0; i < _importFiles.length; i++) {
-            formData.append('files', _importFiles[i]);
+            var f = _importFiles[i];
+            var fname = f.webkitRelativePath || f.name;
+            formData.append('files', f, fname);
         }
         formData.append('dest', destDir);
+        formData.append('flatten', flatten ? '1' : '0');
         if (source) formData.append('source', source);
         promises.push(fetch('/workspace/import', { method: 'POST', body: formData }).then(function(r) { return r.json(); }));
     }
