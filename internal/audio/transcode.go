@@ -2,6 +2,8 @@ package audio
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -63,6 +65,39 @@ func TranscodeToWAV(srcPath, destDir string, outputName ...string) (string, erro
 // CheckFFmpegAvailable returns nil if ffmpeg is installed, or an error.
 func CheckFFmpegAvailable() error {
 	return checkFFmpeg()
+}
+
+// NormalizeWAVForMPC copies srcPath to destPath, converting to 16-bit PCM
+// 44100 Hz via ffmpeg if the source is not already in that format.
+// Returns an error if conversion is needed but ffmpeg is unavailable.
+func NormalizeWAVForMPC(srcPath, destPath string) error {
+	format, _, err := ReadWAVHeader(srcPath)
+	if err == nil && format.BitsPerSample == 16 && format.SampleRate == 44100 {
+		return copyFileRaw(srcPath, destPath)
+	}
+	// Header unreadable or wrong format — convert via ffmpeg.
+	destDir := filepath.Dir(destPath)
+	destBase := strings.TrimSuffix(filepath.Base(destPath), filepath.Ext(destPath))
+	_, transcodeErr := TranscodeToWAV(srcPath, destDir, destBase)
+	return transcodeErr
+}
+
+func copyFileRaw(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close() //nolint:errcheck // read-only file
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	_, cpErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if cpErr != nil {
+		return cpErr
+	}
+	return closeErr
 }
 
 func checkFFmpeg() error {

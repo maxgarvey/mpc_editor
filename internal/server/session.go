@@ -61,7 +61,6 @@ func NewSession(queries *db.Queries) *Session {
 				sess.FilePath = prefs.LastPGMPath
 				pgmDir := filepath.Dir(prefs.LastPGMPath)
 				sess.SampleDir = pgmDir
-				samplesDir := filepath.Join(pgmDir, "samples")
 				// Populate sample matrix from program.
 				for i := 0; i < 64; i++ {
 					pad := prog.Pad(i)
@@ -69,7 +68,7 @@ func NewSession(queries *db.Queries) *Session {
 						name := pad.Layer(j).GetSampleName()
 						if name != "" {
 							sampleLibrary := filepath.Join(workspace, "sample_library")
-							ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, workspace)
+							ref := pgm.FindSampleInDirs(name, pgmDir, sampleLibrary, workspace)
 							sess.Matrix.Set(i, j, &ref)
 						}
 					}

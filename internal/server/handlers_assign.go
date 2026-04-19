@@ -97,18 +97,19 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	// Copy samples into workspace
 	s.copySamplesToWorkspace(samples)
 
-	// Copy each sample into the program's samples/ dir with the PGM-compatible name.
+	// Copy each sample into the program's directory with the PGM-compatible name,
+	// normalizing to 16-bit PCM 44100 Hz for MPC1000 compatibility.
 	if s.session.FilePath != "" {
 		pgmDir := filepath.Dir(s.session.FilePath)
-		samplesDir := filepath.Join(pgmDir, "samples")
-		_ = os.MkdirAll(samplesDir, 0o755)
 		for _, ref := range samples {
 			if ref == nil || ref.FilePath == "" {
 				continue
 			}
-			localWav := filepath.Join(samplesDir, ref.Name+".wav")
+			localWav := filepath.Join(pgmDir, ref.Name+".wav")
 			if _, err := os.Stat(localWav); os.IsNotExist(err) {
-				s.copyFileQuiet(ref.FilePath, localWav)
+				if err := audio.NormalizeWAVForMPC(ref.FilePath, localWav); err != nil {
+					log.Printf("normalize sample %s: %v", ref.Name, err)
+				}
 			}
 			ref.FilePath = localWav
 		}
@@ -212,19 +213,19 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 	// Copy samples into workspace
 	s.copySamplesToWorkspace(samples)
 
-	// Copy each sample into the program's samples/ dir with the PGM-compatible
-	// (possibly truncated) name so FindSampleInDirs can locate it later.
+	// Copy each sample into the program's directory with the PGM-compatible
+	// (possibly truncated) name, normalizing to 16-bit PCM 44100 Hz.
 	if s.session.FilePath != "" {
 		pgmDir := filepath.Dir(s.session.FilePath)
-		samplesDir := filepath.Join(pgmDir, "samples")
-		_ = os.MkdirAll(samplesDir, 0o755)
 		for _, ref := range samples {
 			if ref == nil || ref.FilePath == "" {
 				continue
 			}
-			localWav := filepath.Join(samplesDir, ref.Name+".wav")
+			localWav := filepath.Join(pgmDir, ref.Name+".wav")
 			if _, err := os.Stat(localWav); os.IsNotExist(err) {
-				s.copyFileQuiet(ref.FilePath, localWav)
+				if err := audio.NormalizeWAVForMPC(ref.FilePath, localWav); err != nil {
+					log.Printf("normalize sample %s: %v", ref.Name, err)
+				}
 			}
 			// Update ref to point to local copy so Matrix uses the stable path.
 			ref.FilePath = localWav

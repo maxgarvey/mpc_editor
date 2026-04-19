@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/maxgarvey/mpc_editor/internal/audio"
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
 
@@ -66,14 +67,12 @@ func (s *Server) copyToWorkspace(srcPath string) (string, error) {
 		return absSrc, nil
 	}
 
-	// Determine destination directory: program's samples/ dir, or sample_library/.
+	// Determine destination directory: program's dir, or sample_library/.
 	destDir := filepath.Join(absWorkspace, "sample_library")
 	if s.session.FilePath != "" {
 		pgmDir, err := filepath.Abs(filepath.Dir(s.session.FilePath))
 		if err == nil && strings.HasPrefix(pgmDir, absWorkspace) {
-			samplesDir := filepath.Join(pgmDir, "samples")
-			_ = os.MkdirAll(samplesDir, 0o755)
-			destDir = samplesDir
+			destDir = pgmDir
 		}
 	}
 
@@ -102,12 +101,9 @@ func (s *Server) copyToWorkspace(srcPath string) (string, error) {
 	return destPath, nil
 }
 
-// colocateSamples copies all referenced samples into a samples/ subdirectory
-// next to the .pgm so programs are portable. Returns the number of files copied.
+// colocateSamples copies all referenced samples into the same directory as the
+// .pgm so programs are portable. Returns the number of files copied.
 func (s *Server) colocateSamples(targetDir string) int {
-	samplesDir := filepath.Join(targetDir, "samples")
-	_ = os.MkdirAll(samplesDir, 0o755)
-
 	var copied int
 	for i := 0; i < 64; i++ {
 		for j := 0; j < 4; j++ {
@@ -120,7 +116,7 @@ func (s *Server) colocateSamples(targetDir string) int {
 			if err != nil {
 				continue
 			}
-			absTarget, err := filepath.Abs(samplesDir)
+			absTarget, err := filepath.Abs(targetDir)
 			if err != nil {
 				continue
 			}
@@ -130,29 +126,15 @@ func (s *Server) colocateSamples(targetDir string) int {
 				continue
 			}
 
-			destPath := filepath.Join(samplesDir, filepath.Base(absRef))
+			destPath := filepath.Join(targetDir, filepath.Base(absRef))
 			if _, err := os.Stat(destPath); err == nil {
 				// Destination already exists — update reference but don't overwrite.
 				ref.FilePath = destPath
 				continue
 			}
 
-			src, err := os.Open(absRef)
-			if err != nil {
-				log.Printf("colocate open %s: %v", absRef, err)
-				continue
-			}
-			dst, err := os.Create(destPath)
-			if err != nil {
-				_ = src.Close()
-				log.Printf("colocate create %s: %v", destPath, err)
-				continue
-			}
-			_, cpErr := io.Copy(dst, src)
-			_ = src.Close()
-			_ = dst.Close()
-			if cpErr != nil {
-				log.Printf("colocate copy %s: %v", destPath, cpErr)
+			if err := audio.NormalizeWAVForMPC(absRef, destPath); err != nil {
+				log.Printf("colocate %s: %v", absRef, err)
 				continue
 			}
 
@@ -161,29 +143,6 @@ func (s *Server) colocateSamples(targetDir string) int {
 		}
 	}
 	return copied
-}
-
-// copyFileQuiet copies src to dst, logging errors but not returning them.
-func (s *Server) copyFileQuiet(src, dst string) {
-	in, err := os.Open(src)
-	if err != nil {
-		log.Printf("copy file open %s: %v", src, err)
-		return
-	}
-	defer in.Close() //nolint:errcheck // best-effort close on read-only file
-
-	out, err := os.Create(dst)
-	if err != nil {
-		log.Printf("copy file create %s: %v", dst, err)
-		return
-	}
-	_, cpErr := io.Copy(out, in)
-	if closeErr := out.Close(); cpErr == nil {
-		cpErr = closeErr
-	}
-	if cpErr != nil {
-		log.Printf("copy file %s -> %s: %v", src, dst, cpErr)
-	}
 }
 
 // copySamplesToWorkspace copies each imported sample into the workspace

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/maxgarvey/mpc_editor/internal/audio"
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
 
@@ -179,7 +180,7 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 		// FindSampleInDirs can locate it.
 		destPath := filepath.Join(filepath.Dir(pgmAbs), sampleName+".wav")
 		if _, err := os.Stat(destPath); os.IsNotExist(err) {
-			if err := copyFile(wavAbs, destPath); err != nil {
+			if err := audio.NormalizeWAVForMPC(wavAbs, destPath); err != nil {
 				log.Printf("assign-to-program: copy renamed sample: %v", err)
 			}
 		}
@@ -214,14 +215,12 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	// Copy the WAV into the program's samples/ subdirectory.
+	// Copy the WAV into the program's directory.
 	pgmDir := filepath.Dir(pgmAbs)
-	samplesDir := filepath.Join(pgmDir, "samples")
-	_ = os.MkdirAll(samplesDir, 0o755)
-	localWav := filepath.Join(samplesDir, sampleName+".wav")
+	localWav := filepath.Join(pgmDir, sampleName+".wav")
 	if _, err := os.Stat(localWav); os.IsNotExist(err) {
-		if err := copyFile(wavAbs, localWav); err != nil {
-			log.Printf("assign-to-program: copy sample to samples dir: %v", err)
+		if err := audio.NormalizeWAVForMPC(wavAbs, localWav); err != nil {
+			log.Printf("assign-to-program: copy sample to pgm dir: %v", err)
 		}
 	}
 
@@ -246,7 +245,7 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 	// SelectedPad and a fully populated Matrix.
 	if isSessionPgm {
 		sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
-		ref := pgm.FindSampleInDirs(sampleName, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
+		ref := pgm.FindSampleInDirs(sampleName, pgmDir, sampleLibrary, s.session.WorkspacePath)
 		s.session.Matrix.Set(padIdx, targetLayer, &ref)
 		s.session.SelectedPad = padIdx
 	} else {
@@ -262,7 +261,7 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 				name := pad.Layer(j).GetSampleName()
 				if name != "" {
 					sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
-					ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
+					ref := pgm.FindSampleInDirs(name, pgmDir, sampleLibrary, s.session.WorkspacePath)
 					s.session.Matrix.Set(i, j, &ref)
 				}
 			}

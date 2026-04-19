@@ -96,12 +96,6 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create samples subdirectory for portable sample storage.
-	samplesDir := filepath.Join(projectDir, "samples")
-	if err := os.MkdirAll(samplesDir, 0o755); err != nil {
-		log.Printf("create samples dir: %v", err)
-	}
-
 	// Create and save a blank program inside the folder.
 	prog := pgm.NewProgram()
 	pgmPath := filepath.Join(projectDir, name+".pgm")
@@ -113,7 +107,7 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	// Open the new program.
 	s.session.Program = prog
 	s.session.FilePath = pgmPath
-	s.session.SampleDir = samplesDir
+	s.session.SampleDir = projectDir
 	s.session.SelectedPad = 0
 	s.session.Matrix.Clear()
 
@@ -152,7 +146,6 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pgmDir := filepath.Dir(path)
-	samplesDir := filepath.Join(pgmDir, "samples")
 
 	s.session.Program = prog
 	s.session.FilePath = path
@@ -165,14 +158,14 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 		log.Printf("save last pgm path: %v", err)
 	}
 
-	// Populate sample matrix from program, searching samples/ subdir first.
+	// Populate sample matrix from program.
 	for i := 0; i < 64; i++ {
 		pad := prog.Pad(i)
 		for j := 0; j < 4; j++ {
 			name := pad.Layer(j).GetSampleName()
 			if name != "" {
 				sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
-				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
+				ref := pgm.FindSampleInDirs(name, pgmDir, sampleLibrary, s.session.WorkspacePath)
 				s.session.Matrix.Set(i, j, &ref)
 			}
 		}
@@ -269,9 +262,8 @@ func (s *Server) handleSampleReport(w http.ResponseWriter, r *http.Request) {
 				entry.pads = append(entry.pads, label)
 			} else {
 				pgmDir := filepath.Dir(pgmPath)
-				samplesDir := filepath.Join(pgmDir, "samples")
 				sampleLibrary := filepath.Join(workspace, "sample_library")
-				ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, workspace)
+				ref := pgm.FindSampleInDirs(name, pgmDir, sampleLibrary, workspace)
 				seen[name] = &sampleEntry{
 					name:  name,
 					pads:  []string{label},

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/maxgarvey/mpc_editor/internal/audio"
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
 
@@ -161,16 +162,16 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 				pad.Mixer().SetPan(50)
 			}
 			pgmDir := filepath.Dir(s.session.FilePath)
-			samplesDir := filepath.Join(pgmDir, "samples")
 
-			// Find the source sample, then copy it to the program's samples/ dir.
+			// Find the source sample, then copy it to the program's directory.
 			sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
-			ref := pgm.FindSampleInDirs(name, samplesDir, s.session.SampleDir, sampleLibrary, s.session.WorkspacePath)
+			ref := pgm.FindSampleInDirs(name, pgmDir, s.session.SampleDir, sampleLibrary, s.session.WorkspacePath)
 			if ref.FilePath != "" {
-				_ = os.MkdirAll(samplesDir, 0o755)
-				localPath := filepath.Join(samplesDir, name+".wav")
+				localPath := filepath.Join(pgmDir, name+".wav")
 				if _, err := os.Stat(localPath); os.IsNotExist(err) {
-					s.copyFileQuiet(ref.FilePath, localPath)
+					if err := audio.NormalizeWAVForMPC(ref.FilePath, localPath); err != nil {
+						log.Printf("normalize sample %s: %v", name, err)
+					}
 				}
 				// Update ref to point to local copy.
 				ref.FilePath = localPath

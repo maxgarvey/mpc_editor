@@ -73,7 +73,6 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 		}
 
 		pgmDir := filepath.Dir(path)
-		samplesDir := filepath.Join(pgmDir, "samples")
 
 		s.session.Program = prog
 		s.session.FilePath = path
@@ -87,7 +86,7 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 				name := pad.Layer(j).GetSampleName()
 				if name != "" {
 					sampleLibrary := filepath.Join(s.session.WorkspacePath, "sample_library")
-					ref := pgm.FindSampleInDirs(name, samplesDir, pgmDir, sampleLibrary, s.session.WorkspacePath)
+					ref := pgm.FindSampleInDirs(name, pgmDir, sampleLibrary, s.session.WorkspacePath)
 					s.session.Matrix.Set(i, j, &ref)
 				}
 			}
