@@ -155,10 +155,6 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/edit/copy-settings-to-all", s.handleCopySettingsToAll)
 	s.mux.HandleFunc("/edit/profile", s.handleProfileSwitch)
 
-	// Batch
-	s.mux.HandleFunc("/batch", s.handleBatchPage)
-	s.mux.HandleFunc("/batch/run", s.handleBatchRun)
-
 	// Detail panel (type-dispatched)
 	s.mux.HandleFunc("/detail/select", s.handleDetailSelect)
 	s.mux.HandleFunc("/detail", s.handleDetail)
@@ -172,6 +168,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/workspace/move", s.handleWorkspaceMove)
 	s.mux.HandleFunc("/workspace/dirs", s.handleWorkspaceDirs)
 	s.mux.HandleFunc("/workspace/scan", s.handleWorkspaceScan)
+	s.mux.HandleFunc("/workspace/import/formats", s.handleImportFormats)
+	s.mux.HandleFunc("/workspace/import/scan", s.handleImportDirScan)
+	s.mux.HandleFunc("/workspace/import/dir", s.handleImportDirExecute)
 	s.mux.HandleFunc("/workspace/import", s.handleWorkspaceImport)
 	s.mux.HandleFunc("/workspace/delete", s.handleWorkspaceDelete)
 	s.mux.HandleFunc("/file/tags/add", s.handleTagAdd)

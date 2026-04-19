@@ -26,7 +26,7 @@
     </div>
     {{end}}
 </div>
-{{if or (eq .Context "export-dir") (eq .Context "batch-dir")}}
+{{if eq .Context "export-dir"}}
 <div class="browser-actions">
     <button class="btn-primary" onclick="selectDir('{{.CurrentDir}}', '{{.Context}}')">Select This Directory</button>
 </div>

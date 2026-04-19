@@ -481,6 +481,7 @@ function openNewModal() {
         '<div class="new-modal-tabs">' +
             '<button class="new-modal-tab active" data-tab="new-project">New Program</button>' +
             '<button class="new-modal-tab" data-tab="import-files">Import Files</button>' +
+            '<button class="new-modal-tab" data-tab="import-dir">Import Directory</button>' +
         '</div>' +
         '<div class="new-modal-body">' +
             '<div id="new-project-tab" class="new-modal-tab-content">' +
@@ -521,6 +522,33 @@ function openNewModal() {
                     '<button class="btn-primary" id="import-btn" onclick="confirmImportDest()" disabled>Import</button>' +
                 '</div>' +
             '</div>' +
+            '<div id="import-dir-tab" class="new-modal-tab-content" style="display:none">' +
+                '<div class="import-dest">' +
+                    'Source directory: <input type="hidden" id="import-dir-src-path">' +
+                    '<span class="import-dest-path" id="import-dir-src-display" onclick="changeImportDirSrc()">' +
+                        '<em style="color:#666">Click to select</em>' +
+                    '</span>' +
+                '</div>' +
+                '<div class="import-dest">' +
+                    'Import to: <input type="hidden" id="import-dir-dest-path" value="' + destDir.replace(/"/g, '&quot;') + '">' +
+                    '<span class="import-dest-path" id="import-dir-dest-display" onclick="changeImportDirDest()">' + (destDir || 'workspace root') + '</span>' +
+                '</div>' +
+                '<div style="margin:10px 0">' +
+                    '<label style="display:flex;align-items:center;gap:8px;color:#aaa;cursor:pointer">' +
+                        '<input type="checkbox" id="import-dir-flatten"> ' +
+                        'Flatten — copy all files into destination without subdirectories' +
+                    '</label>' +
+                '</div>' +
+                '<div class="import-attribution">' +
+                    '<label class="settings-label">Source / Attribution (optional)</label>' +
+                    '<input type="text" id="import-dir-source" class="path-input" style="width:100%" placeholder="e.g. Splice, freesound.org">' +
+                '</div>' +
+                '<div id="import-dir-preview" style="margin:10px 0;min-height:24px"></div>' +
+                '<div class="import-actions">' +
+                    '<button class="btn-sm" onclick="previewImportDir()">Preview</button>' +
+                    '<button class="btn-primary" id="import-dir-btn" onclick="confirmImportDir()" disabled style="margin-left:8px">Import Directory</button>' +
+                '</div>' +
+            '</div>' +
         '</div>';
 
     overlay.appendChild(modal);
@@ -528,7 +556,7 @@ function openNewModal() {
 
     // Tab switching
     var tabs = modal.querySelectorAll('.new-modal-tab');
-    var tabIds = ['new-project-tab', 'import-files-tab'];
+    var tabIds = ['new-project-tab', 'import-files-tab', 'import-dir-tab'];
     tabs.forEach(function(tab) {
         tab.addEventListener('click', function() {
             tabs.forEach(function(t) { t.classList.remove('active'); });
@@ -753,6 +781,128 @@ function doWorkspaceImport() {
                 btn.disabled = false;
                 btn.textContent = 'Import';
             }
+        });
+}
+
+// --- Import Directory ---
+
+function changeImportDirSrc() {
+    openBrowser('export-dir', 'import-dir-src-path');
+    var checkInterval = setInterval(function() {
+        var overlay = document.getElementById('browser-overlay');
+        if (!overlay) {
+            clearInterval(checkInterval);
+            var input = document.getElementById('import-dir-src-path');
+            var display = document.getElementById('import-dir-src-display');
+            if (input && display && input.value) {
+                display.textContent = input.value;
+                // Auto-preview when source selected
+                previewImportDir();
+            }
+        }
+    }, 200);
+}
+
+function changeImportDirDest() {
+    openBrowser('export-dir', 'import-dir-dest-path');
+    var checkInterval = setInterval(function() {
+        var overlay = document.getElementById('browser-overlay');
+        if (!overlay) {
+            clearInterval(checkInterval);
+            var input = document.getElementById('import-dir-dest-path');
+            var display = document.getElementById('import-dir-dest-display');
+            if (input && display) {
+                display.textContent = input.value || 'workspace root';
+            }
+        }
+    }, 200);
+}
+
+function previewImportDir() {
+    var srcInput = document.getElementById('import-dir-src-path');
+    var preview = document.getElementById('import-dir-preview');
+    var btn = document.getElementById('import-dir-btn');
+    if (!srcInput || !srcInput.value) {
+        if (preview) preview.innerHTML = '<span style="color:#888">Select a source directory first.</span>';
+        return;
+    }
+    if (preview) preview.innerHTML = '<span style="color:#888">Scanning...</span>';
+
+    fetch('/workspace/import/scan?dir=' + encodeURIComponent(srcInput.value))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!preview) return;
+            if (data.count === 0) {
+                preview.innerHTML = '<span style="color:#888">No importable files found.</span>';
+                if (btn) btn.disabled = true;
+                return;
+            }
+            var extSummary = Object.entries(data.by_ext)
+                .sort(function(a, b) { return b[1] - a[1]; })
+                .map(function(kv) { return kv[1] + '\u00a0' + kv[0]; })
+                .join(', ');
+            var html = '<div style="color:#aaa;margin-bottom:6px">' +
+                '<strong style="color:#ccc">' + data.count + '</strong> files to import (' + extSummary + ')</div>';
+            if (data.files && data.files.length <= 20) {
+                html += '<div class="import-file-list" style="max-height:120px">';
+                data.files.forEach(function(f) {
+                    html += '<div class="import-file-item" style="cursor:default"><span>' + f + '</span></div>';
+                });
+                html += '</div>';
+            } else if (data.files) {
+                html += '<div class="import-file-list" style="max-height:120px">';
+                data.files.slice(0, 20).forEach(function(f) {
+                    html += '<div class="import-file-item" style="cursor:default"><span>' + f + '</span></div>';
+                });
+                html += '<div class="import-file-item" style="cursor:default;color:#888"><span>… and ' + (data.files.length - 20) + ' more</span></div>';
+                html += '</div>';
+            }
+            preview.innerHTML = html;
+            if (btn) btn.disabled = false;
+        })
+        .catch(function(err) {
+            if (preview) preview.innerHTML = '<span style="color:#ff6b4a">Scan failed: ' + err.message + '</span>';
+        });
+}
+
+function confirmImportDir() {
+    var srcInput = document.getElementById('import-dir-src-path');
+    var destInput = document.getElementById('import-dir-dest-path');
+    var flattenEl = document.getElementById('import-dir-flatten');
+    var sourceEl = document.getElementById('import-dir-source');
+
+    var src = srcInput ? srcInput.value : '';
+    var dest = destInput ? destInput.value : '';
+    var flatten = flattenEl ? flattenEl.checked : false;
+    var source = sourceEl ? sourceEl.value.trim() : '';
+
+    if (!src) { alert('Please select a source directory.'); return; }
+
+    var flattenNote = flatten ? '\nDirectory structure will be flattened.' : '\nDirectory structure will be preserved.';
+    var msg = 'Import all supported files from:\n' + src +
+        '\nTo: ' + (dest || 'workspace root') + flattenNote;
+    if (source) msg += '\n\nSource attribution: ' + source;
+
+    if (!confirm(msg)) return;
+
+    var btn = document.getElementById('import-dir-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+
+    var params = new URLSearchParams();
+    params.append('src_dir', src);
+    params.append('dest', dest);
+    params.append('flatten', flatten ? '1' : '0');
+    if (source) params.append('source', source);
+
+    fetch('/workspace/import/dir', { method: 'POST', body: params })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            closeNewModal();
+            htmx.ajax('GET', '/browse/nav?dir=' + encodeURIComponent(dest), '#file-nav');
+        })
+        .catch(function(err) {
+            console.warn('Import dir failed:', err);
+            if (btn) { btn.disabled = false; btn.textContent = 'Import Directory'; }
         });
 }
 

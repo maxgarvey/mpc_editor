@@ -9,17 +9,29 @@ import (
 	"strings"
 )
 
-// transcodableExtensions lists audio formats that can be converted to WAV.
-var transcodableExtensions = map[string]bool{
-	".mp3":  true,
-	".flac": true,
-	".ogg":  true,
-	".aif":  true,
-	".aiff": true,
-	".m4a":  true,
-	".wma":  true,
-	".opus": true,
+// SupportedAudioExts lists all audio file extensions recognized for import.
+// Add new formats here; transcodableExtensions is derived automatically.
+var SupportedAudioExts = []string{
+	".wav",
+	".aif", ".aiff",
+	".flac",
+	".m4a",
+	".mp3",
+	".ogg",
+	".opus",
+	".wma",
 }
+
+// transcodableExtensions is derived from SupportedAudioExts (everything except .wav).
+var transcodableExtensions = func() map[string]bool {
+	m := make(map[string]bool, len(SupportedAudioExts))
+	for _, ext := range SupportedAudioExts {
+		if ext != ".wav" {
+			m[ext] = true
+		}
+	}
+	return m
+}()
 
 // IsTranscodable returns true if the file extension is a known audio format
 // that can be transcoded to WAV.

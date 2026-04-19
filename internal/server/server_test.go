@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -574,79 +573,6 @@ func TestAssignPath_NoPaths(t *testing.T) {
 
 	form := url.Values{"pad": {"0"}}
 	req := httptest.NewRequest("POST", "/assign/path", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", w.Code)
-	}
-}
-
-func TestBatchPage(t *testing.T) {
-	srv := testServer(t)
-
-	req := httptest.NewRequest("GET", "/batch", http.NoBody)
-	w := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(w, req)
-
-	if w.Code != 200 {
-		t.Fatalf("status = %d", w.Code)
-	}
-	if !strings.Contains(w.Body.String(), "Batch Program Creation") {
-		t.Error("missing batch page content")
-	}
-}
-
-func TestBatchRun(t *testing.T) {
-	srv := testServer(t)
-
-	// Create temp dir with WAV files
-	root := t.TempDir()
-	subDir := filepath.Join(root, "drums")
-	if err := os.MkdirAll(subDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Write minimal WAV files
-	wavHeader := []byte{
-		'R', 'I', 'F', 'F', 38, 0, 0, 0, 'W', 'A', 'V', 'E',
-		'f', 'm', 't', ' ', 16, 0, 0, 0, 1, 0, 1, 0,
-		0x44, 0xAC, 0, 0, 0x88, 0x58, 0x01, 0, 2, 0, 16, 0,
-		'd', 'a', 't', 'a', 2, 0, 0, 0, 0, 0,
-	}
-	if err := os.WriteFile(filepath.Join(subDir, "kick.wav"), wavHeader, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(subDir, "snare.wav"), wavHeader, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	form := url.Values{"dir": {root}}
-	req := httptest.NewRequest("POST", "/batch/run", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	w := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(w, req)
-
-	if w.Code != 200 {
-		t.Fatalf("status = %d", w.Code)
-	}
-	body := w.Body.String()
-	if !strings.Contains(body, "Created 1 programs") {
-		t.Logf("body: %s", body)
-	}
-
-	// Verify .pgm was created
-	if _, err := os.Stat(filepath.Join(subDir, "drums.pgm")); err != nil {
-		t.Error("drums.pgm not created")
-	}
-}
-
-func TestBatchRun_NoDir(t *testing.T) {
-	srv := testServer(t)
-
-	form := url.Values{}
-	req := httptest.NewRequest("POST", "/batch/run", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)

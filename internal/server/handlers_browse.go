@@ -712,7 +712,7 @@ func filterAllows(ctx, ext string) bool {
 		return ext == ".pgm"
 	case "load-wav":
 		return ext == ".wav"
-	case "export-dir", "batch-dir":
+	case "export-dir":
 		return false // directories only
 	default:
 		return ext == ".pgm" || ext == ".wav" || ext == ".mid" ||

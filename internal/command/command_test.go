@@ -12,31 +12,6 @@ func testdataPath(name string) string {
 	return filepath.Join("..", "..", "testdata", name)
 }
 
-// createTestWAV writes a minimal valid WAV file for testing.
-func createTestWAV(t *testing.T, path string) {
-	t.Helper()
-	// Minimal 44-byte WAV header + 2 bytes of silence
-	header := []byte{
-		'R', 'I', 'F', 'F',
-		38, 0, 0, 0, // chunk size = 38
-		'W', 'A', 'V', 'E',
-		'f', 'm', 't', ' ',
-		16, 0, 0, 0, // subchunk1 size
-		1, 0, // PCM
-		1, 0, // mono
-		0x44, 0xAC, 0, 0, // 44100 Hz
-		0x88, 0x58, 0x01, 0, // byte rate
-		2, 0, // block align
-		16, 0, // bits per sample
-		'd', 'a', 't', 'a',
-		2, 0, 0, 0, // subchunk2 size = 2 bytes
-		0, 0, // one sample of silence
-	}
-	if err := os.WriteFile(path, header, 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestImportSamples(t *testing.T) {
 	paths := []string{
 		"/fake/path/kick.wav",
@@ -208,79 +183,5 @@ func TestExportProgram(t *testing.T) {
 		t.Error("missing chh.wav")
 	}
 
-	t.Log(result.Report())
-}
-
-func TestBatchCreate(t *testing.T) {
-	// Create a temp directory tree:
-	// root/
-	//   drums/
-	//     kick.wav
-	//     snare.wav
-	//   bass/
-	//     bass.wav
-	//   empty/
-	//   existing/
-	//     existing.pgm
-	//     hat.wav
-
-	root := t.TempDir()
-
-	drumsDir := filepath.Join(root, "drums")
-	bassDir := filepath.Join(root, "bass")
-	emptyDir := filepath.Join(root, "empty")
-	existingDir := filepath.Join(root, "existing")
-
-	if err := os.MkdirAll(drumsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(bassDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(emptyDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(existingDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	createTestWAV(t, filepath.Join(drumsDir, "kick.wav"))
-	createTestWAV(t, filepath.Join(drumsDir, "snare.wav"))
-	createTestWAV(t, filepath.Join(bassDir, "bass.wav"))
-	createTestWAV(t, filepath.Join(existingDir, "hat.wav"))
-	if err := os.WriteFile(filepath.Join(existingDir, "existing.pgm"), make([]byte, 100), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	result := BatchCreate(root)
-
-	if result.Created != 2 {
-		t.Errorf("created = %d, want 2", result.Created)
-	}
-	if result.Skipped != 1 {
-		t.Errorf("skipped = %d, want 1", result.Skipped)
-	}
-	if len(result.Errors) != 0 {
-		t.Errorf("errors: %v", result.Errors)
-	}
-
-	// Verify .pgm files were created
-	if _, err := os.Stat(filepath.Join(drumsDir, "drums.pgm")); err != nil {
-		t.Error("missing drums.pgm")
-	}
-	if _, err := os.Stat(filepath.Join(bassDir, "bass.pgm")); err != nil {
-		t.Error("missing bass.pgm")
-	}
-
-	// Verify the created programs are valid
-	prog, err := pgm.OpenProgram(filepath.Join(drumsDir, "drums.pgm"))
-	if err != nil {
-		t.Fatalf("open drums.pgm: %v", err)
-	}
-	name := prog.Pad(0).Layer(0).GetSampleName()
-	if name == "" {
-		t.Error("drums pad 0 has no sample")
-	}
-	t.Logf("drums pad 0: %q", name)
 	t.Log(result.Report())
 }

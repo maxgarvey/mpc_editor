@@ -322,12 +322,14 @@ body {
 .pad-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    aspect-ratio: 1;
     gap: 6px;
 }
 
 .pad-btn {
     position: relative;
-    aspect-ratio: 1;
+    overflow: hidden;
     background: #808080;
     border: 2px solid #606060;
     border-radius: 6px;
