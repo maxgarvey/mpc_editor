@@ -1,6 +1,9 @@
 package seq
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // StepCell represents one cell in the step grid.
 type StepCell struct {
@@ -10,11 +13,19 @@ type StepCell struct {
 	Velocity byte
 }
 
+// PadRow is one pad's activity within a track row.
+type PadRow struct {
+	PadIndex int
+	PadLabel string // e.g. "A1", "B3"
+	Steps    [StepsPerBar]StepCell
+}
+
 // TrackRow is one row in the step grid (one track).
 type TrackRow struct {
 	TrackIndex int
 	TrackName  string
 	Steps      [StepsPerBar]StepCell
+	PadRows    []PadRow // per-pad breakdown, only populated when track has multiple notes
 }
 
 // StepGrid is the visualization data for one bar of a sequence.
@@ -25,8 +36,17 @@ type StepGrid struct {
 	Rows      []TrackRow
 }
 
+// PadLabel returns the display label for a pad index (e.g. 0→"A1", 16→"B1").
+func PadLabel(padIndex int) string {
+	bank := rune('A' + padIndex/16)
+	num := padIndex%16 + 1
+	return fmt.Sprintf("%c%d", bank, num)
+}
+
 // BuildGrid constructs a step grid for the given bar (1-indexed).
-func BuildGrid(s *Sequence, bar int) *StepGrid {
+// noteToPad maps MIDI note number → pad index for the loaded program;
+// pass nil to use the chromatic fallback (note - 35).
+func BuildGrid(s *Sequence, bar int, noteToPad map[int]int) *StepGrid {
 	if bar < 1 {
 		bar = 1
 	}
@@ -44,12 +64,27 @@ func BuildGrid(s *Sequence, bar int) *StepGrid {
 	barStart := uint32((bar - 1) * TicksPerBar)
 	barEnd := barStart + TicksPerBar
 
-	// Collect events per track for this bar.
+	padForNote := func(note byte) int {
+		if noteToPad != nil {
+			if idx, ok := noteToPad[int(note)]; ok {
+				return idx
+			}
+		}
+		if idx := int(note) - 35; idx >= 0 && idx < 64 {
+			return idx
+		}
+		return 0
+	}
+
+	// Collect events per track per note for this bar.
 	type cell struct {
 		note     byte
 		velocity byte
 	}
+	// trackSteps: track → step → loudest cell (for track-level summary row)
 	trackSteps := make(map[int][StepsPerBar]*cell)
+	// trackNoteSteps: track → note → step → loudest cell (for pad sub-rows)
+	trackNoteSteps := make(map[int]map[byte][StepsPerBar]*cell)
 
 	for _, ev := range s.Events {
 		if ev.Type != EventNoteOn {
@@ -63,15 +98,20 @@ func BuildGrid(s *Sequence, bar int) *StepGrid {
 			continue
 		}
 
-		steps, ok := trackSteps[ev.Track]
-		if !ok {
-			steps = [StepsPerBar]*cell{}
-		}
-		// If multiple notes on same step, keep the loudest.
+		steps := trackSteps[ev.Track]
 		if steps[stepIndex] == nil || ev.Velocity > steps[stepIndex].velocity {
 			steps[stepIndex] = &cell{note: ev.Note, velocity: ev.Velocity}
 		}
 		trackSteps[ev.Track] = steps
+
+		if trackNoteSteps[ev.Track] == nil {
+			trackNoteSteps[ev.Track] = make(map[byte][StepsPerBar]*cell)
+		}
+		noteSteps := trackNoteSteps[ev.Track][ev.Note]
+		if noteSteps[stepIndex] == nil || ev.Velocity > noteSteps[stepIndex].velocity {
+			noteSteps[stepIndex] = &cell{note: ev.Note, velocity: ev.Velocity}
+		}
+		trackNoteSteps[ev.Track][ev.Note] = noteSteps
 	}
 
 	// Build rows for tracks that have events, sorted by track index.
@@ -97,6 +137,34 @@ func BuildGrid(s *Sequence, bar int) *StepGrid {
 				}
 			}
 		}
+
+		// Build per-pad sub-rows, sorted by pad index.
+		noteMap := trackNoteSteps[i]
+		notes := make([]int, 0, len(noteMap))
+		for n := range noteMap {
+			notes = append(notes, int(n))
+		}
+		sort.Ints(notes)
+		for _, n := range notes {
+			padIdx := padForNote(byte(n))
+			pr := PadRow{
+				PadIndex: padIdx,
+				PadLabel: PadLabel(padIdx),
+			}
+			noteSteps := noteMap[byte(n)]
+			for j := range StepsPerBar {
+				if noteSteps[j] != nil {
+					pr.Steps[j] = StepCell{
+						Active:   true,
+						Note:     noteSteps[j].note,
+						NoteName: NoteName(noteSteps[j].note),
+						Velocity: noteSteps[j].velocity,
+					}
+				}
+			}
+			row.PadRows = append(row.PadRows, pr)
+		}
+
 		grid.Rows = append(grid.Rows, row)
 	}
 

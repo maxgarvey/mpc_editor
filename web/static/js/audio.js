@@ -5,6 +5,7 @@ const AudioPlayer = (function() {
     const bufferCache = new Map();
     let activeSources = [];
     let stopCallbacks = [];
+    let playGeneration = 0;
 
     function getContext() {
         if (!audioCtx) {
@@ -32,6 +33,7 @@ const AudioPlayer = (function() {
     }
 
     function stopAll() {
+        playGeneration++;
         for (let i = 0; i < activeSources.length; i++) {
             try { activeSources[i].stop(); } catch(e) {}
         }
@@ -69,9 +71,9 @@ const AudioPlayer = (function() {
 
     // --- Signal chain builders ---
 
-    function buildPadChain(ctx, params) {
+    function buildPadChain(ctx, params, startTime, velScale) {
         var nodes = {};
-        var now = ctx.currentTime;
+        var now = Math.max(startTime !== undefined ? startTime : ctx.currentTime, ctx.currentTime);
 
         // Filter (bypass when type=0/Off)
         if (params.filter1.type > 0) {
@@ -107,7 +109,7 @@ const AudioPlayer = (function() {
 
         // Mixer gain
         nodes.mixerGain = ctx.createGain();
-        nodes.mixerGain.gain.value = params.mixer.level / 100;
+        nodes.mixerGain.gain.value = (params.mixer.level / 100) * (velScale !== undefined ? velScale : 1.0);
 
         // Panner
         nodes.panner = ctx.createStereoPanner();
@@ -141,6 +143,27 @@ const AudioPlayer = (function() {
             source.connect(layerGain);
             layerGain.connect(padChainInput);
             source.start(0);
+
+            activeSources.push(source);
+            source.onended = function() {
+                var idx = activeSources.indexOf(source);
+                if (idx >= 0) activeSources.splice(idx, 1);
+            };
+        });
+    }
+
+    function playLayerAtTime(ctx, url, layerParams, padChainInput, atTime) {
+        return fetchAndDecode(url).then(function(buffer) {
+            var source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.playbackRate.value = tuningToRate(layerParams.tuning);
+
+            var layerGain = ctx.createGain();
+            layerGain.gain.value = layerParams.level / 100;
+
+            source.connect(layerGain);
+            layerGain.connect(padChainInput);
+            source.start(Math.max(atTime, ctx.currentTime));
 
             activeSources.push(source);
             source.onended = function() {
@@ -273,6 +296,28 @@ const AudioPlayer = (function() {
 
         playSlice: function(sliceIndex) {
             play('/audio/slice/' + sliceIndex);
+        },
+
+        prefetchPadParams: function(padIndices) {
+            return Promise.all(padIndices.map(function(i) { return getParams(i); }));
+        },
+
+        playPadAtTime: function(padIndex, velocity, atTime) {
+            var gen = playGeneration;
+            var velScale = velocity / 127;
+            getParams(padIndex).then(function(params) {
+                if (playGeneration !== gen) return;
+                var ctx = getContext();
+                var chain = buildPadChain(ctx, params, atTime, velScale);
+                var layers = params ? params.layers : [];
+                for (var i = 0; i < layers.length; i++) {
+                    if (!layers[i].hasSample) continue;
+                    (function(li) {
+                        playLayerAtTime(ctx, '/audio/pad/' + padIndex + '/' + li, layers[li], chain.input, atTime)
+                            .catch(function() {});
+                    })(i);
+                }
+            });
         }
     };
 })();

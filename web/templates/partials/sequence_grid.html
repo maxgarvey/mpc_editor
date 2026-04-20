@@ -39,6 +39,7 @@
 
         <button class="btn-sm btn-set" onclick="SequencePlayer.play('{{.Path}}', {{.CurrentBar}})">Play</button>
         <button class="btn-sm" onclick="SequencePlayer.stop()">Stop</button>
+        <button class="btn-sm" id="seq-loop-btn" onclick="SequencePlayer.toggleLoop(this)">Loop</button>
     </div>
 
     {{if .Grid}}
@@ -54,14 +55,16 @@
         </thead>
         <tbody>
             {{range .Grid.Rows}}
-            <tr>
+            {{$trackIdx := .TrackIndex}}
+            <tr class="track-row" data-track="{{$trackIdx}}">
                 <td class="track-name-cell">
-                <span class="track-label">{{.TrackName}}</span>
-                <span class="track-controls">
-                    <button class="track-mute-btn" onclick="SequencePlayer.toggleMute({{.TrackIndex}}, this)" title="Mute">M</button>
-                    <button class="track-solo-btn" onclick="SequencePlayer.toggleSolo({{.TrackIndex}}, this)" title="Solo">S</button>
-                </span>
-            </td>
+                    <span class="track-label">{{.TrackName}}</span>
+                    <span class="track-controls">
+                        {{if .PadRows}}<button class="track-expand-btn" onclick="SequencePlayer.toggleExpand({{$trackIdx}}, this)" title="Expand">&#9654;</button>{{end}}
+                        <button class="track-mute-btn" onclick="SequencePlayer.toggleMute({{$trackIdx}}, this)" title="Mute">M</button>
+                        <button class="track-solo-btn" onclick="SequencePlayer.toggleSolo({{$trackIdx}}, this)" title="Solo">S</button>
+                    </span>
+                </td>
                 {{range $i, $step := .Steps}}
                 <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
                     {{if $step.Active}}title="{{$step.NoteName}} vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
@@ -69,6 +72,19 @@
                 </td>
                 {{end}}
             </tr>
+            {{range .PadRows}}
+            <tr class="pad-subrow" data-track="{{$trackIdx}}" style="display:none">
+                <td class="track-name-cell pad-name-cell">
+                    <span class="pad-subrow-label">{{.PadLabel}}</span>
+                </td>
+                {{range $i, $step := .Steps}}
+                <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
+                    {{if $step.Active}}title="{{$step.NoteName}} vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
+                    {{if $step.Active}}<span class="step-dot"></span>{{end}}
+                </td>
+                {{end}}
+            </tr>
+            {{end}}
             {{end}}
         </tbody>
     </table>

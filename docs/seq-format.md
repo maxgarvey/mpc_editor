@@ -43,8 +43,15 @@ hardware limitations.
 
 ## Event Data (offset 0x1C10)
 
-Each event is exactly **8 bytes**. The event section is terminated by 8 bytes
-of `0xFF`.
+Each event is exactly **8 bytes**. The event section is terminated by the
+sentinel `ff ff ff 7f ff ff ff ff` (byte 3 = 0x7F, not 0xFF — confirmed from
+a real MPC1000 file). Parsed naively this yields byte 4 = 0xFF which falls
+outside the NoteOn range 0x00–0x7F, signalling end-of-data.
+
+**NoteOff markers**: The MPC inserts note=0 / velocity=0 events at small tick
+values (typically 11–23 ticks) between musical events. These are internal
+NoteOff markers closing out notes from the previous loop iteration; they are
+not musical content.
 
 ### Event type determination (byte 4)
 

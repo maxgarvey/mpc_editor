@@ -158,7 +158,7 @@ func TestBuildGrid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	grid := BuildGrid(s, 1)
+	grid := BuildGrid(s, 1, nil)
 
 	if grid.Bar != 1 {
 		t.Errorf("grid bar = %d, want 1", grid.Bar)
@@ -216,7 +216,7 @@ func TestBuildGridBar2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	grid := BuildGrid(s, 2)
+	grid := BuildGrid(s, 2, nil)
 	if len(grid.Rows) != 1 {
 		t.Fatalf("grid rows = %d, want 1", len(grid.Rows))
 	}

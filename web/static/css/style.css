@@ -1356,6 +1356,7 @@ body {
     gap: 2px;
 }
 
+.track-expand-btn,
 .track-mute-btn,
 .track-solo-btn {
     width: 18px;
@@ -1372,8 +1373,14 @@ body {
     text-align: center;
 }
 
+.track-expand-btn:hover { background: #444; }
 .track-mute-btn:hover { background: #444; }
 .track-solo-btn:hover { background: #444; }
+
+.track-expand-btn.active {
+    color: #a0c840;
+    border-color: #a0c840;
+}
 
 .track-mute-btn.active {
     background: #cc6600;
@@ -1428,6 +1435,28 @@ tr.track-muted .track-label {
 .step-cell.step-playing {
     border-color: #a0c840;
     box-shadow: inset 0 0 8px rgba(160, 200, 64, 0.4);
+}
+
+.pad-subrow .track-name-cell {
+    padding-left: 20px;
+    background: #1a1a1a;
+}
+
+.pad-subrow-label {
+    font-size: 10px;
+    color: #a0c840;
+    font-family: monospace;
+}
+
+.pad-subrow .step-cell {
+    height: 20px;
+    background: #1a1a1a;
+}
+
+#seq-loop-btn.active {
+    background: #1a4a00;
+    color: #a0c840;
+    border-color: #a0c840;
 }
 
 .sequence-error {

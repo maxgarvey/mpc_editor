@@ -8,6 +8,20 @@ import (
 	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
+// noteToPadMap builds a MIDI note → pad index map from the session's loaded program.
+// Returns nil if no program is loaded (callers use the chromatic fallback).
+func (s *Server) noteToPadMap() map[int]int {
+	if s.session.Program == nil {
+		return nil
+	}
+	prog := s.session.Program
+	m := make(map[int]int, prog.PadCount())
+	for i := 0; i < prog.PadCount(); i++ {
+		m[prog.Pad(i).GetMIDINote()] = i
+	}
+	return m
+}
+
 // SequenceViewData holds template data for the sequence step grid page.
 type SequenceViewData struct {
 	Path       string
@@ -45,7 +59,7 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 		bar = sequence.Bars
 	}
 
-	grid := seq.BuildGrid(sequence, bar)
+	grid := seq.BuildGrid(sequence, bar, s.noteToPadMap())
 
 	data := SequenceViewData{
 		Path:       path,
@@ -70,6 +84,7 @@ type sequenceEventJSON struct {
 	Step          int `json:"step"`
 	Track         int `json:"track"`
 	Note          int `json:"note"`
+	PadIndex      int `json:"padIndex"`
 	Velocity      int `json:"velocity"`
 	DurationSteps int `json:"durationSteps"`
 }
@@ -105,6 +120,19 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		bar = sequence.Bars
 	}
 
+	noteToPad := s.noteToPadMap()
+	padForNote := func(note int) int {
+		if noteToPad != nil {
+			if idx, ok := noteToPad[note]; ok {
+				return idx
+			}
+		}
+		if idx := note - 35; idx >= 0 && idx < 64 {
+			return idx
+		}
+		return 0
+	}
+
 	barStart := uint32((bar - 1) * seq.TicksPerBar)
 	barEnd := barStart + uint32(seq.TicksPerBar)
 
@@ -125,6 +153,7 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 			Step:          step,
 			Track:         ev.Track,
 			Note:          int(ev.Note),
+			PadIndex:      padForNote(int(ev.Note)),
 			Velocity:      int(ev.Velocity),
 			DurationSteps: durSteps,
 		})

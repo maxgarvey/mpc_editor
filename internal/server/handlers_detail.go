@@ -186,7 +186,7 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		bar = sequence.Bars
 	}
 
-	grid := seq.BuildGrid(sequence, bar)
+	grid := seq.BuildGrid(sequence, bar, s.noteToPadMap())
 	data := SequenceViewData{
 		Path:       path,
 		BPM:        sequence.BPM,
