@@ -11,10 +11,15 @@ type PadInfo struct {
 }
 
 // padGridData builds template data for the pad grid.
+// Pads are ordered top-to-bottom to match the MPC1000 physical layout:
+// row 4 (pads 13-16) at top, row 1 (pads 1-4) at bottom.
 func (s *Server) padGridData(bank int) map[string]any {
 	start := bank * 16
 	pads := make([]PadInfo, 16)
-	for i := range pads {
+	for uiPos := range pads {
+		// Map UI position to pad index: top row = pads 13-16, bottom row = pads 1-4.
+		uiRow := uiPos / 4
+		i := (3-uiRow)*4 + (uiPos % 4)
 		idx := start + i
 		name := s.session.PadName(idx)
 		layerCount := 0
@@ -24,7 +29,7 @@ func (s *Server) padGridData(bank int) map[string]any {
 				layerCount++
 			}
 		}
-		pads[i] = PadInfo{
+		pads[uiPos] = PadInfo{
 			Index:      idx,
 			Name:       name,
 			Selected:   idx == s.session.SelectedPad,
