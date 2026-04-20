@@ -890,7 +890,7 @@ body {
 
 .browser-entry {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     padding: 6px 16px;
     cursor: pointer;
@@ -922,6 +922,7 @@ body {
     width: 16px;
     min-width: 16px;
     height: 16px;
+    margin-top: 1px;
     color: #888;
 }
 
@@ -942,12 +943,27 @@ body {
     color: #c8a040;
 }
 
+.entry-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
 .entry-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex-shrink: 1;
     min-width: 0;
+}
+
+.entry-meta {
+    font-size: 10px;
+    color: #666;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .browser-empty {
