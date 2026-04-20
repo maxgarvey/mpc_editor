@@ -43,54 +43,36 @@
     </div>
 
     {{if .Grid}}
-    {{if .Grid.Rows}}
     <table class="step-grid">
         <thead>
             <tr>
-                <th class="track-name-cell">Track</th>
+                <th class="track-name-cell">Pad</th>
                 {{range $i := seq 16}}
                 <th class="step-header {{if eq (mod $i 4) 0}}beat-start{{end}}">{{add $i 1}}</th>
                 {{end}}
             </tr>
         </thead>
         <tbody>
-            {{range .Grid.Rows}}
-            {{$trackIdx := .TrackIndex}}
-            <tr class="track-row" data-track="{{$trackIdx}}">
+            {{range .Grid.BankAPadRows}}
+            {{$padIdx := .PadIndex}}
+            <tr class="pad-row" data-pad="{{$padIdx}}">
                 <td class="track-name-cell">
-                    <span class="track-label">{{.TrackName}}</span>
+                    <span class="track-label">{{.PadLabel}}</span>
                     <span class="track-controls">
-                        {{if .PadRows}}<button class="track-expand-btn" onclick="SequencePlayer.toggleExpand({{$trackIdx}}, this)" title="Expand">&#9654;</button>{{end}}
-                        <button class="track-mute-btn" onclick="SequencePlayer.toggleMute({{$trackIdx}}, this)" title="Mute">M</button>
-                        <button class="track-solo-btn" onclick="SequencePlayer.toggleSolo({{$trackIdx}}, this)" title="Solo">S</button>
+                        <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
+                        <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
                     </span>
                 </td>
                 {{range $i, $step := .Steps}}
                 <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
-                    {{if $step.Active}}title="{{$step.NoteName}} vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
+                    {{if $step.Active}}title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
                     {{if $step.Active}}<span class="step-dot"></span>{{end}}
                 </td>
                 {{end}}
             </tr>
-            {{range .PadRows}}
-            <tr class="pad-subrow" data-track="{{$trackIdx}}" style="display:none">
-                <td class="track-name-cell pad-name-cell">
-                    <span class="pad-subrow-label">{{.PadLabel}}</span>
-                </td>
-                {{range $i, $step := .Steps}}
-                <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
-                    {{if $step.Active}}title="{{$step.NoteName}} vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
-                    {{if $step.Active}}<span class="step-dot"></span>{{end}}
-                </td>
-                {{end}}
-            </tr>
-            {{end}}
             {{end}}
         </tbody>
     </table>
-    {{else}}
-    <div class="sequence-empty">No note events in bar {{.CurrentBar}}</div>
-    {{end}}
     {{end}}
     {{end}}
 </div>

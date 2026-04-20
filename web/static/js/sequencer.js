@@ -17,12 +17,12 @@ const SequencePlayer = (function() {
     var SCHEDULE_AHEAD_SEC = 0.12;
     var LOOKAHEAD_MS = 25;
 
-    const mutedTracks = new Set();
-    const soloTracks = new Set();
+    const mutedPads = new Set();
+    const soloPads = new Set();
 
-    function isTrackAudible(trackIndex) {
-        if (soloTracks.size > 0) return soloTracks.has(trackIndex);
-        return !mutedTracks.has(trackIndex);
+    function isPadAudible(padIndex) {
+        if (soloPads.size > 0) return soloPads.has(padIndex);
+        return !mutedPads.has(padIndex);
     }
 
     function play(seqPath, bar) {
@@ -68,7 +68,7 @@ const SequencePlayer = (function() {
             var step = absStep % totalSteps;
             var stepTime = startAudioTime + absStep * stepDurationSec;
             seqEvents.forEach(function(e) {
-                if (e.step === step && isTrackAudible(e.track)) {
+                if (e.step === step && isPadAudible(e.padIndex)) {
                     AudioPlayer.playPadAtTime(e.padIndex, e.velocity, stepTime);
                 }
             });
@@ -118,54 +118,42 @@ const SequencePlayer = (function() {
         });
     }
 
-    function toggleMute(trackIndex, btn) {
-        if (mutedTracks.has(trackIndex)) {
-            mutedTracks.delete(trackIndex);
+    function toggleMutePad(padIndex, btn) {
+        if (mutedPads.has(padIndex)) {
+            mutedPads.delete(padIndex);
             btn.classList.remove('active');
             btn.closest('tr').classList.remove('track-muted');
         } else {
-            mutedTracks.add(trackIndex);
+            mutedPads.add(padIndex);
             btn.classList.add('active');
             btn.closest('tr').classList.add('track-muted');
         }
     }
 
-    function toggleSolo(trackIndex, btn) {
-        if (soloTracks.has(trackIndex)) {
-            soloTracks.delete(trackIndex);
+    function toggleSoloPad(padIndex, btn) {
+        if (soloPads.has(padIndex)) {
+            soloPads.delete(padIndex);
             btn.classList.remove('active');
         } else {
-            soloTracks.add(trackIndex);
+            soloPads.add(padIndex);
             btn.classList.add('active');
         }
-        document.querySelectorAll('.step-grid tbody tr').forEach(function(row) {
-            var muteBtn = row.querySelector('.track-mute-btn');
-            if (!muteBtn) return;
-            var idx = parseInt(muteBtn.getAttribute('onclick').match(/\d+/)[0]);
-            if (soloTracks.size > 0 && !soloTracks.has(idx)) {
+        document.querySelectorAll('.step-grid tbody tr.pad-row').forEach(function(row) {
+            var idx = parseInt(row.getAttribute('data-pad'));
+            if (soloPads.size > 0 && !soloPads.has(idx)) {
                 row.classList.add('track-muted');
-            } else if (!mutedTracks.has(idx)) {
+            } else if (!mutedPads.has(idx)) {
                 row.classList.remove('track-muted');
             }
         });
-    }
-
-    function toggleExpand(trackIndex, btn) {
-        var rows = document.querySelectorAll('.pad-subrow[data-track="' + trackIndex + '"]');
-        var expanded = btn.classList.toggle('active');
-        rows.forEach(function(row) {
-            row.style.display = expanded ? '' : 'none';
-        });
-        btn.innerHTML = expanded ? '&#9660;' : '&#9654;';
     }
 
     return {
         play: play,
         stop: stop,
         isPlaying: function() { return playing; },
-        toggleMute: toggleMute,
-        toggleSolo: toggleSolo,
-        toggleExpand: toggleExpand,
+        toggleMutePad: toggleMutePad,
+        toggleSoloPad: toggleSoloPad,
         toggleLoop: function(btn) {
             looping = !looping;
             btn.classList.toggle('active', looping);

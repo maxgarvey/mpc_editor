@@ -30,10 +30,11 @@ type TrackRow struct {
 
 // StepGrid is the visualization data for one bar of a sequence.
 type StepGrid struct {
-	Bar       int
-	TotalBars int
-	BPM       float64
-	Rows      []TrackRow
+	Bar          int
+	TotalBars    int
+	BPM          float64
+	Rows         []TrackRow  // track-level rows (kept for compatibility)
+	BankAPadRows [16]PadRow  // one row per Bank A pad (pads 0-15), always populated
 }
 
 // PadLabel returns the display label for a pad index (e.g. 0→"A1", 16→"B1").
@@ -85,6 +86,8 @@ func BuildGrid(s *Sequence, bar int, noteToPad map[int]int) *StepGrid {
 	trackSteps := make(map[int][StepsPerBar]*cell)
 	// trackNoteSteps: track → note → step → loudest cell (for pad sub-rows)
 	trackNoteSteps := make(map[int]map[byte][StepsPerBar]*cell)
+	// padSteps: padIndex (0-15) → step → loudest cell (for Bank A pad rows)
+	var padSteps [16][StepsPerBar]*cell
 
 	for _, ev := range s.Events {
 		if ev.Type != EventNoteOn {
@@ -112,6 +115,31 @@ func BuildGrid(s *Sequence, bar int, noteToPad map[int]int) *StepGrid {
 			noteSteps[stepIndex] = &cell{note: ev.Note, velocity: ev.Velocity}
 		}
 		trackNoteSteps[ev.Track][ev.Note] = noteSteps
+
+		if padIdx := padForNote(ev.Note); padIdx >= 0 && padIdx < 16 {
+			if padSteps[padIdx][stepIndex] == nil || ev.Velocity > padSteps[padIdx][stepIndex].velocity {
+				padSteps[padIdx][stepIndex] = &cell{note: ev.Note, velocity: ev.Velocity}
+			}
+		}
+	}
+
+	// Build Bank A pad rows (always 16 entries, padIndex 0-15).
+	for padIdx := 0; padIdx < 16; padIdx++ {
+		pr := PadRow{
+			PadIndex: padIdx,
+			PadLabel: PadLabel(padIdx),
+		}
+		for j := range StepsPerBar {
+			if padSteps[padIdx][j] != nil {
+				pr.Steps[j] = StepCell{
+					Active:   true,
+					Note:     padSteps[padIdx][j].note,
+					NoteName: NoteName(padSteps[padIdx][j].note),
+					Velocity: padSteps[padIdx][j].velocity,
+				}
+			}
+		}
+		grid.BankAPadRows[padIdx] = pr
 	}
 
 	// Build rows for tracks that have events, sorted by track index.
