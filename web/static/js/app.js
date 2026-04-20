@@ -510,10 +510,16 @@ function openNewModal() {
                     '<span class="import-drop-zone-hint">.wav .mp3 .flac .ogg .aif .m4a .pgm .seq .mid .sng .all</span>' +
                 '</div>' +
                 '<input type="file" id="import-file-input" multiple accept=".wav,.mp3,.flac,.ogg,.aif,.aiff,.m4a,.wma,.opus,.pgm,.seq,.mid,.sng,.all" style="display:none" onchange="handleImportFileSelect(this)">' +
-                '<input type="file" id="import-folder-input" webkitdirectory multiple style="display:none" onchange="handleImportFolderSelect(this)">' +
                 '<div style="text-align:center;margin-top:8px">' +
                     '<button class="btn-sm" onclick="document.getElementById(\'import-file-input\').click()">Browse Files</button>' +
-                    '<button class="btn-sm" onclick="document.getElementById(\'import-folder-input\').click()" style="margin-left:6px">Browse Folder</button>' +
+                '</div>' +
+                '<div style="margin-top:10px">' +
+                    '<div style="color:#aaa;font-size:12px;margin-bottom:4px">Import folder — paste or drag a folder path here:</div>' +
+                    '<div style="display:flex;gap:6px">' +
+                        '<input type="text" id="import-folder-path" class="path-input" style="flex:1" placeholder="/path/to/samples" ' +
+                            'ondrop="handleFolderPathDrop(event)" ondragover="event.preventDefault()">' +
+                        '<button class="btn-sm" onclick="addImportFolderByPath()">Add Folder</button>' +
+                    '</div>' +
                 '</div>' +
                 '<div class="import-file-list" id="import-file-list"></div>' +
                 '<div style="margin:6px 0 2px">' +
@@ -665,11 +671,21 @@ function handleImportFileSelect(input) {
     input.value = '';
 }
 
-function handleImportFolderSelect(input) {
-    if (input.files && input.files.length > 0) {
-        addImportFiles(input.files);
+function handleFolderPathDrop(e) {
+    e.preventDefault();
+    var text = e.dataTransfer.getData('text');
+    if (text) {
+        var input = document.getElementById('import-folder-path');
+        if (input) input.value = text.trim();
     }
-    input.value = '';
+}
+
+function addImportFolderByPath() {
+    var input = document.getElementById('import-folder-path');
+    var path = input ? input.value.trim() : '';
+    if (!path) return;
+    addImportDir(path);
+    if (input) input.value = '';
 }
 
 function addImportFiles(fileList) {
@@ -730,27 +746,6 @@ function removeImportDir(index) {
     renderImportFileList();
 }
 
-function browseFolderForImport() {
-    // Reuse a temporary hidden input as the target for the browser
-    var tmpId = 'import-folder-tmp-path';
-    var tmp = document.getElementById(tmpId);
-    if (!tmp) {
-        tmp = document.createElement('input');
-        tmp.type = 'hidden';
-        tmp.id = tmpId;
-        document.body.appendChild(tmp);
-    }
-    tmp.value = '';
-    openBrowser('export-dir', tmpId);
-    var checkInterval = setInterval(function() {
-        var overlay = document.getElementById('browser-overlay');
-        if (!overlay) {
-            clearInterval(checkInterval);
-            var path = tmp.value;
-            if (path) addImportDir(path);
-        }
-    }, 200);
-}
 
 function addImportDir(path) {
     fetch('/workspace/import/scan?dir=' + encodeURIComponent(path))
@@ -810,12 +805,9 @@ function doWorkspaceImport() {
     if (_importFiles.length > 0) {
         var formData = new FormData();
         for (var i = 0; i < _importFiles.length; i++) {
-            var f = _importFiles[i];
-            var fname = f.webkitRelativePath || f.name;
-            formData.append('files', f, fname);
+            formData.append('files', _importFiles[i]);
         }
         formData.append('dest', destDir);
-        formData.append('flatten', flatten ? '1' : '0');
         if (source) formData.append('source', source);
         promises.push(fetch('/workspace/import', { method: 'POST', body: formData }).then(function(r) { return r.json(); }));
     }
