@@ -40,6 +40,14 @@
     <main class="browser-layout">
         <aside class="browser-panel">
             <div class="browser-panel-header">Workspace</div>
+            <div class="browser-search-box">
+                <input type="search" id="workspace-search" class="browser-search-input"
+                       placeholder="Search files..."
+                       hx-get="/browse/search"
+                       hx-trigger="input delay:250ms"
+                       hx-target="#file-nav"
+                       name="q">
+            </div>
             <div id="file-nav">
                 {{template "file_browser_nav.html" .BrowseData}}
             </div>

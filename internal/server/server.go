@@ -161,6 +161,7 @@ func (s *Server) registerRoutes() {
 
 	// File browser and workspace
 	s.mux.HandleFunc("/browse/nav", s.handleBrowseNav)
+	s.mux.HandleFunc("/browse/search", s.handleBrowseSearch)
 	s.mux.HandleFunc("/browse", s.handleBrowse)
 	s.mux.HandleFunc("/workspace/set", s.handleWorkspaceSet)
 	s.mux.HandleFunc("/workspace/mkdir", s.handleWorkspaceMkdir)

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -22,6 +23,7 @@ type BrowseData struct {
 	Entries      []BrowseEntry
 	Workspace    string
 	SelectedPath string // absolute path of the currently selected file (for highlighting)
+	SearchQuery  string // non-empty when showing search results
 }
 
 // BreadcrumbItem represents a segment in the breadcrumb path.
@@ -34,6 +36,7 @@ type BreadcrumbItem struct {
 type BrowseEntry struct {
 	Name           string
 	Path           string // absolute path
+	RelPath        string // relative path from workspace (set in search results)
 	IsDir          bool
 	IsProject      bool // true if directory contains a .pgm file (self-contained beat)
 	Ext            string
@@ -703,6 +706,63 @@ func (s *Server) handleWorkspaceDelete(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("HX-Trigger", "refreshBrowser")
 	w.WriteHeader(http.StatusOK)
+}
+
+// handleBrowseSearch walks the workspace and returns entries whose filenames contain the query.
+// GET /browse/search?q=...
+func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
+	workspace := s.session.WorkspacePath
+	if workspace == "" {
+		http.Error(w, "no workspace configured", http.StatusBadRequest)
+		return
+	}
+
+	q := strings.TrimSpace(r.FormValue("q"))
+	if q == "" {
+		data, err := s.buildBrowseData("", s.session.SelectedDetailPath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		s.renderTemplate(w, "file_browser_nav.html", data)
+		return
+	}
+
+	qLower := strings.ToLower(q)
+	var entries []BrowseEntry
+
+	_ = filepath.WalkDir(workspace, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil
+		}
+		if strings.HasPrefix(d.Name(), ".") {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(d.Name()))
+		if !filterAllows("browse", ext) {
+			return nil
+		}
+		if !strings.Contains(strings.ToLower(d.Name()), qLower) {
+			return nil
+		}
+		relPath, _ := filepath.Rel(workspace, path)
+		entries = append(entries, BrowseEntry{
+			Name:    d.Name(),
+			Path:    path,
+			RelPath: relPath,
+			Ext:     ext,
+		})
+		return nil
+	})
+
+	s.enrichBrowseEntries(entries, workspace)
+
+	data := BrowseData{
+		SearchQuery: q,
+		Entries:     entries,
+		Workspace:   workspace,
+	}
+	s.renderTemplate(w, "file_browser_nav.html", data)
 }
 
 // filterAllows returns true if the file extension is allowed for the given browse context.

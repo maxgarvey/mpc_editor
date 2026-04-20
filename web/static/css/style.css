@@ -126,6 +126,36 @@ body {
     background: #111;
 }
 
+.browser-search-box {
+    padding: 6px 8px;
+    border-bottom: 1px solid #333;
+    background: #111;
+}
+
+.browser-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #ddd;
+    font-size: 12px;
+    padding: 4px 8px;
+    outline: none;
+}
+
+.browser-search-input:focus {
+    border-color: #a0c840;
+}
+
+.nav-search-header {
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #888;
+    background: #0f0f0f;
+    border-bottom: 1px solid #333;
+}
+
 #file-nav {
     flex: 1;
     overflow-y: auto;
