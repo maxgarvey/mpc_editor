@@ -33,10 +33,8 @@ func buildTestSEQ(bpm float64, bars int, events []Event) []byte {
 		off += eventSize
 	}
 
-	// Terminator
-	for i := range eventSize {
-		data[off+i] = 0xFF
-	}
+	// Terminator: ff ff ff 7f ff ff ff ff (byte 3 = 0x7F, not 0xFF)
+	copy(data[off:], []byte{0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF})
 
 	return data
 }

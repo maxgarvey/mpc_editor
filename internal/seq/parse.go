@@ -58,6 +58,11 @@ func Parse(data []byte) (*Sequence, error) {
 		}
 
 		event := parseEvent(ev)
+		// Skip internal NoteOff markers (note=0, vel=0 housekeeping events).
+		if event.Type == EventNoteOn && event.Velocity == 0 {
+			off += eventSize
+			continue
+		}
 		s.Events = append(s.Events, event)
 		off += eventSize
 	}
@@ -65,14 +70,11 @@ func Parse(data []byte) (*Sequence, error) {
 	return s, nil
 }
 
-// isTerminator returns true if the 8 bytes are all 0xFF.
+// isTerminator returns true for the MPC sentinel ff ff ff 7f ff ff ff ff.
+// Byte 3 is 0x7F (not 0xFF), which is what distinguishes it from an event.
 func isTerminator(b []byte) bool {
-	for _, v := range b {
-		if v != 0xFF {
-			return false
-		}
-	}
-	return true
+	return b[0] == 0xFF && b[1] == 0xFF && b[2] == 0xFF && b[3] == 0x7F &&
+		b[4] == 0xFF && b[5] == 0xFF && b[6] == 0xFF && b[7] == 0xFF
 }
 
 // parseEvent decodes an 8-byte event using the bit-packed MPC format.

@@ -127,7 +127,8 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 				return idx
 			}
 		}
-		if idx := note - 35; idx >= 0 && idx < 64 {
+		// MPC SEQ files store pad numbers 1-indexed (1=A1, 5=A5, 9=A9 etc).
+		if idx := note - 1; idx >= 0 && idx < 64 {
 			return idx
 		}
 		return 0
