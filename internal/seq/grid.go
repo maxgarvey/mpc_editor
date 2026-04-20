@@ -33,8 +33,8 @@ type StepGrid struct {
 	Bar          int
 	TotalBars    int
 	BPM          float64
-	Rows         []TrackRow  // track-level rows (kept for compatibility)
-	BankAPadRows [16]PadRow  // one row per Bank A pad (pads 0-15), always populated
+	Rows         []TrackRow // track-level rows (kept for compatibility)
+	BankAPadRows [16]PadRow // one row per Bank A pad (pads 0-15), always populated
 }
 
 // PadLabel returns the display label for a pad index (e.g. 0→"A1", 16→"B1").
