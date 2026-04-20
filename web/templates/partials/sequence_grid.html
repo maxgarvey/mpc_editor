@@ -19,11 +19,9 @@
 
         <span class="bar-label">Bar
             <select class="bar-select"
-                    hx-get="/sequence"
+                    hx-get="/sequence?path={{.Path}}"
                     hx-target="#sequence-grid"
-                    hx-include="this"
                     name="bar">
-                <input type="hidden" name="path" value="{{.Path}}">
                 {{range $i := seq .Bars}}
                 <option value="{{add $i 1}}" {{if eq (add $i 1) $.CurrentBar}}selected{{end}}>{{add $i 1}}</option>
                 {{end}}
