@@ -87,18 +87,20 @@ func parseEvent(b []byte) Event {
 	// Track: byte 3 bits 0-5
 	track := int(b[3] & 0x3F)
 
-	// Event type from byte 4
+	// Event type: byte 4 is the MIDI channel for NoteOn (< 0x80),
+	// or the MIDI status byte for other event types (≥ 0x80).
 	var evType EventType
-	note := b[4]
-	if note <= 0x7F && b[4] < 0x80 {
+	var note byte
+	if b[4] < 0x80 {
 		evType = EventNoteOn
+		note = b[6] & 0x7F // note is at byte 6 for NoteOn events
 	} else {
 		evType = EventType(b[4] & 0xF0)
 		note = 0
 	}
 
-	// Velocity: byte 6 bits 0-6
-	velocity := b[6] & 0x7F
+	// Velocity: byte 7 bits 0-6
+	velocity := b[7] & 0x7F
 
 	// Duration: scattered across bytes 2, 3, 5
 	dur := (uint16(b[2]&0xF0) << 6) + (uint16(b[3]&0xC0) << 2) + uint16(b[5])

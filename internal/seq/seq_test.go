@@ -60,17 +60,17 @@ func encodeTestEvent(b []byte, ev Event) {
 	// Track in byte 3 bits 0-5, duration bits in 6-7
 	b[3] = byte(ev.Track&0x3F) | durByte3Bits
 
-	// Note / event type in byte 4
-	b[4] = ev.Note
+	// Byte 4: MIDI channel (1 for NoteOn; ≥0x80 for CC/PC/etc.)
+	b[4] = 0x01
 
 	// Duration low byte
 	b[5] = durByte5
 
-	// Velocity in byte 6 bits 0-6
-	b[6] = ev.Velocity & 0x7F
+	// Note at byte 6 bits 0-6
+	b[6] = ev.Note & 0x7F
 
-	// Byte 7: variation (zero for tests)
-	b[7] = 0
+	// Velocity at byte 7 bits 0-6
+	b[7] = ev.Velocity & 0x7F
 }
 
 func TestParseHeader(t *testing.T) {
