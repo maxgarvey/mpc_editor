@@ -71,8 +71,8 @@ func BuildGrid(s *Sequence, bar int, noteToPad map[int]int) *StepGrid {
 				return idx
 			}
 		}
-		// MPC SEQ files store pad numbers 1-indexed (1=A1, 5=A5, 9=A9 etc).
-		if idx := int(note) - 1; idx >= 0 && idx < 64 {
+		// Chromatic fallback: MPC default assigns note 35=A1, 36=A2, ... 98=D16.
+		if idx := int(note) - 35; idx >= 0 && idx < 64 {
 			return idx
 		}
 		return 0

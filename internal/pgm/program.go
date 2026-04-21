@@ -43,6 +43,7 @@ func NewProgram() *Program {
 		}
 		pad.Mixer().SetLevel(100)
 		pad.Mixer().SetPan(50)
+		pad.SetMIDINote(35 + i) // chromatic default: A1=35, A2=36, ...
 	}
 	return p
 }
