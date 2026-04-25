@@ -21,38 +21,56 @@ const SequencePlayer = (function() {
     const mutedPads = new Set();
     const soloPads = new Set();
 
+    var visibleBanks = 0; // 0=A only, 1=A+B, 2=A+B+C, 3=all
+
+    var EXTRA_BANKS = [
+        { rowClass: '.bank-b-row', sepClass: '.bank-b-sep' },
+        { rowClass: '.bank-c-row', sepClass: '.bank-c-sep' },
+        { rowClass: '.bank-d-row', sepClass: '.bank-d-sep' },
+    ];
+
     document.addEventListener('htmx:afterSwap', function(evt) {
         var target = evt.detail && evt.detail.target;
         if (!target || target.id !== 'sequence-grid') return;
         var btn = document.getElementById('seq-loop-btn');
         if (btn) btn.classList.toggle('active', looping);
         SequenceEditor.restoreModeButtons();
-        restoreExtraBanks();
+        restoreVisibleBanks();
     });
 
-    document.addEventListener('DOMContentLoaded', restoreExtraBanks);
+    document.addEventListener('DOMContentLoaded', restoreVisibleBanks);
 
-    function restoreExtraBanks() {
-        var open = localStorage.getItem('seq-extra-banks-open') === '1';
-        var panel = document.getElementById('seq-extra-banks');
-        var btn = document.getElementById('seq-show-more-btn');
-        if (!panel || !btn) return;
-        if (open) {
-            panel.style.display = '';
-            btn.textContent = 'Hide Banks B / C / D ▲';
-        } else {
-            panel.style.display = 'none';
-            btn.textContent = 'Show Banks B / C / D ▼';
+    function restoreVisibleBanks() {
+        var stored = parseInt(localStorage.getItem('seq-visible-banks')) || 0;
+        visibleBanks = 0;
+        for (var i = 0; i < stored && i < 3; i++) {
+            var bank = EXTRA_BANKS[i];
+            document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
+                el.style.display = '';
+            });
+            visibleBanks++;
         }
+        var btn = document.getElementById('seq-show-more-btn');
+        if (btn) btn.textContent = visibleBanks >= 3 ? 'Show Less' : 'Show More...';
     }
 
-    function toggleExtraBanks(btn) {
-        var panel = document.getElementById('seq-extra-banks');
-        if (!panel) return;
-        var open = panel.style.display === 'none';
-        panel.style.display = open ? '' : 'none';
-        btn.textContent = open ? 'Hide Banks B / C / D ▲' : 'Show Banks B / C / D ▼';
-        localStorage.setItem('seq-extra-banks-open', open ? '1' : '0');
+    function showMoreBanks(btn) {
+        if (visibleBanks < 3) {
+            var bank = EXTRA_BANKS[visibleBanks];
+            document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
+                el.style.display = '';
+            });
+            visibleBanks++;
+        } else {
+            EXTRA_BANKS.forEach(function(bank) {
+                document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
+                    el.style.display = 'none';
+                });
+            });
+            visibleBanks = 0;
+        }
+        localStorage.setItem('seq-visible-banks', String(visibleBanks));
+        btn.textContent = visibleBanks >= 3 ? 'Show Less' : 'Show More...';
     }
 
     function isPadAudible(padIndex) {
@@ -194,7 +212,7 @@ const SequencePlayer = (function() {
         isPlaying: function() { return playing; },
         toggleMutePad: toggleMutePad,
         toggleSoloPad: toggleSoloPad,
-        toggleExtraBanks: toggleExtraBanks,
+        showMoreBanks: showMoreBanks,
         toggleLoop: function(btn) {
             looping = !looping;
             btn.classList.toggle('active', looping);

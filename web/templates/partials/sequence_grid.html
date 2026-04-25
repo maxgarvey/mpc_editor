@@ -123,52 +123,50 @@
                 {{end}}
             </tr>
             {{end}}
+            {{range $i, $row := .Grid.ExtraBankPadRows}}
+            {{$padIdx := $row.PadIndex}}
+            {{if eq $i 0}}
+            <tr class="bank-separator bank-b-sep" style="display:none">
+                <td colspan="17" class="bank-separator-cell">Bank B</td>
+            </tr>
+            {{else if eq $i 16}}
+            <tr class="bank-separator bank-c-sep" style="display:none">
+                <td colspan="17" class="bank-separator-cell">Bank C</td>
+            </tr>
+            {{else if eq $i 32}}
+            <tr class="bank-separator bank-d-sep" style="display:none">
+                <td colspan="17" class="bank-separator-cell">Bank D</td>
+            </tr>
+            {{end}}
+            <tr class="pad-row {{if lt $i 16}}bank-b-row{{else if lt $i 32}}bank-c-row{{else}}bank-d-row{{end}}" data-pad="{{$padIdx}}" style="display:none">
+                <td class="track-name-cell">
+                    <span class="track-controls">
+                        <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
+                        <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
+                    </span>
+                    <span class="track-label">{{$row.PadLabel}}</span>
+                    {{if $row.SampleName}}<span class="track-sample-name" title="{{$row.SampleName}}">{{$row.SampleName}}</span>{{end}}
+                </td>
+                {{range $i, $step := $row.Steps}}
+                <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
+                    data-pad="{{$padIdx}}"
+                    data-step="{{$i}}"
+                    {{if $step.Active}}
+                    data-vel="{{$step.Velocity}}"
+                    data-dur="{{$step.Duration}}"
+                    {{end}}
+                    {{if $step.Active}}title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
+                    {{if $step.Active}}<span class="step-dot"></span>{{end}}
+                </td>
+                {{end}}
+            </tr>
+            {{end}}
         </tbody>
     </table>
 
     <div class="seq-bank-toggle-row">
         <button class="btn-sm seq-bank-toggle-btn" id="seq-show-more-btn"
-                onclick="SequencePlayer.toggleExtraBanks(this)">Show Banks B / C / D &#9660;</button>
-    </div>
-
-    <div id="seq-extra-banks" class="seq-extra-banks" style="display:none">
-        <table class="step-grid seq-extra-banks-table">
-            <thead>
-                <tr>
-                    <th class="track-name-cell">Pad</th>
-                    {{range $i := seq 16}}
-                    <th class="step-header {{if eq (mod $i 4) 0}}beat-start{{end}}">{{add $i 1}}</th>
-                    {{end}}
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Grid.ExtraBankPadRows}}
-                {{$padIdx := .PadIndex}}
-                <tr class="pad-row" data-pad="{{$padIdx}}">
-                    <td class="track-name-cell">
-                        <span class="track-controls">
-                            <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
-                            <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
-                        </span>
-                        <span class="track-label">{{.PadLabel}}</span>
-                        {{if .SampleName}}<span class="track-sample-name" title="{{.SampleName}}">{{.SampleName}}</span>{{end}}
-                    </td>
-                    {{range $i, $step := .Steps}}
-                    <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
-                        data-pad="{{$padIdx}}"
-                        data-step="{{$i}}"
-                        {{if $step.Active}}
-                        data-vel="{{$step.Velocity}}"
-                        data-dur="{{$step.Duration}}"
-                        {{end}}
-                        {{if $step.Active}}title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
-                        {{if $step.Active}}<span class="step-dot"></span>{{end}}
-                    </td>
-                    {{end}}
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
+                onclick="SequencePlayer.showMoreBanks(this)">Show More...</button>
     </div>
     {{end}}
 
