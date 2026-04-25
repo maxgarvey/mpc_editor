@@ -35,20 +35,28 @@ const SequencePlayer = (function() {
         var btn = document.getElementById('seq-loop-btn');
         if (btn) btn.classList.toggle('active', looping);
         SequenceEditor.restoreModeButtons();
-        restoreVisibleBanks();
+        loadVisibleBanksFromStorage();
     });
 
-    document.addEventListener('DOMContentLoaded', restoreVisibleBanks);
+    document.addEventListener('DOMContentLoaded', loadVisibleBanksFromStorage);
 
+    // Reads the persisted count from localStorage and resyncs the DOM.
+    // Called on page load and after HTMX full-swaps.
+    function loadVisibleBanksFromStorage() {
+        visibleBanks = Math.min(3, Math.max(0, parseInt(localStorage.getItem('seq-visible-banks')) || 0));
+        restoreVisibleBanks();
+    }
+
+    // Resyncs the DOM to match the current in-memory visibleBanks count.
+    // Called after postEdit (manual innerHTML swaps) so we don't re-read
+    // stale localStorage and accidentally expand banks the user closed.
     function restoreVisibleBanks() {
-        var stored = parseInt(localStorage.getItem('seq-visible-banks')) || 0;
-        visibleBanks = 0;
-        for (var i = 0; i < stored && i < 3; i++) {
+        for (var i = 0; i < 3; i++) {
             var bank = EXTRA_BANKS[i];
+            var show = i < visibleBanks;
             document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
-                el.style.display = '';
+                el.style.display = show ? '' : 'none';
             });
-            visibleBanks++;
         }
         var btn = document.getElementById('seq-show-more-btn');
         if (btn) btn.textContent = visibleBanks >= 3 ? 'Show Less' : 'Show More...';

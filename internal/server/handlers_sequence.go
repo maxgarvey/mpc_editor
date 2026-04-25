@@ -126,18 +126,16 @@ func (s *Server) padForNoteFunc(pgmRelPath string) func(note byte) int {
 			if idx, ok := m[note]; ok {
 				return idx
 			}
-			if idx := int(note) - 35; idx >= 0 && idx < 16 {
+			if idx := int(note) - 35; idx >= 0 && idx < 64 {
 				return idx
 			}
-			// Match BuildGrid's fallback: unrecognized notes display at A1 and are editable from there.
 			return 0
 		}
 	}
 	return func(note byte) int {
-		if idx := int(note) - 35; idx >= 0 && idx < 16 {
+		if idx := int(note) - 35; idx >= 0 && idx < 64 {
 			return idx
 		}
-		// Match BuildGrid's fallback: unrecognized notes display at A1 and are editable from there.
 		return 0
 	}
 }
