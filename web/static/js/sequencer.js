@@ -35,7 +35,7 @@ const SequencePlayer = (function() {
         var btn = document.getElementById('seq-loop-btn');
         if (btn) btn.classList.toggle('active', looping);
         SequenceEditor.restoreModeButtons();
-        loadVisibleBanksFromStorage();
+        restoreVisibleBanks(); // use in-memory state — only DOMContentLoaded reads localStorage
     });
 
     document.addEventListener('DOMContentLoaded', loadVisibleBanksFromStorage);
@@ -48,8 +48,8 @@ const SequencePlayer = (function() {
     }
 
     // Resyncs the DOM to match the current in-memory visibleBanks count.
-    // Called after postEdit (manual innerHTML swaps) so we don't re-read
-    // stale localStorage and accidentally expand banks the user closed.
+    // Called after every grid re-render (postEdit and htmx:afterSwap).
+    // Never reads localStorage — only DOMContentLoaded does that.
     function restoreVisibleBanks() {
         for (var i = 0; i < 3; i++) {
             var bank = EXTRA_BANKS[i];
@@ -58,27 +58,32 @@ const SequencePlayer = (function() {
                 el.style.display = show ? '' : 'none';
             });
         }
-        var btn = document.getElementById('seq-show-more-btn');
-        if (btn) btn.textContent = visibleBanks >= 3 ? 'Show Less' : 'Show More...';
+        var moreBtn = document.getElementById('seq-show-more-btn');
+        var lessBtn = document.getElementById('seq-show-less-btn');
+        if (moreBtn) moreBtn.style.display = visibleBanks >= 3 ? 'none' : '';
+        if (lessBtn) lessBtn.style.display = visibleBanks > 0 ? '' : 'none';
     }
 
-    function showMoreBanks(btn) {
-        if (visibleBanks < 3) {
-            var bank = EXTRA_BANKS[visibleBanks];
-            document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
-                el.style.display = '';
-            });
-            visibleBanks++;
-        } else {
-            EXTRA_BANKS.forEach(function(bank) {
-                document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
-                    el.style.display = 'none';
-                });
-            });
-            visibleBanks = 0;
-        }
+    function showMoreBanks() {
+        if (visibleBanks >= 3) return;
+        var bank = EXTRA_BANKS[visibleBanks];
+        document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
+            el.style.display = '';
+        });
+        visibleBanks++;
         localStorage.setItem('seq-visible-banks', String(visibleBanks));
-        btn.textContent = visibleBanks >= 3 ? 'Show Less' : 'Show More...';
+        restoreVisibleBanks();
+    }
+
+    function showLessBanks() {
+        EXTRA_BANKS.forEach(function(b) {
+            document.querySelectorAll(b.rowClass + ', ' + b.sepClass).forEach(function(el) {
+                el.style.display = 'none';
+            });
+        });
+        visibleBanks = 0;
+        localStorage.setItem('seq-visible-banks', '0');
+        restoreVisibleBanks();
     }
 
     function isPadAudible(padIndex) {
@@ -221,6 +226,7 @@ const SequencePlayer = (function() {
         toggleMutePad: toggleMutePad,
         toggleSoloPad: toggleSoloPad,
         showMoreBanks: showMoreBanks,
+        showLessBanks: showLessBanks,
         restoreVisibleBanks: restoreVisibleBanks,
         toggleLoop: function(btn) {
             looping = !looping;
