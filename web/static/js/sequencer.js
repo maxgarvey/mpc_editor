@@ -213,6 +213,7 @@ const SequencePlayer = (function() {
         toggleMutePad: toggleMutePad,
         toggleSoloPad: toggleSoloPad,
         showMoreBanks: showMoreBanks,
+        restoreVisibleBanks: restoreVisibleBanks,
         toggleLoop: function(btn) {
             looping = !looping;
             btn.classList.toggle('active', looping);
@@ -266,6 +267,7 @@ const SequenceEditor = (function() {
                     grid.innerHTML = html;
                     if (window.htmx) htmx.process(grid);
                     SequenceEditor.restoreModeButtons();
+                    SequencePlayer.restoreVisibleBanks();
                 }
             })
             .catch(function(err) { console.error('seq edit fetch failed:', err); });
