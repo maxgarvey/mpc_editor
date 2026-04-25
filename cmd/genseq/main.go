@@ -21,8 +21,8 @@ func main() {
 	}
 
 	files := []struct {
-		name   string
-		data   []byte
+		name string
+		data []byte
 	}{
 		// ── General behaviour ──────────────────────────────────────────────
 

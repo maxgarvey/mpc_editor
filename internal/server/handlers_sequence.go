@@ -28,7 +28,6 @@ func (s *Server) noteToPadMap() map[int]int {
 	return m
 }
 
-
 // noteToPadMapFor builds a MIDI note → pad index map using the selected or session program.
 func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
 	var prog *pgm.Program
@@ -318,18 +317,18 @@ func (s *Server) pgmFilesInWorkspace() []string {
 
 // SequenceViewData holds template data for the sequence step grid page.
 type SequenceViewData struct {
-	Path        string
-	FileName    string   // base name only, e.g. "Sequence01.SEQ"
-	Error       string
-	BPM         float64
-	Bars        int
-	Version     string
-	CurrentBar  int
-	Grid        *seq.StepGrid
-	FileID      int64
-	Tags        []db.FileTag
-	PGMPath     string   // currently selected program for note mapping
-	PGMFiles    []string // all PGM files in workspace for the picker
+	Path       string
+	FileName   string // base name only, e.g. "Sequence01.SEQ"
+	Error      string
+	BPM        float64
+	Bars       int
+	Version    string
+	CurrentBar int
+	Grid       *seq.StepGrid
+	FileID     int64
+	Tags       []db.FileTag
+	PGMPath    string   // currently selected program for note mapping
+	PGMFiles   []string // all PGM files in workspace for the picker
 }
 
 func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {

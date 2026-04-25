@@ -71,15 +71,16 @@ func isTerminator(b []byte) bool {
 // parseEvent decodes a 16-byte event record.
 //
 // Wire layout (all multi-byte fields are little-endian):
-//   [0-3]  tick position (uint32)
-//   [4]    track number, 1-indexed in file; stored 0-indexed in Event.Track
-//   [5]    MIDI status byte (0x90 = NoteOn ch0)
-//   [6]    MIDI note
-//   [7]    velocity
-//   [8-11] duration in ticks (uint32)
-//   [12]   padding (0x00)
-//   [13]   pad index approximation (note - 36 for factory mappings)
-//   [14-15] padding (0x00 0x00)
+//
+//	[0-3]  tick position (uint32)
+//	[4]    track number, 1-indexed in file; stored 0-indexed in Event.Track
+//	[5]    MIDI status byte (0x90 = NoteOn ch0)
+//	[6]    MIDI note
+//	[7]    velocity
+//	[8-11] duration in ticks (uint32)
+//	[12]   padding (0x00)
+//	[13]   pad index approximation (note - 36 for factory mappings)
+//	[14-15] padding (0x00 0x00)
 func parseEvent(b []byte) Event {
 	tick := binary.LittleEndian.Uint32(b[0:4])
 	track := int(b[4])

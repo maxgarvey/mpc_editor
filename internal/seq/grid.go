@@ -32,11 +32,11 @@ type TrackRow struct {
 
 // StepGrid is the visualization data for one bar of a sequence.
 type StepGrid struct {
-	Bar             int
-	TotalBars       int
-	BPM             float64
-	Rows            []TrackRow // track-level rows (kept for compatibility)
-	BankAPadRows    [16]PadRow // one row per Bank A pad (pads 0-15), always populated
+	Bar              int
+	TotalBars        int
+	BPM              float64
+	Rows             []TrackRow // track-level rows (kept for compatibility)
+	BankAPadRows     [16]PadRow // one row per Bank A pad (pads 0-15), always populated
 	ExtraBankPadRows [48]PadRow // Banks B/C/D (pads 16-63), populated on demand
 }
 
