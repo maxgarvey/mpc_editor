@@ -212,18 +212,25 @@ const AudioPlayer = (function() {
 
     var paramsCache = {};
 
-    function getParams(padIndex) {
+    function paramsCacheKey(padIndex, pgmPath) {
+        return pgmPath ? padIndex + '|' + pgmPath : '' + padIndex;
+    }
+
+    function getParams(padIndex, pgmPath) {
         var embedded = window.__padParams;
-        if (embedded && embedded.padIndex === padIndex) {
+        if (!pgmPath && embedded && embedded.padIndex === padIndex) {
             return Promise.resolve(embedded);
         }
-        if (paramsCache[padIndex]) {
-            return Promise.resolve(paramsCache[padIndex]);
+        var key = paramsCacheKey(padIndex, pgmPath);
+        if (paramsCache[key]) {
+            return Promise.resolve(paramsCache[key]);
         }
-        return fetch('/api/pad-params/' + padIndex)
+        var url = '/api/pad-params/' + padIndex;
+        if (pgmPath) url += '?pgm=' + encodeURIComponent(pgmPath);
+        return fetch(url)
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                paramsCache[padIndex] = data;
+                paramsCache[key] = data;
                 return data;
             })
             .catch(function() { return null; });
@@ -298,22 +305,23 @@ const AudioPlayer = (function() {
             play('/audio/slice/' + sliceIndex);
         },
 
-        prefetchPadParams: function(padIndices) {
-            return Promise.all(padIndices.map(function(i) { return getParams(i); }));
+        prefetchPadParams: function(padIndices, pgmPath) {
+            return Promise.all(padIndices.map(function(i) { return getParams(i, pgmPath); }));
         },
 
-        playPadAtTime: function(padIndex, velocity, atTime) {
+        playPadAtTime: function(padIndex, velocity, atTime, pgmPath) {
             var gen = playGeneration;
             var velScale = velocity / 127;
-            getParams(padIndex).then(function(params) {
+            getParams(padIndex, pgmPath).then(function(params) {
                 if (playGeneration !== gen) return;
                 var ctx = getContext();
                 var chain = buildPadChain(ctx, params, atTime, velScale);
                 var layers = params ? params.layers : [];
+                var pgmSuffix = pgmPath ? '?pgm=' + encodeURIComponent(pgmPath) : '';
                 for (var i = 0; i < layers.length; i++) {
                     if (!layers[i].hasSample) continue;
                     (function(li) {
-                        playLayerAtTime(ctx, '/audio/pad/' + padIndex + '/' + li, layers[li], chain.input, atTime)
+                        playLayerAtTime(ctx, '/audio/pad/' + padIndex + '/' + li + pgmSuffix, layers[li], chain.input, atTime)
                             .catch(function() {});
                     })(i);
                 }

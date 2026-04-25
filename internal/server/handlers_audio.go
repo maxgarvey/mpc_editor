@@ -33,15 +33,40 @@ func (s *Server) handleAudioPad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ref := s.session.Matrix.Get(padIdx, layerIdx)
-	if ref == nil || ref.FilePath == "" {
-		http.Error(w, "no sample loaded", http.StatusNotFound)
-		return
+	filePath := ""
+	if pgmRaw := r.FormValue("pgm"); pgmRaw != "" {
+		workspace := s.session.WorkspacePath
+		relPgmPath := pgmRaw
+		if filepath.IsAbs(pgmRaw) {
+			if rel, err := filepath.Rel(workspace, pgmRaw); err == nil {
+				relPgmPath = rel
+			}
+		}
+		if pgmFile, err := s.queries.GetFileByPath(r.Context(), relPgmPath); err == nil {
+			if samples, err := s.queries.ListPgmSamples(r.Context(), pgmFile.ID); err == nil {
+				for _, sample := range samples {
+					if int(sample.Pad) == padIdx && int(sample.Layer) == layerIdx {
+						if sample.SamplePath.Valid && sample.SamplePath.String != "" {
+							filePath = filepath.Join(workspace, sample.SamplePath.String)
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+	if filePath == "" {
+		ref := s.session.Matrix.Get(padIdx, layerIdx)
+		if ref == nil || ref.FilePath == "" {
+			http.Error(w, "no sample loaded", http.StatusNotFound)
+			return
+		}
+		filePath = ref.FilePath
 	}
 
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Cache-Control", "no-cache")
-	http.ServeFile(w, r, ref.FilePath)
+	http.ServeFile(w, r, filePath)
 }
 
 func (s *Server) handleAudioSlice(w http.ResponseWriter, r *http.Request) {

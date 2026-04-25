@@ -147,7 +147,9 @@ func (s *Server) registerRoutes() {
 
 	// Sequence viewer
 	s.mux.HandleFunc("/sequence", s.handleSequencePage)
+	s.mux.HandleFunc("/sequence/update", s.handleSequenceUpdate)
 	s.mux.HandleFunc("/sequence/events", s.handleSequenceEvents)
+	s.mux.HandleFunc("/sequence/event/edit", s.handleSequenceEventEdit)
 
 	// Edit operations
 	s.mux.HandleFunc("/edit/remove-all-samples", s.handleRemoveAllSamples)

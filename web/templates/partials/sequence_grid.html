@@ -3,16 +3,36 @@
     {{if .Error}}
     <div class="sequence-error">{{.Error}}</div>
     {{else}}
-    <div class="sequence-info">
-        <span class="sequence-path">{{.Path}}</span>
-        <span class="sequence-meta">{{.Version}} &bull; {{.BPM}} BPM &bull; {{.Bars}} bar{{if gt .Bars 1}}s{{end}}</span>
+
+    <div class="sequence-header">
+        <h3 class="sequence-title">[SEQ] {{.FileName}}</h3>
+        <div class="sequence-file-location">File Location: <span class="sequence-path">{{.Path}}</span></div>
+
+        <form class="sequence-meta-form"
+              hx-post="/sequence/update"
+              hx-target="#sequence-grid"
+              hx-trigger="change"
+              hx-include="#seq-pgm-select">
+            <input type="hidden" name="path" value="{{.Path}}">
+            <input type="hidden" name="bar" value="{{.CurrentBar}}">
+            <label class="seq-meta-label">
+                Tempo:
+                <input class="seq-meta-input" type="number" name="bpm" value="{{.BPM}}" min="20" max="300" step="0.1"> BPM
+            </label>
+            <label class="seq-meta-label">
+                Bars:
+                <input class="seq-meta-input seq-meta-input--short" type="number" name="bars" value="{{.Bars}}" min="1" max="999" step="1">
+            </label>
+            <span class="seq-meta-version">{{.Version}}</span>
+        </form>
     </div>
 
     <div class="bar-nav">
         {{if gt .CurrentBar 1}}
         <button class="btn-sm"
                 hx-get="/sequence?path={{.Path}}&bar={{add .CurrentBar -1}}"
-                hx-target="#sequence-grid">&laquo; Prev</button>
+                hx-target="#sequence-grid"
+                hx-include="#seq-pgm-select">&laquo; Prev</button>
         {{else}}
         <button class="btn-sm" disabled>&laquo; Prev</button>
         {{end}}
@@ -21,6 +41,7 @@
             <select class="bar-select"
                     hx-get="/sequence?path={{.Path}}"
                     hx-target="#sequence-grid"
+                    hx-include="#seq-pgm-select"
                     name="bar">
                 {{range $i := seq .Bars}}
                 <option value="{{add $i 1}}" {{if eq (add $i 1) $.CurrentBar}}selected{{end}}>{{add $i 1}}</option>
@@ -32,7 +53,8 @@
         {{if lt .CurrentBar .Bars}}
         <button class="btn-sm"
                 hx-get="/sequence?path={{.Path}}&bar={{add .CurrentBar 1}}"
-                hx-target="#sequence-grid">Next &raquo;</button>
+                hx-target="#sequence-grid"
+                hx-include="#seq-pgm-select">Next &raquo;</button>
         {{else}}
         <button class="btn-sm" disabled>Next &raquo;</button>
         {{end}}
@@ -40,10 +62,33 @@
         <button class="btn-sm btn-set" onclick="SequencePlayer.play('{{.Path}}', {{.CurrentBar}})">Play</button>
         <button class="btn-sm" onclick="SequencePlayer.stop()">Stop</button>
         <button class="btn-sm" id="seq-loop-btn" onclick="SequencePlayer.toggleLoop(this)">Loop</button>
+
+        <span class="seq-mode-sep">|</span>
+        <span class="seq-mode-label">Mode:</span>
+        <button class="btn-sm seq-mode-btn seq-mode-btn--view" onclick="SequenceEditor.setMode('view', this)">View</button>
+        <button class="btn-sm seq-mode-btn seq-mode-btn--insert" onclick="SequenceEditor.setMode('insert', this)">Insert</button>
+        <button class="btn-sm seq-mode-btn seq-mode-btn--edit" onclick="SequenceEditor.setMode('edit', this)">Edit</button>
+    </div>
+
+    <div class="pgm-picker">
+        <label for="seq-pgm-select">Program:</label>
+        <select id="seq-pgm-select"
+                hx-get="/sequence?path={{.Path}}&bar={{.CurrentBar}}"
+                hx-target="#sequence-grid"
+                hx-include="this"
+                name="pgm">
+            <option value="">— session program —</option>
+            {{range .PGMFiles}}
+            <option value="{{.}}" {{if eq . $.PGMPath}}selected{{end}}>{{.}}</option>
+            {{end}}
+        </select>
     </div>
 
     {{if .Grid}}
-    <table class="step-grid">
+    <table class="step-grid" id="seq-step-grid"
+           data-seq-path="{{.Path}}"
+           data-seq-bar="{{.CurrentBar}}"
+           data-seq-pgm="{{.PGMPath}}">
         <thead>
             <tr>
                 <th class="track-name-cell">Pad</th>
@@ -57,14 +102,21 @@
             {{$padIdx := .PadIndex}}
             <tr class="pad-row" data-pad="{{$padIdx}}">
                 <td class="track-name-cell">
-                    <span class="track-label">{{.PadLabel}}</span>
                     <span class="track-controls">
                         <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
                         <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
                     </span>
+                    <span class="track-label">{{.PadLabel}}</span>
+                    {{if .SampleName}}<span class="track-sample-name" title="{{.SampleName}}">{{.SampleName}}</span>{{end}}
                 </td>
                 {{range $i, $step := .Steps}}
                 <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
+                    data-pad="{{$padIdx}}"
+                    data-step="{{$i}}"
+                    {{if $step.Active}}
+                    data-vel="{{$step.Velocity}}"
+                    data-dur="{{$step.Duration}}"
+                    {{end}}
                     {{if $step.Active}}title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
                     {{if $step.Active}}<span class="step-dot"></span>{{end}}
                 </td>
@@ -73,7 +125,70 @@
             {{end}}
         </tbody>
     </table>
+
+    <div class="seq-bank-toggle-row">
+        <button class="btn-sm seq-bank-toggle-btn" id="seq-show-more-btn"
+                onclick="SequencePlayer.toggleExtraBanks(this)">Show Banks B / C / D &#9660;</button>
+    </div>
+
+    <div id="seq-extra-banks" class="seq-extra-banks" style="display:none">
+        <table class="step-grid seq-extra-banks-table">
+            <thead>
+                <tr>
+                    <th class="track-name-cell">Pad</th>
+                    {{range $i := seq 16}}
+                    <th class="step-header {{if eq (mod $i 4) 0}}beat-start{{end}}">{{add $i 1}}</th>
+                    {{end}}
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Grid.ExtraBankPadRows}}
+                {{$padIdx := .PadIndex}}
+                <tr class="pad-row" data-pad="{{$padIdx}}">
+                    <td class="track-name-cell">
+                        <span class="track-controls">
+                            <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
+                            <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
+                        </span>
+                        <span class="track-label">{{.PadLabel}}</span>
+                        {{if .SampleName}}<span class="track-sample-name" title="{{.SampleName}}">{{.SampleName}}</span>{{end}}
+                    </td>
+                    {{range $i, $step := .Steps}}
+                    <td class="step-cell step-col-{{$i}} {{if eq (mod $i 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
+                        data-pad="{{$padIdx}}"
+                        data-step="{{$i}}"
+                        {{if $step.Active}}
+                        data-vel="{{$step.Velocity}}"
+                        data-dur="{{$step.Duration}}"
+                        {{end}}
+                        {{if $step.Active}}title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"{{end}}>
+                        {{if $step.Active}}<span class="step-dot"></span>{{end}}
+                    </td>
+                    {{end}}
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
     {{end}}
+
+    <div id="seq-event-detail" class="seq-event-detail" style="display:none" role="dialog" aria-label="Event details">
+        <div class="seq-event-detail-title">Event Details</div>
+        <label class="seq-detail-label">
+            Velocity: <span id="seq-detail-vel-display">100</span>
+            <input type="range" id="seq-detail-vel" min="1" max="127" value="100"
+                   oninput="document.getElementById('seq-detail-vel-display').textContent=this.value">
+        </label>
+        <label class="seq-detail-label">
+            Duration (ticks):
+            <input type="number" id="seq-detail-dur" min="1" max="384" value="23" class="seq-detail-dur-input">
+        </label>
+        <div class="seq-event-detail-actions">
+            <button class="btn-sm btn-set" onclick="SequenceEditor.saveDetail()">Save</button>
+            <button class="btn-sm btn-danger" onclick="SequenceEditor.deleteDetail()">Delete</button>
+            <button class="btn-sm" onclick="SequenceEditor.closeDetail()">Cancel</button>
+        </div>
+    </div>
     {{end}}
 </div>
 {{end}}

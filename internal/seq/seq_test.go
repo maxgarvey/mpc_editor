@@ -1,76 +1,50 @@
 package seq
 
 import (
-	"encoding/binary"
+	"os"
 	"testing"
 )
 
 // buildTestSEQ creates a minimal .SEQ binary for testing.
+// The layout matches the real MPC 1000 format: fixed 0x1C10-byte prefix,
+// then N × 16-byte events, then a 16-byte terminator.
 func buildTestSEQ(bpm float64, bars int, events []Event) []byte {
-	// Allocate enough space for header + tracks + events + terminator.
-	size := eventDataOffset + len(events)*eventSize + eventSize // +8 for terminator
+	size := eventDataOffset + len(events)*eventSize + eventSize // +eventSize for terminator
 	data := make([]byte, size)
 
 	// Version string
 	copy(data[versionOffset:], "MPC1000 SEQ 4.40")
 
-	// Bars
-	binary.LittleEndian.PutUint16(data[barsOffset:], uint16(bars))
+	// Bars (little-endian uint16)
+	barsVal := uint16(bars)
+	data[barsOffset] = byte(barsVal)
+	data[barsOffset+1] = byte(barsVal >> 8)
 
-	// BPM x 10
-	binary.LittleEndian.PutUint16(data[bpmOffset:], uint16(bpm*10))
+	// BPM x 10 (little-endian uint16)
+	bpmVal := uint16(bpm * 10)
+	data[bpmOffset] = byte(bpmVal)
+	data[bpmOffset+1] = byte(bpmVal >> 8)
 
-	// Track names: put a name on track 0
+	// Track 0 (at trackDataOffset): name "Drums", MIDI channel 10.
 	trackOff := trackDataOffset
 	copy(data[trackOff:], "Drums\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
-	data[trackOff+16] = 10 // MIDI channel 10
-	data[trackOff+17] = 0  // program 0
+	data[trackOff+trackMIDIChanOff] = 10
 
 	// Encode events
 	off := eventDataOffset
 	for _, ev := range events {
-		encodeTestEvent(data[off:off+eventSize], ev)
+		b := encodeEvent(ev)
+		copy(data[off:off+eventSize], b[:])
 		off += eventSize
 	}
 
-	// Terminator: ff ff ff 7f ff ff ff ff (byte 3 = 0x7F, not 0xFF)
-	copy(data[off:], []byte{0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF})
+	// 16-byte terminator: ff ff ff 7f ff ff ff ff ff ff ff ff ff ff ff ff
+	copy(data[off:], []byte{
+		0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	})
 
 	return data
-}
-
-// encodeTestEvent writes an event into 8 bytes using the bit-packed format.
-func encodeTestEvent(b []byte, ev Event) {
-	// Tick: low 16 bits in bytes 0-1, overflow in byte 2 low nibble
-	binary.LittleEndian.PutUint16(b[0:2], uint16(ev.Tick&0xFFFF))
-	b[2] = byte((ev.Tick >> 16) & 0x0F)
-
-	// Duration scattered: we need to encode it back
-	// dur = ((byte2&0xF0)<<6) + ((byte3&0xC0)<<2) + byte5 - track*4
-	// So: dur + track*4 = ((byte2&0xF0)<<6) + ((byte3&0xC0)<<2) + byte5
-	adjDur := ev.Duration + uint16(ev.Track*4)
-	durByte5 := byte(adjDur & 0xFF)
-	adjDur >>= 8
-	durByte3Bits := byte((adjDur & 0x03) << 6)
-	adjDur >>= 2
-	durByte2Bits := byte((adjDur & 0x0F) << 4)
-
-	b[2] |= durByte2Bits // merge with tick overflow in low nibble
-
-	// Track in byte 3 bits 0-5, duration bits in 6-7
-	b[3] = byte(ev.Track&0x3F) | durByte3Bits
-
-	// Byte 4: MIDI channel (1 for NoteOn; ≥0x80 for CC/PC/etc.)
-	b[4] = 0x01
-
-	// Duration low byte
-	b[5] = durByte5
-
-	// Note at byte 6 bits 0-6
-	b[6] = ev.Note & 0x7F
-
-	// Velocity at byte 7 bits 0-6
-	b[7] = ev.Velocity & 0x7F
 }
 
 func TestParseHeader(t *testing.T) {
@@ -257,5 +231,50 @@ func TestParseFileTooSmall(t *testing.T) {
 	_, err := Parse(data)
 	if err == nil {
 		t.Error("expected error for too-small file")
+	}
+}
+
+func TestWriteEventsRoundTrip(t *testing.T) {
+	events := []Event{
+		{Tick: 0, Track: 0, Note: 36, Velocity: 100, Duration: 23},
+		{Tick: 48, Track: 0, Note: 38, Velocity: 90, Duration: 23},
+		{Tick: 96, Track: 0, Note: 42, Velocity: 80, Duration: 12},
+	}
+	data := buildTestSEQ(120.0, 2, events)
+	s, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Write to a temp file and re-parse.
+	tmp := t.TempDir() + "/roundtrip.SEQ"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteEvents(tmp, s); err != nil {
+		t.Fatal(err)
+	}
+	s2, err := Open(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(s2.Events) != len(events) {
+		t.Fatalf("got %d events after round-trip, want %d", len(s2.Events), len(events))
+	}
+	for i, ev := range s2.Events {
+		orig := events[i]
+		if ev.Tick != orig.Tick {
+			t.Errorf("event %d: tick %d want %d", i, ev.Tick, orig.Tick)
+		}
+		if ev.Note != orig.Note {
+			t.Errorf("event %d: note %d want %d", i, ev.Note, orig.Note)
+		}
+		if ev.Velocity != orig.Velocity {
+			t.Errorf("event %d: velocity %d want %d", i, ev.Velocity, orig.Velocity)
+		}
+		if ev.Duration != orig.Duration {
+			t.Errorf("event %d: duration %d want %d", i, ev.Duration, orig.Duration)
+		}
 	}
 }

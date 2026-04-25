@@ -189,11 +189,14 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 	grid := seq.BuildGrid(sequence, bar, s.noteToPadMap())
 	data := SequenceViewData{
 		Path:       path,
+		FileName:   filepath.Base(path),
 		BPM:        sequence.BPM,
 		Bars:       sequence.Bars,
 		Version:    sequence.Version,
 		CurrentBar: bar,
 		Grid:       grid,
+		PGMPath:    r.FormValue("pgm"),
+		PGMFiles:   s.pgmFilesInWorkspace(),
 	}
 
 	// Look up file ID for tags.

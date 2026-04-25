@@ -38,12 +38,12 @@ func Parse(data []byte) (*Sequence, error) {
 		}
 		chunk := data[off : off+trackChunkSize]
 		name := strings.TrimRight(string(chunk[:trackNameLen]), "\x00")
+		pgm := strings.Trim(string(chunk[trackPGMNameOff:trackPGMNameOff+trackNameLen]), "\x00")
 		s.Tracks[i] = Track{
 			Index:       i,
 			Name:        name,
-			MIDIChannel: int(chunk[16]),
-			Program:     int(chunk[17]),
-			Status:      chunk[18],
+			PGMName:     pgm,
+			MIDIChannel: int(chunk[trackMIDIChanOff]),
 		}
 	}
 
@@ -51,62 +51,49 @@ func Parse(data []byte) (*Sequence, error) {
 	off := eventDataOffset
 	for off+eventSize <= len(data) {
 		ev := data[off : off+eventSize]
-
-		// Terminator: 0xFF x 8
 		if isTerminator(ev) {
 			break
 		}
-
-		event := parseEvent(ev)
-		// Skip internal NoteOff markers (note=0, vel=0 housekeeping events).
-		if event.Type == EventNoteOn && event.Velocity == 0 {
-			off += eventSize
-			continue
-		}
-		s.Events = append(s.Events, event)
+		s.Events = append(s.Events, parseEvent(ev))
 		off += eventSize
 	}
 
 	return s, nil
 }
 
-// isTerminator returns true for the MPC sentinel ff ff ff 7f ff ff ff ff.
-// Byte 3 is 0x7F (not 0xFF), which is what distinguishes it from an event.
+// isTerminator returns true for the 16-byte end sentinel.
+// Byte 3 = 0x7F (not 0xFF) distinguishes it from the separator and from events.
 func isTerminator(b []byte) bool {
 	return b[0] == 0xFF && b[1] == 0xFF && b[2] == 0xFF && b[3] == 0x7F &&
 		b[4] == 0xFF && b[5] == 0xFF && b[6] == 0xFF && b[7] == 0xFF
 }
 
-// parseEvent decodes an 8-byte event using the bit-packed MPC format.
+// parseEvent decodes a 16-byte event record.
+//
+// Wire layout (all multi-byte fields are little-endian):
+//   [0-3]  tick position (uint32)
+//   [4]    track number, 1-indexed in file; stored 0-indexed in Event.Track
+//   [5]    MIDI status byte (0x90 = NoteOn ch0)
+//   [6]    MIDI note
+//   [7]    velocity
+//   [8-11] duration in ticks (uint32)
+//   [12]   padding (0x00)
+//   [13]   pad index approximation (note - 36 for factory mappings)
+//   [14-15] padding (0x00 0x00)
 func parseEvent(b []byte) Event {
-	// Tick: 20-bit value from bytes 0-2
-	tickLow := uint32(binary.LittleEndian.Uint16(b[0:2]))
-	tickHigh := uint32(b[2]&0x0F) * 65536
-	tick := tickLow + tickHigh
-
-	// Track: byte 3 bits 0-5
-	track := int(b[3] & 0x3F)
-
-	// Event type: byte 4 is the MIDI channel for NoteOn (< 0x80),
-	// or the MIDI status byte for other event types (≥ 0x80).
-	var evType EventType
-	var note byte
-	if b[4] < 0x80 {
-		evType = EventNoteOn
-		note = b[6] & 0x7F // note is at byte 6 for NoteOn events
-	} else {
-		evType = EventType(b[4] & 0xF0)
-		note = 0
-	}
-
-	// Velocity: byte 7 bits 0-6
-	velocity := b[7] & 0x7F
-
-	// Duration: scattered across bytes 2, 3, 5
-	dur := (uint16(b[2]&0xF0) << 6) + (uint16(b[3]&0xC0) << 2) + uint16(b[5])
-	// Compensate for track bits leaking into duration
+	tick := binary.LittleEndian.Uint32(b[0:4])
+	track := int(b[4])
 	if track > 0 {
-		dur -= uint16(track * 4)
+		track-- // file is 1-indexed; internal representation is 0-indexed
+	}
+	status := b[5]
+	note := b[6]
+	velocity := b[7] & 0x7F
+	duration := uint16(binary.LittleEndian.Uint32(b[8:12]))
+
+	evType := EventNoteOn
+	if status >= 0x80 {
+		evType = EventType(status & 0xF0)
 	}
 
 	return Event{
@@ -115,8 +102,6 @@ func parseEvent(b []byte) Event {
 		Type:     evType,
 		Note:     note,
 		Velocity: velocity,
-		Duration: dur,
-		Data1:    b[5],
-		Data2:    b[6],
+		Duration: duration,
 	}
 }

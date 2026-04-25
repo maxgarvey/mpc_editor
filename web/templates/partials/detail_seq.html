@@ -1,17 +1,8 @@
 {{define "detail_seq.html"}}
 <div class="detail-seq">
-    <div class="detail-header">
-        <span class="detail-type">[SEQ]</span>
-        <span class="detail-path">{{.Path}}</span>
-    </div>
-
-    {{if .Error}}
-    <div class="sequence-error">{{.Error}}</div>
-    {{else}}
     <div id="sequence-grid">
         {{template "sequence_grid.html" .}}
     </div>
-    {{end}}
 
     {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>

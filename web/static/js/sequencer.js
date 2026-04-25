@@ -16,9 +16,44 @@ const SequencePlayer = (function() {
 
     var SCHEDULE_AHEAD_SEC = 0.12;
     var LOOKAHEAD_MS = 25;
+    var selectedPgm = '';
 
     const mutedPads = new Set();
     const soloPads = new Set();
+
+    document.addEventListener('htmx:afterSwap', function(evt) {
+        var target = evt.detail && evt.detail.target;
+        if (!target || target.id !== 'sequence-grid') return;
+        var btn = document.getElementById('seq-loop-btn');
+        if (btn) btn.classList.toggle('active', looping);
+        SequenceEditor.restoreModeButtons();
+        restoreExtraBanks();
+    });
+
+    document.addEventListener('DOMContentLoaded', restoreExtraBanks);
+
+    function restoreExtraBanks() {
+        var open = localStorage.getItem('seq-extra-banks-open') === '1';
+        var panel = document.getElementById('seq-extra-banks');
+        var btn = document.getElementById('seq-show-more-btn');
+        if (!panel || !btn) return;
+        if (open) {
+            panel.style.display = '';
+            btn.textContent = 'Hide Banks B / C / D ▲';
+        } else {
+            panel.style.display = 'none';
+            btn.textContent = 'Show Banks B / C / D ▼';
+        }
+    }
+
+    function toggleExtraBanks(btn) {
+        var panel = document.getElementById('seq-extra-banks');
+        if (!panel) return;
+        var open = panel.style.display === 'none';
+        panel.style.display = open ? '' : 'none';
+        btn.textContent = open ? 'Hide Banks B / C / D ▲' : 'Show Banks B / C / D ▼';
+        localStorage.setItem('seq-extra-banks-open', open ? '1' : '0');
+    }
 
     function isPadAudible(padIndex) {
         if (soloPads.size > 0) return soloPads.has(padIndex);
@@ -27,7 +62,10 @@ const SequencePlayer = (function() {
 
     function play(seqPath, bar) {
         stop();
-        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=' + bar)
+        var pgmEl = document.getElementById('seq-pgm-select');
+        selectedPgm = pgmEl ? pgmEl.value : '';
+        var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
+        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=' + bar + pgmParam)
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 var padIndices = [];
@@ -35,7 +73,7 @@ const SequencePlayer = (function() {
                 (data.events || []).forEach(function(e) {
                     if (!seen[e.padIndex]) { seen[e.padIndex] = true; padIndices.push(e.padIndex); }
                 });
-                return AudioPlayer.prefetchPadParams(padIndices).then(function() { return data; });
+                return AudioPlayer.prefetchPadParams(padIndices, selectedPgm).then(function() { return data; });
             })
             .then(function(data) { startPlayback(data); })
             .catch(function(err) { console.warn('Sequence fetch failed:', err); });
@@ -67,11 +105,13 @@ const SequencePlayer = (function() {
             if (!looping && absStep >= totalSteps) break;
             var step = absStep % totalSteps;
             var stepTime = startAudioTime + absStep * stepDurationSec;
-            seqEvents.forEach(function(e) {
-                if (e.step === step && isPadAudible(e.padIndex)) {
-                    AudioPlayer.playPadAtTime(e.padIndex, e.velocity, stepTime);
-                }
-            });
+            if (selectedPgm) {
+                seqEvents.forEach(function(e) {
+                    if (e.step === step && isPadAudible(e.padIndex)) {
+                        AudioPlayer.playPadAtTime(e.padIndex, e.velocity, stepTime, selectedPgm);
+                    }
+                });
+            }
             scheduledUpTo = stepTime + stepDurationSec;
         }
 
@@ -154,9 +194,236 @@ const SequencePlayer = (function() {
         isPlaying: function() { return playing; },
         toggleMutePad: toggleMutePad,
         toggleSoloPad: toggleSoloPad,
+        toggleExtraBanks: toggleExtraBanks,
         toggleLoop: function(btn) {
             looping = !looping;
             btn.classList.toggle('active', looping);
         }
+    };
+})();
+
+// MPC Editor - Sequence step editor (insert / edit modes + event detail)
+
+const SequenceEditor = (function() {
+    var mode = 'view'; // 'view' | 'insert' | 'edit'
+
+    // --- drag state ---
+    var drag = null; // { pad, step, el }
+    var dragGhost = null;
+    var dragOverCell = null;
+
+    // --- detail popover state ---
+    var detailPad = -1;
+    var detailStep = -1;
+
+    // ---- helpers ----
+
+    function getGrid() {
+        return document.getElementById('seq-step-grid');
+    }
+
+    function gridMeta() {
+        var g = getGrid();
+        if (!g) return null;
+        return {
+            path: g.dataset.seqPath,
+            bar: g.dataset.seqBar,
+            pgm: g.dataset.seqPgm || ''
+        };
+    }
+
+    function postEdit(params) {
+        var meta = gridMeta();
+        if (!meta) return;
+        var body = new URLSearchParams(Object.assign({ path: meta.path, bar: meta.bar, pgm: meta.pgm }, params));
+        fetch('/sequence/event/edit', { method: 'POST', body: body })
+            .then(function(r) {
+                if (!r.ok) return r.text().then(function(t) { console.error('seq edit error:', t); });
+                return r.text();
+            })
+            .then(function(html) {
+                if (!html) return;
+                var grid = document.getElementById('sequence-grid');
+                if (grid) {
+                    grid.innerHTML = html;
+                    if (window.htmx) htmx.process(grid);
+                    SequenceEditor.restoreModeButtons();
+                }
+            })
+            .catch(function(err) { console.error('seq edit fetch failed:', err); });
+    }
+
+    // ---- mode management ----
+
+    function setMode(m, btn) {
+        mode = m;
+        restoreModeButtons();
+        var grid = getGrid();
+        if (grid) {
+            grid.setAttribute('data-seq-mode', m);
+        }
+    }
+
+    function restoreModeButtons() {
+        document.querySelectorAll('.seq-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+        var active = document.querySelector('.seq-mode-btn--' + mode);
+        if (active) active.classList.add('active');
+        var grid = getGrid();
+        if (grid) grid.setAttribute('data-seq-mode', mode);
+    }
+
+    // ---- insert mode: click to toggle ----
+
+    document.addEventListener('click', function(e) {
+        if (mode !== 'insert') return;
+        var cell = e.target.closest('#seq-step-grid .step-cell');
+        if (!cell) return;
+        if (drag) return; // ignore clicks that follow a drag
+        var pad = parseInt(cell.dataset.pad);
+        var step = parseInt(cell.dataset.step);
+        postEdit({ action: 'toggle', pad: pad, step: step, velocity: 100, duration: 23 });
+    });
+
+    // ---- edit mode: mouse-drag to move ----
+
+    document.addEventListener('mousedown', function(e) {
+        if (mode !== 'edit') return;
+        if (e.button !== 0) return;
+        var cell = e.target.closest('#seq-step-grid .step-cell');
+        if (!cell || !cell.classList.contains('step-active')) return;
+        e.preventDefault();
+
+        drag = { pad: parseInt(cell.dataset.pad), step: parseInt(cell.dataset.step), el: cell };
+        cell.classList.add('step-dragging');
+
+        dragGhost = document.createElement('div');
+        dragGhost.className = 'step-drag-ghost';
+        // Offset ghost from cursor so it never sits on top of the cursor position.
+        // This keeps elementFromPoint reliable without depending on pointer-events:none.
+        dragGhost.style.left = (e.clientX + 14) + 'px';
+        dragGhost.style.top = (e.clientY - 14) + 'px';
+        document.body.appendChild(dragGhost);
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!drag) return;
+        // Move ghost with the same offset so it tracks the cursor.
+        dragGhost.style.left = (e.clientX + 14) + 'px';
+        dragGhost.style.top = (e.clientY - 14) + 'px';
+
+        // Cursor is never under the ghost, so elementFromPoint is reliable here.
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        var cell = el && el.closest('#seq-step-grid .step-cell');
+        var next = (cell && cell !== drag.el) ? cell : null;
+        if (next !== dragOverCell) {
+            if (dragOverCell) dragOverCell.classList.remove('step-drop-target');
+            dragOverCell = next;
+            if (dragOverCell) dragOverCell.classList.add('step-drop-target');
+        }
+    });
+
+    document.addEventListener('mouseup', function(e) {
+        if (!drag) return;
+
+        var fromPad = drag.pad;
+        var fromStep = drag.step;
+        var sourceEl = drag.el;
+
+        // Remove ghost first so it cannot interfere with elementFromPoint below.
+        if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+
+        // Always use elementFromPoint at the release position as the source of truth.
+        // Relying on dragOverCell risks using a stale cell from when the cursor last
+        // passed over it (e.g. A16) rather than where the mouse actually landed.
+        var target = null;
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        if (el) {
+            var candidate = el.closest('#seq-step-grid .step-cell');
+            if (candidate && candidate !== sourceEl) target = candidate;
+        }
+
+        // Cleanup visual state.
+        sourceEl.classList.remove('step-dragging');
+        if (dragOverCell) { dragOverCell.classList.remove('step-drop-target'); }
+        dragOverCell = null;
+        drag = null;
+
+        if (target) {
+            var toPad = parseInt(target.dataset.pad);
+            var toStep = parseInt(target.dataset.step);
+            postEdit({ action: 'move', from_pad: fromPad, from_step: fromStep, to_pad: toPad, to_step: toStep });
+        }
+    });
+
+    // ---- ctrl/cmd+click or right-click: event detail popover ----
+
+    document.addEventListener('contextmenu', function(e) {
+        var cell = e.target.closest('#seq-step-grid .step-cell');
+        if (!cell || !cell.classList.contains('step-active')) return;
+        e.preventDefault();
+        detailPad = parseInt(cell.dataset.pad);
+        detailStep = parseInt(cell.dataset.step);
+        var vel = parseInt(cell.dataset.vel) || 100;
+        var dur = parseInt(cell.dataset.dur) || 23;
+        openDetail(e.clientX, e.clientY, vel, dur);
+    });
+
+    function openDetail(x, y, vel, dur) {
+        var panel = document.getElementById('seq-event-detail');
+        if (!panel) return;
+        document.getElementById('seq-detail-vel').value = vel;
+        document.getElementById('seq-detail-vel-display').textContent = vel;
+        document.getElementById('seq-detail-dur').value = dur;
+
+        // Position near click, but keep on screen.
+        var panelW = 240, panelH = 130;
+        var vw = window.innerWidth, vh = window.innerHeight;
+        var left = Math.min(x + 8, vw - panelW - 8);
+        var top = Math.min(y + 8, vh - panelH - 8);
+        panel.style.left = left + 'px';
+        panel.style.top = top + 'px';
+        panel.style.display = 'block';
+    }
+
+    function saveDetail() {
+        if (detailPad < 0 || detailStep < 0) return;
+        var vel = parseInt(document.getElementById('seq-detail-vel').value);
+        var dur = parseInt(document.getElementById('seq-detail-dur').value);
+        postEdit({ action: 'update', pad: detailPad, step: detailStep, velocity: vel, duration: dur });
+        closeDetail();
+    }
+
+    function deleteDetail() {
+        if (detailPad < 0 || detailStep < 0) return;
+        postEdit({ action: 'delete', pad: detailPad, step: detailStep });
+        closeDetail();
+    }
+
+    function closeDetail() {
+        var panel = document.getElementById('seq-event-detail');
+        if (panel) panel.style.display = 'none';
+        detailPad = -1;
+        detailStep = -1;
+    }
+
+    // Close detail on click outside.
+    document.addEventListener('mousedown', function(e) {
+        var panel = document.getElementById('seq-event-detail');
+        if (panel && panel.style.display !== 'none' && !panel.contains(e.target)) {
+            closeDetail();
+        }
+    });
+
+    // Close detail on Escape.
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeDetail();
+    });
+
+    return {
+        setMode: setMode,
+        restoreModeButtons: restoreModeButtons,
+        saveDetail: saveDetail,
+        deleteDetail: deleteDetail,
+        closeDetail: closeDetail
     };
 })();

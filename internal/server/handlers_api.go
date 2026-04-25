@@ -314,7 +314,13 @@ func (s *Server) handleAPIPadParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pad := s.session.Program.Pad(idx)
+	prog := s.session.Program
+	if pgmPath := s.resolvePath(r.FormValue("pgm")); pgmPath != "" {
+		if p, err := pgm.OpenProgram(pgmPath); err == nil {
+			prog = p
+		}
+	}
+	pad := prog.Pad(idx)
 
 	type layerJSON struct {
 		Index     int     `json:"index"`

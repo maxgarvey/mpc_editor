@@ -15,20 +15,22 @@ const (
 	barsOffset    = 0x1C
 	bpmOffset     = 0x20
 
-	trackDataOffset = 0x0FD0
-	trackChunkSize  = 48
-	trackCount      = 64
-	trackNameLen    = 16
+	trackDataOffset  = 0x1000 // first track chunk starts here
+	trackChunkSize   = 48
+	trackCount       = 64
+	trackNameLen     = 16
+	trackPGMNameOff  = 16 // offset within chunk: 16-byte PGM name field
+	trackMIDIChanOff = 34 // offset within chunk: MIDI channel (1-indexed, 0=unused)
 
-	eventDataOffset = 0x1C10
-	eventSize       = 8
+	eventDataOffset = 0x1C10 // first event; 0x1C00 holds a 16-byte separator
+	eventSize       = 16     // each event is 16 bytes
 )
 
-// EventType identifies the kind of MIDI event.
+// EventType identifies the kind of MIDI event (MIDI status high nibble).
 type EventType byte
 
 const (
-	EventNoteOn        EventType = 0x00 // byte 4 in 0-127 range
+	EventNoteOn        EventType = 0x90
 	EventPolyPressure  EventType = 0xA0
 	EventControlChange EventType = 0xB0
 	EventProgramChange EventType = 0xC0
@@ -49,21 +51,18 @@ type Sequence struct {
 type Track struct {
 	Index       int
 	Name        string
-	MIDIChannel int
-	Program     int
-	Status      byte
+	PGMName     string // associated PGM filename (from bytes 16–31 of the chunk)
+	MIDIChannel int    // 1-indexed; 0 means the track is unused
 }
 
 // Event represents a single MIDI event in the sequence.
 type Event struct {
 	Tick     uint32
-	Track    int
+	Track    int // 0-indexed
 	Type     EventType
 	Note     byte
 	Velocity byte
 	Duration uint16
-	Data1    byte // CC number or bend low byte
-	Data2    byte // CC value or bend high byte
 }
 
 // noteNames maps MIDI note number mod 12 to note name.
