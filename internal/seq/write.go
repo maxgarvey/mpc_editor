@@ -81,7 +81,7 @@ func Create(bpm float64, bars int, trackName, pgmName string, events []Event) []
 
 	// Timing/clock map: 1000 entries at 0x30, 4 bytes each.
 	// Entry n: bytes[0-2] = n*TicksPerBar as 24-bit LE, byte[3] = 0x60.
-	for n := 0; n < 1000; n++ {
+	for n := range 1000 {
 		tick := uint32(n) * TicksPerBar
 		off := 0x30 + n*4
 		data[off+0] = byte(tick)
@@ -154,15 +154,16 @@ func WriteEvents(path string, s *Sequence) error {
 	}
 	sort.Slice(events, func(i, j int) bool { return events[i].Tick < events[j].Tick })
 
-	// Maximum events that fit before the terminator (one slot reserved for terminator).
-	maxEvents := (len(data) - eventDataOffset - eventSize) / eventSize
-	if len(events) > maxEvents {
-		return fmt.Errorf("seq: too many events (%d > max %d)", len(events), maxEvents)
-	}
+	// Grow the output if the new event count no longer fits in the original file.
+	// Always reserve one slot for the terminator.
+	needed := eventDataOffset + (len(events)+1)*eventSize
+	outSize := max(len(data), needed)
 
 	// Build output: copy header unchanged, then write events.
-	out := make([]byte, len(data))
+	out := make([]byte, outSize)
 	copy(out, data[:eventDataOffset])
+	// Keep the file-size field in the header consistent with the actual size.
+	binary.LittleEndian.PutUint32(out[0:4], uint32(outSize))
 
 	off := eventDataOffset
 	for _, ev := range events {
