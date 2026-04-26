@@ -1766,6 +1766,22 @@ tr.pad-row:not(.has-events) .track-label {
     font-style: italic;
 }
 
+.pgm-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: #bbb;
+}
+
+.seq-picker-label {
+    color: #999;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
 /* ---- Continuous (piano-roll) view ---- */
 
 .seq-view-btn.active {

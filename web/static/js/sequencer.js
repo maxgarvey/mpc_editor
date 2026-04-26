@@ -108,7 +108,10 @@ const SequencePlayer = (function() {
         var bars = data.bars || 1;
         var ticksPerStep = data.ticksPerStep || 24;
         var stepsPerBar = data.stepsPerBar || 16;
-        var ticksPerBar = ticksPerStep * stepsPerBar; // 384
+        var beatsPerBar = data.beatsPerBar || 4;
+        var ticksPerBar = ticksPerStep * stepsPerBar;
+        var ticksPerBeat = Math.round(ticksPerBar / beatsPerBar);
+        var stepsPerBeat = Math.round(stepsPerBar / beatsPerBar);
         seqTotalTicks = data.totalTicks || (bars * ticksPerBar);
         seqTicksPerStep = ticksPerStep;
 
@@ -149,9 +152,9 @@ const SequencePlayer = (function() {
             barLabel.style.left = Math.round(barTick * pxpt) + 'px';
             barLabel.textContent = 'B' + (b + 1);
             headerTimeline.appendChild(barLabel);
-            // Beat labels (beats 2, 3, 4).
-            for (var beat = 1; beat < 4; beat++) {
-                var beatTick = barTick + beat * 96;
+            // Beat labels (beats 2..N).
+            for (var beat = 1; beat < beatsPerBar; beat++) {
+                var beatTick = barTick + beat * ticksPerBeat;
                 var beatLabel = document.createElement('span');
                 beatLabel.className = 'seq-cont-beat-label';
                 beatLabel.style.left = Math.round(beatTick * pxpt) + 'px';
@@ -185,11 +188,11 @@ const SequencePlayer = (function() {
             for (var b2 = 0; b2 < bars; b2++) {
                 var bt = b2 * ticksPerBar;
                 addGridline(body, Math.round(bt * pxpt), 'seq-cont-gridline-bar');
-                for (var beat2 = 1; beat2 < 4; beat2++) {
-                    addGridline(body, Math.round((bt + beat2 * 96) * pxpt), 'seq-cont-gridline-beat');
+                for (var beat2 = 1; beat2 < beatsPerBar; beat2++) {
+                    addGridline(body, Math.round((bt + beat2 * ticksPerBeat) * pxpt), 'seq-cont-gridline-beat');
                 }
                 for (var s = 1; s < stepsPerBar; s++) {
-                    if (s % 4 !== 0) {
+                    if (s % stepsPerBeat !== 0) {
                         addGridline(body, Math.round((bt + s * ticksPerStep) * pxpt), 'seq-cont-gridline-step');
                     }
                 }
@@ -235,13 +238,21 @@ const SequencePlayer = (function() {
         contPlayheadEl = ph;
     }
 
+    function getDisplayParams() {
+        var grid = document.getElementById('seq-step-grid');
+        if (!grid) return '';
+        var tsig = grid.dataset.seqTsig || '4_4';
+        var div = grid.dataset.seqDivision || '24';
+        return '&tsig=' + encodeURIComponent(tsig) + '&division=' + encodeURIComponent(div);
+    }
+
     function loadContinuousView() {
         var grid = document.getElementById('seq-step-grid');
         if (!grid) return;
         var seqPath = grid.dataset.seqPath;
         if (!seqPath) return;
         var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
-        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam)
+        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam + getDisplayParams())
             .then(function(r) { return r.json(); })
             .then(function(data) { renderContinuousView(data); })
             .catch(function(err) { console.warn('Continuous view load failed:', err); });
@@ -337,7 +348,7 @@ const SequencePlayer = (function() {
         var pgmEl = document.getElementById('seq-pgm-select');
         selectedPgm = pgmEl ? pgmEl.value : '';
         var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
-        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=' + bar + pgmParam)
+        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=' + bar + pgmParam + getDisplayParams())
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 var padIndices = [];
@@ -354,10 +365,10 @@ const SequencePlayer = (function() {
     function startPlayback(data) {
         seqBpm = data.bpm || 120;
         seqEvents = data.events || [];
-        stepDurationSec = (60 / seqBpm) / 4;
+        seqTicksPerStep = data.ticksPerStep || 24;
+        stepDurationSec = (60 / seqBpm) * (seqTicksPerStep / 96);
         // When bar=0 (all bars), totalSteps spans the entire sequence.
         totalSteps = (data.stepsPerBar || 16) * (data.bars || 1);
-        seqTicksPerStep = data.ticksPerStep || 24;
         seqTotalTicks = data.totalTicks || (totalSteps * seqTicksPerStep);
 
         var ctx = AudioPlayer.getContext();
@@ -452,7 +463,7 @@ const SequencePlayer = (function() {
         var seqPath = grid.dataset.seqPath;
         if (!seqPath) return;
         var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
-        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam)
+        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam + getDisplayParams())
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 seqEvents = data.events || [];
@@ -538,14 +549,16 @@ const SequenceEditor = (function() {
         if (!g) return null;
         return {
             path: g.dataset.seqPath,
-            pgm: g.dataset.seqPgm || ''
+            pgm: g.dataset.seqPgm || '',
+            tsig: g.dataset.seqTsig || '4_4',
+            division: g.dataset.seqDivision || '24'
         };
     }
 
     function postEdit(params) {
         var meta = gridMeta();
         if (!meta) return;
-        var body = new URLSearchParams(Object.assign({ path: meta.path, pgm: meta.pgm }, params));
+        var body = new URLSearchParams(Object.assign({ path: meta.path, pgm: meta.pgm, tsig: meta.tsig, division: meta.division }, params));
         fetch('/sequence/event/edit', { method: 'POST', body: body })
             .then(function(r) {
                 if (!r.ok) return r.text().then(function(t) { console.error('seq edit error:', t); });

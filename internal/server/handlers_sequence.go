@@ -148,6 +148,7 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 	}
 	pgmRelPath := r.FormValue("pgm")
 	action := r.FormValue("action")
+	gp := parseGridParams(r)
 
 	sequence, err := seq.Open(seqPath)
 	if err != nil {
@@ -157,16 +158,12 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 
 	padForNote := s.padForNoteFunc(pgmRelPath)
 
-	// tickForBarStep converts a 1-indexed bar and 0-indexed step to a sequence tick,
-	// clamping bar into valid range.
+	// tickForBarStep converts a 1-indexed display bar and 0-indexed step to a sequence tick.
 	tickForBarStep := func(bar, step int) uint32 {
 		if bar < 1 {
 			bar = 1
 		}
-		if bar > sequence.Bars {
-			bar = sequence.Bars
-		}
-		return uint32((bar-1)*seq.TicksPerBar) + uint32(step*seq.TicksPerStep)
+		return uint32((bar-1)*gp.TicksPerBar) + uint32(step*gp.TicksPerStep)
 	}
 
 	switch action {
@@ -278,12 +275,20 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
 	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
 	}
 
+	tsig := r.FormValue("tsig")
+	if tsig == "" {
+		tsig = "4_4"
+	}
+	division := r.FormValue("division")
+	if division == "" {
+		division = "24"
+	}
 	data := SequenceViewData{
 		Path:     seqPath,
 		FileName: filepath.Base(seqPath),
@@ -293,6 +298,8 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
 		PGMFiles: s.pgmFilesInWorkspace(),
+		TSig:     tsig,
+		Division: division,
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
 }
@@ -323,6 +330,30 @@ type SequenceViewData struct {
 	Tags     []db.FileTag
 	PGMPath  string   // currently selected program for note mapping
 	PGMFiles []string // all PGM files in workspace for the picker
+	TSig     string   // time signature, e.g. "4_4"
+	Division string   // step division in ticks, e.g. "24" for 16th notes
+}
+
+// parseGridParams extracts time signature and step division from the request.
+// Defaults to 4/4 time with 16th-note (24-tick) steps.
+func parseGridParams(r *http.Request) seq.GridParams {
+	tsig := r.FormValue("tsig")
+	if tsig == "" {
+		tsig = "4_4"
+	}
+	var num, denom int
+	if _, err := fmt.Sscanf(tsig, "%d_%d", &num, &denom); err != nil || num < 1 || denom < 1 {
+		num, denom = 4, 4
+	}
+	divStr := r.FormValue("division")
+	if divStr == "" {
+		divStr = "24"
+	}
+	divTicks, err := strconv.Atoi(divStr)
+	if err != nil || divTicks < 1 {
+		divTicks = seq.TicksPerStep
+	}
+	return seq.NewGridParams(num, denom, divTicks)
 }
 
 func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
@@ -342,12 +373,21 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pgmRelPath := r.FormValue("pgm")
-	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
+	gp := parseGridParams(r)
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
 	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
 	}
 
+	tsig := r.FormValue("tsig")
+	if tsig == "" {
+		tsig = "4_4"
+	}
+	division := r.FormValue("division")
+	if division == "" {
+		division = "24"
+	}
 	data := SequenceViewData{
 		Path:     path,
 		FileName: filepath.Base(path),
@@ -357,6 +397,8 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
 		PGMFiles: s.pgmFilesInWorkspace(),
+		TSig:     tsig,
+		Division: division,
 	}
 
 	// If HTMX request, render just the grid partial.
@@ -385,6 +427,7 @@ type sequenceEventsResponse struct {
 	BPM          float64             `json:"bpm"`
 	StepsPerBar  int                 `json:"stepsPerBar"`
 	TicksPerStep int                 `json:"ticksPerStep"`
+	BeatsPerBar  int                 `json:"beatsPerBar"`
 	Bars         int                 `json:"bars"`
 	CurrentBar   int                 `json:"currentBar"`
 	TotalTicks   int                 `json:"totalTicks"`
@@ -404,9 +447,16 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	gp := parseGridParams(r)
+
 	// bar=0 means "all bars"; any other value plays that specific bar only.
 	bar := parseIntParam(r, "bar", 0)
-	if bar < 0 || bar > sequence.Bars {
+	fileTotalTicks := sequence.Bars * seq.TicksPerBar
+	displayBars := fileTotalTicks / gp.TicksPerBar
+	if fileTotalTicks%gp.TicksPerBar != 0 {
+		displayBars++
+	}
+	if bar < 0 || bar > displayBars {
 		bar = 0
 	}
 
@@ -427,10 +477,10 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 	var tickStart, tickEnd uint32
 	if bar == 0 {
 		tickStart = 0
-		tickEnd = uint32(sequence.Bars * seq.TicksPerBar)
+		tickEnd = uint32(fileTotalTicks)
 	} else {
-		tickStart = uint32((bar - 1) * seq.TicksPerBar)
-		tickEnd = tickStart + uint32(seq.TicksPerBar)
+		tickStart = uint32((bar - 1) * gp.TicksPerBar)
+		tickEnd = tickStart + uint32(gp.TicksPerBar)
 	}
 
 	var events []sequenceEventJSON
@@ -443,8 +493,8 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		}
 		// When playing all bars, step is the global step index across the whole sequence.
 		// When playing a single bar, step is the 0-indexed step within that bar.
-		step := int(ev.Tick-tickStart) / seq.TicksPerStep
-		durSteps := int(ev.Duration) / seq.TicksPerStep
+		step := int(ev.Tick-tickStart) / gp.TicksPerStep
+		durSteps := int(ev.Duration) / gp.TicksPerStep
 		if durSteps < 1 {
 			durSteps = 1
 		}
@@ -462,9 +512,10 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 
 	resp := sequenceEventsResponse{
 		BPM:          sequence.BPM,
-		StepsPerBar:  seq.StepsPerBar,
-		TicksPerStep: seq.TicksPerStep,
-		Bars:         sequence.Bars,
+		StepsPerBar:  gp.StepsPerBar,
+		TicksPerStep: gp.TicksPerStep,
+		BeatsPerBar:  gp.BeatsPerBar,
+		Bars:         displayBars,
 		CurrentBar:   bar,
 		TotalTicks:   int(tickEnd - tickStart),
 		Events:       events,
@@ -538,10 +589,19 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pgmRelPath := r.FormValue("pgm")
-	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
+	gp := parseGridParams(r)
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
 	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
+	}
+	tsig := r.FormValue("tsig")
+	if tsig == "" {
+		tsig = "4_4"
+	}
+	division := r.FormValue("division")
+	if division == "" {
+		division = "24"
 	}
 	data := SequenceViewData{
 		Path:     path,
@@ -552,6 +612,8 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
 		PGMFiles: s.pgmFilesInWorkspace(),
+		TSig:     tsig,
+		Division: division,
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
 }

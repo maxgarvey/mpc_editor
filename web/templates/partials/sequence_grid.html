@@ -12,7 +12,7 @@
               hx-post="/sequence/update"
               hx-target="#sequence-grid"
               hx-trigger="change"
-              hx-include="#seq-pgm-select">
+              hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select">
             <input type="hidden" name="path" value="{{.Path}}">
             <label class="seq-meta-label">
                 Tempo:
@@ -50,26 +50,57 @@
         <select id="seq-pgm-select"
                 hx-get="/sequence?path={{.Path}}"
                 hx-target="#sequence-grid"
-                hx-include="this"
+                hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select"
                 name="pgm">
             <option value="">— session program —</option>
             {{range .PGMFiles}}
             <option value="{{.}}" {{if eq . $.PGMPath}}selected{{end}}>{{.}}</option>
             {{end}}
         </select>
+
+        <label for="seq-tsig-select" class="seq-picker-label">Time Sig:</label>
+        <select id="seq-tsig-select"
+                hx-get="/sequence?path={{.Path}}"
+                hx-target="#sequence-grid"
+                hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select"
+                name="tsig">
+            <option value="4_4" {{if eq .TSig "4_4"}}selected{{end}}>4/4</option>
+            <option value="3_4" {{if eq .TSig "3_4"}}selected{{end}}>3/4</option>
+            <option value="2_4" {{if eq .TSig "2_4"}}selected{{end}}>2/4</option>
+            <option value="6_8" {{if eq .TSig "6_8"}}selected{{end}}>6/8</option>
+            <option value="5_4" {{if eq .TSig "5_4"}}selected{{end}}>5/4</option>
+            <option value="7_8" {{if eq .TSig "7_8"}}selected{{end}}>7/8</option>
+        </select>
+
+        <label for="seq-division-select" class="seq-picker-label">Division:</label>
+        <select id="seq-division-select"
+                hx-get="/sequence?path={{.Path}}"
+                hx-target="#sequence-grid"
+                hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select"
+                name="division">
+            <option value="48" {{if eq .Division "48"}}selected{{end}}>1/8</option>
+            <option value="24" {{if eq .Division "24"}}selected{{end}}>1/16</option>
+            <option value="12" {{if eq .Division "12"}}selected{{end}}>1/32</option>
+            <option value="6"  {{if eq .Division "6"}}selected{{end}}>1/64</option>
+            <option value="16" {{if eq .Division "16"}}selected{{end}}>1/16T (triplet)</option>
+            <option value="8"  {{if eq .Division "8"}}selected{{end}}>1/32T (triplet)</option>
+        </select>
     </div>
 
     {{if .Grid}}
+    {{$spb := .Grid.Params.StepsPerBeat}}
     <div class="seq-grid-scroll" id="seq-grid-scroll">
     <div id="seq-playhead" class="seq-playhead"></div>
     <table class="step-grid" id="seq-step-grid"
            data-seq-path="{{.Path}}"
-           data-seq-pgm="{{.PGMPath}}">
+           data-seq-pgm="{{.PGMPath}}"
+           data-seq-tsig="{{.TSig}}"
+           data-seq-division="{{.Division}}">
         <thead>
             <tr>
                 <th class="track-name-cell">Pad</th>
                 {{range (index .Grid.BankAPadRows 0).Steps}}
-                <th class="step-header {{if eq .StepInBar 0}}bar-start{{else if eq (mod .StepInBar 4) 0}}beat-start{{end}}">
+                <th class="step-header {{if eq .StepInBar 0}}bar-start{{else if eq (mod .StepInBar $spb) 0}}beat-start{{end}}">
                     {{if eq .StepInBar 0}}<span class="bar-num">B{{.Bar}}</span>{{else}}{{add .StepInBar 1}}{{end}}
                 </th>
                 {{end}}
@@ -94,7 +125,7 @@
                     {{if .SampleName}}<span class="track-sample-name" title="{{.SampleName}}">{{.SampleName}}</span>{{end}}
                 </td>
                 {{range $i, $step := .Steps}}
-                <td class="step-cell step-col-{{$step.GlobalStep}} {{if eq $step.StepInBar 0}}bar-start{{else if eq (mod $step.StepInBar 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
+                <td class="step-cell step-col-{{$step.GlobalStep}} {{if eq $step.StepInBar 0}}bar-start{{else if eq (mod $step.StepInBar $spb) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
                     data-pad="{{$padIdx}}"
                     data-step="{{$step.StepInBar}}"
                     data-bar="{{$step.Bar}}"
@@ -139,7 +170,7 @@
                     {{if $row.SampleName}}<span class="track-sample-name" title="{{$row.SampleName}}">{{$row.SampleName}}</span>{{end}}
                 </td>
                 {{range $i, $step := $row.Steps}}
-                <td class="step-cell step-col-{{$step.GlobalStep}} {{if eq $step.StepInBar 0}}bar-start{{else if eq (mod $step.StepInBar 4) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
+                <td class="step-cell step-col-{{$step.GlobalStep}} {{if eq $step.StepInBar 0}}bar-start{{else if eq (mod $step.StepInBar $spb) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
                     data-pad="{{$padIdx}}"
                     data-step="{{$step.StepInBar}}"
                     data-bar="{{$step.Bar}}"

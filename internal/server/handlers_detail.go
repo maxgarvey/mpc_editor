@@ -179,7 +179,16 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 	}
 
 	pgmRelPath := r.FormValue("pgm")
-	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
+	gp := parseGridParams(r)
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
+	tsig := r.FormValue("tsig")
+	if tsig == "" {
+		tsig = "4_4"
+	}
+	division := r.FormValue("division")
+	if division == "" {
+		division = "24"
+	}
 	data := SequenceViewData{
 		Path:     path,
 		FileName: filepath.Base(path),
@@ -189,6 +198,8 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
 		PGMFiles: s.pgmFilesInWorkspace(),
+		TSig:     tsig,
+		Division: division,
 	}
 
 	// Look up file ID for tags.

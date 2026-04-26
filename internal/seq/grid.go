@@ -5,6 +5,50 @@ import (
 	"sort"
 )
 
+// GridParams defines the time signature and step division for building the display grid.
+type GridParams struct {
+	BeatsPerBar  int
+	BeatDenom    int
+	TicksPerStep int
+	TicksPerBar  int // BeatsPerBar * PPQN * 4 / BeatDenom
+	StepsPerBar  int // TicksPerBar / TicksPerStep
+	StepsPerBeat int // TicksPerBar / (BeatsPerBar * TicksPerStep)
+}
+
+// DefaultGridParams returns 4/4 time with 16th-note steps.
+func DefaultGridParams() GridParams { return NewGridParams(4, 4, TicksPerStep) }
+
+// NewGridParams constructs a GridParams for the given time signature and step division.
+func NewGridParams(beatsPerBar, beatDenom, ticksPerStep int) GridParams {
+	if beatsPerBar < 1 {
+		beatsPerBar = 4
+	}
+	if beatDenom < 1 {
+		beatDenom = 4
+	}
+	if ticksPerStep < 1 {
+		ticksPerStep = TicksPerStep
+	}
+	ticksPerBeat := PPQN * 4 / beatDenom
+	tpb := beatsPerBar * ticksPerBeat
+	spb := tpb / ticksPerStep
+	if spb < 1 {
+		spb = 1
+	}
+	spBeat := ticksPerBeat / ticksPerStep
+	if spBeat < 1 {
+		spBeat = 1
+	}
+	return GridParams{
+		BeatsPerBar:  beatsPerBar,
+		BeatDenom:    beatDenom,
+		TicksPerStep: ticksPerStep,
+		TicksPerBar:  tpb,
+		StepsPerBar:  spb,
+		StepsPerBeat: spBeat,
+	}
+}
+
 // StepCell represents one cell in the step grid.
 type StepCell struct {
 	Active     bool
@@ -36,8 +80,9 @@ type TrackRow struct {
 // StepGrid is the visualization data for all bars of a sequence.
 type StepGrid struct {
 	TotalBars        int
-	TotalSteps       int // = TotalBars * StepsPerBar
+	TotalSteps       int // = TotalBars * Params.StepsPerBar
 	BPM              float64
+	Params           GridParams
 	Rows             []TrackRow // track-level rows (kept for compatibility)
 	BankAPadRows     [16]PadRow // one row per Bank A pad (pads 0-15), always populated
 	ExtraBankPadRows [48]PadRow // Banks B/C/D (pads 16-63), populated on demand
@@ -53,13 +98,24 @@ func PadLabel(padIndex int) string {
 // BuildGrid constructs a step grid spanning all bars of s.
 // noteToPad maps MIDI note number → pad index for the loaded program;
 // pass nil to use the chromatic fallback (note - 35).
-func BuildGrid(s *Sequence, noteToPad map[int]int) *StepGrid {
-	totalSteps := s.Bars * StepsPerBar
+// p controls the time signature and step division; use DefaultGridParams() for standard 4/4 16th-note grids.
+func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
+	// Compute display bars: how many p-bars fit in the file's total ticks.
+	fileTicks := s.Bars * TicksPerBar
+	displayBars := fileTicks / p.TicksPerBar
+	if fileTicks%p.TicksPerBar != 0 {
+		displayBars++
+	}
+	if displayBars < 1 {
+		displayBars = 1
+	}
+	totalSteps := displayBars * p.StepsPerBar
 
 	grid := &StepGrid{
-		TotalBars:  s.Bars,
+		TotalBars:  displayBars,
 		TotalSteps: totalSteps,
 		BPM:        s.BPM,
+		Params:     p,
 	}
 
 	padForNote := func(note byte) int {
@@ -93,7 +149,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int) *StepGrid {
 	// trackNoteGlobalSteps: track → note → globalStep → loudest cell
 	trackNoteGlobalSteps := make(map[int]map[byte]map[int]*cell)
 
-	barTicks := uint32(s.Bars * TicksPerBar)
+	barTicks := uint32(displayBars * p.TicksPerBar)
 
 	for _, ev := range s.Events {
 		if ev.Type != EventNoteOn {
@@ -102,12 +158,12 @@ func BuildGrid(s *Sequence, noteToPad map[int]int) *StepGrid {
 		if ev.Tick >= barTicks {
 			continue
 		}
-		barIdx := int(ev.Tick) / TicksPerBar // 0-indexed
-		stepInBar := int(ev.Tick%uint32(TicksPerBar)) / TicksPerStep
-		if stepInBar >= StepsPerBar {
+		barIdx := int(ev.Tick) / p.TicksPerBar // 0-indexed
+		stepInBar := int(ev.Tick%uint32(p.TicksPerBar)) / p.TicksPerStep
+		if stepInBar >= p.StepsPerBar {
 			continue
 		}
-		gs := barIdx*StepsPerBar + stepInBar // globalStep
+		gs := barIdx*p.StepsPerBar + stepInBar // globalStep
 
 		padIdx := padForNote(ev.Note)
 		if padIdx >= 0 && padIdx < 64 {
@@ -139,8 +195,8 @@ func BuildGrid(s *Sequence, noteToPad map[int]int) *StepGrid {
 	makeSteps := func(globalCells map[int]*cell) []StepCell {
 		steps := make([]StepCell, totalSteps)
 		for gs := range totalSteps {
-			bar := gs/StepsPerBar + 1
-			sib := gs % StepsPerBar
+			bar := gs/p.StepsPerBar + 1
+			sib := gs % p.StepsPerBar
 			steps[gs] = StepCell{Bar: bar, StepInBar: sib, GlobalStep: gs}
 			if c := globalCells[gs]; c != nil {
 				steps[gs].Active = true
