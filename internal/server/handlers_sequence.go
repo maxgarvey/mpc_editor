@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
@@ -157,7 +160,6 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "path required", http.StatusBadRequest)
 		return
 	}
-	bar := parseIntParam(r, "bar", 1)
 	pgmRelPath := r.FormValue("pgm")
 	action := r.FormValue("action")
 
@@ -167,22 +169,28 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if bar < 1 {
-		bar = 1
-	}
-	if bar > sequence.Bars {
-		bar = sequence.Bars
-	}
-	barStart := uint32((bar - 1) * seq.TicksPerBar)
 	padForNote := s.padForNoteFunc(pgmRelPath)
+
+	// tickForBarStep converts a 1-indexed bar and 0-indexed step to a sequence tick,
+	// clamping bar into valid range.
+	tickForBarStep := func(bar, step int) uint32 {
+		if bar < 1 {
+			bar = 1
+		}
+		if bar > sequence.Bars {
+			bar = sequence.Bars
+		}
+		return uint32((bar-1)*seq.TicksPerBar) + uint32(step*seq.TicksPerStep)
+	}
 
 	switch action {
 	case "toggle":
+		bar := parseIntParam(r, "bar", 1)
 		padIndex := parseIntParam(r, "pad", 0)
 		step := parseIntParam(r, "step", 0)
 		velocity := parseIntParam(r, "velocity", 100)
 		duration := parseIntParam(r, "duration", 23)
-		targetTick := barStart + uint32(step*seq.TicksPerStep)
+		targetTick := tickForBarStep(bar, step)
 
 		existing := false
 		newEvents := make([]seq.Event, 0, len(sequence.Events))
@@ -207,12 +215,14 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		sequence.Events = newEvents
 
 	case "move":
+		fromBar := parseIntParam(r, "from_bar", 1)
 		fromPad := parseIntParam(r, "from_pad", 0)
 		fromStep := parseIntParam(r, "from_step", 0)
+		toBar := parseIntParam(r, "to_bar", 1)
 		toPad := parseIntParam(r, "to_pad", 0)
 		toStep := parseIntParam(r, "to_step", 0)
-		fromTick := barStart + uint32(fromStep*seq.TicksPerStep)
-		toTick := barStart + uint32(toStep*seq.TicksPerStep)
+		fromTick := tickForBarStep(fromBar, fromStep)
+		toTick := tickForBarStep(toBar, toStep)
 		toNote := s.padToNote(toPad, pgmRelPath)
 
 		newEvents := make([]seq.Event, 0, len(sequence.Events))
@@ -233,9 +243,10 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		sequence.Events = newEvents
 
 	case "delete":
+		bar := parseIntParam(r, "bar", 1)
 		padIndex := parseIntParam(r, "pad", 0)
 		step := parseIntParam(r, "step", 0)
-		targetTick := barStart + uint32(step*seq.TicksPerStep)
+		targetTick := tickForBarStep(bar, step)
 
 		newEvents := make([]seq.Event, 0, len(sequence.Events))
 		removed := false
@@ -249,11 +260,12 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		sequence.Events = newEvents
 
 	case "update":
+		bar := parseIntParam(r, "bar", 1)
 		padIndex := parseIntParam(r, "pad", 0)
 		step := parseIntParam(r, "step", 0)
 		velocity := parseIntParam(r, "velocity", 100)
 		duration := parseIntParam(r, "duration", 23)
-		targetTick := barStart + uint32(step*seq.TicksPerStep)
+		targetTick := tickForBarStep(bar, step)
 
 		for i, ev := range sequence.Events {
 			if ev.Tick == targetTick && padForNote(ev.Note) == padIndex {
@@ -280,22 +292,21 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	grid := seq.BuildGrid(sequence, bar, s.noteToPadMapFor(pgmRelPath))
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
 	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
 	}
 
 	data := SequenceViewData{
-		Path:       seqPath,
-		FileName:   filepath.Base(seqPath),
-		BPM:        sequence.BPM,
-		Bars:       sequence.Bars,
-		Version:    sequence.Version,
-		CurrentBar: bar,
-		Grid:       grid,
-		PGMPath:    pgmRelPath,
-		PGMFiles:   s.pgmFilesInWorkspace(),
+		Path:     seqPath,
+		FileName: filepath.Base(seqPath),
+		BPM:      sequence.BPM,
+		Bars:     sequence.Bars,
+		Version:  sequence.Version,
+		Grid:     grid,
+		PGMPath:  pgmRelPath,
+		PGMFiles: s.pgmFilesInWorkspace(),
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
 }
@@ -315,18 +326,17 @@ func (s *Server) pgmFilesInWorkspace() []string {
 
 // SequenceViewData holds template data for the sequence step grid page.
 type SequenceViewData struct {
-	Path       string
-	FileName   string // base name only, e.g. "Sequence01.SEQ"
-	Error      string
-	BPM        float64
-	Bars       int
-	Version    string
-	CurrentBar int
-	Grid       *seq.StepGrid
-	FileID     int64
-	Tags       []db.FileTag
-	PGMPath    string   // currently selected program for note mapping
-	PGMFiles   []string // all PGM files in workspace for the picker
+	Path     string
+	FileName string // base name only, e.g. "Sequence01.SEQ"
+	Error    string
+	BPM      float64
+	Bars     int
+	Version  string
+	Grid     *seq.StepGrid
+	FileID   int64
+	Tags     []db.FileTag
+	PGMPath  string   // currently selected program for note mapping
+	PGMFiles []string // all PGM files in workspace for the picker
 }
 
 func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
@@ -345,30 +355,22 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bar := parseIntParam(r, "bar", 1)
-	if bar < 1 {
-		bar = 1
-	}
-	if bar > sequence.Bars {
-		bar = sequence.Bars
-	}
-
-	grid := seq.BuildGrid(sequence, bar, s.noteToPadMap())
-	names := s.padSampleNames(r.FormValue("pgm"))
+	pgmRelPath := r.FormValue("pgm")
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
+	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
 	}
 
 	data := SequenceViewData{
-		Path:       path,
-		FileName:   filepath.Base(path),
-		BPM:        sequence.BPM,
-		Bars:       sequence.Bars,
-		Version:    sequence.Version,
-		CurrentBar: bar,
-		Grid:       grid,
-		PGMPath:    r.FormValue("pgm"),
-		PGMFiles:   s.pgmFilesInWorkspace(),
+		Path:     path,
+		FileName: filepath.Base(path),
+		BPM:      sequence.BPM,
+		Bars:     sequence.Bars,
+		Version:  sequence.Version,
+		Grid:     grid,
+		PGMPath:  pgmRelPath,
+		PGMFiles: s.pgmFilesInWorkspace(),
 	}
 
 	// If HTMX request, render just the grid partial.
@@ -413,12 +415,10 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bar := parseIntParam(r, "bar", 1)
-	if bar < 1 {
-		bar = 1
-	}
-	if bar > sequence.Bars {
-		bar = sequence.Bars
+	// bar=0 means "all bars"; any other value plays that specific bar only.
+	bar := parseIntParam(r, "bar", 0)
+	if bar < 0 || bar > sequence.Bars {
+		bar = 0
 	}
 
 	noteToPad := s.noteToPadMapFor(r.FormValue("pgm"))
@@ -435,18 +435,26 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		return 0
 	}
 
-	barStart := uint32((bar - 1) * seq.TicksPerBar)
-	barEnd := barStart + uint32(seq.TicksPerBar)
+	var tickStart, tickEnd uint32
+	if bar == 0 {
+		tickStart = 0
+		tickEnd = uint32(sequence.Bars * seq.TicksPerBar)
+	} else {
+		tickStart = uint32((bar - 1) * seq.TicksPerBar)
+		tickEnd = tickStart + uint32(seq.TicksPerBar)
+	}
 
 	var events []sequenceEventJSON
 	for _, ev := range sequence.Events {
 		if ev.Type != seq.EventNoteOn {
 			continue
 		}
-		if ev.Tick < barStart || ev.Tick >= barEnd {
+		if ev.Tick < tickStart || ev.Tick >= tickEnd {
 			continue
 		}
-		step := int(ev.Tick-barStart) / seq.TicksPerStep
+		// When playing all bars, step is the global step index across the whole sequence.
+		// When playing a single bar, step is the 0-indexed step within that bar.
+		step := int(ev.Tick-tickStart) / seq.TicksPerStep
 		durSteps := int(ev.Duration) / seq.TicksPerStep
 		if durSteps < 1 {
 			durSteps = 1
@@ -537,29 +545,76 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	bar := parseIntParam(r, "bar", 1)
-	if bar < 1 {
-		bar = 1
-	}
-	if bar > sequence.Bars {
-		bar = sequence.Bars
-	}
-
-	grid := seq.BuildGrid(sequence, bar, s.noteToPadMap())
-	names := s.padSampleNames(r.FormValue("pgm"))
+	pgmRelPath := r.FormValue("pgm")
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
+	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
 	}
 	data := SequenceViewData{
-		Path:       path,
-		FileName:   filepath.Base(path),
-		BPM:        sequence.BPM,
-		Bars:       sequence.Bars,
-		Version:    sequence.Version,
-		CurrentBar: bar,
-		Grid:       grid,
-		PGMPath:    r.FormValue("pgm"),
-		PGMFiles:   s.pgmFilesInWorkspace(),
+		Path:     path,
+		FileName: filepath.Base(path),
+		BPM:      sequence.BPM,
+		Bars:     sequence.Bars,
+		Version:  sequence.Version,
+		Grid:     grid,
+		PGMPath:  pgmRelPath,
+		PGMFiles: s.pgmFilesInWorkspace(),
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
+}
+
+func (s *Server) handleSequenceNew(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+	if strings.ContainsAny(name, `/\`) || name == "." || name == ".." {
+		http.Error(w, "invalid name", http.StatusBadRequest)
+		return
+	}
+	if len(name) > 16 {
+		http.Error(w, "name too long (max 16 characters)", http.StatusBadRequest)
+		return
+	}
+	dir := strings.TrimSpace(r.FormValue("dir"))
+	if dir == "" {
+		if s.session.FilePath != "" {
+			dir = filepath.Dir(s.session.FilePath)
+		} else {
+			dir = s.session.WorkspacePath
+		}
+	} else {
+		dir = s.resolvePath(dir)
+	}
+	if err := s.validateWithinWorkspace(dir); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		http.Error(w, fmt.Sprintf("create dir: %v", err), http.StatusInternalServerError)
+		return
+	}
+	seqPath := filepath.Join(dir, name+".SEQ")
+	pgmName := ""
+	if s.session.FilePath != "" {
+		pgmName = filepath.Base(s.session.FilePath)
+	}
+	data := seq.Create(120.0, 1, name, pgmName, false, nil)
+	if err := os.WriteFile(seqPath, data, 0o644); err != nil {
+		http.Error(w, fmt.Sprintf("write sequence: %v", err), http.StatusInternalServerError)
+		return
+	}
+	go func() {
+		if _, err := s.scanner.ScanWorkspace(s.session.WorkspacePath); err != nil {
+			log.Printf("post-sequence-new scan: %v", err)
+		}
+	}()
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"seq_abs":%q}`, seqPath)
 }

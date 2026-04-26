@@ -130,13 +130,13 @@ func TestBuildGrid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	grid := BuildGrid(s, 1, nil)
+	grid := BuildGrid(s, nil)
 
-	if grid.Bar != 1 {
-		t.Errorf("grid bar = %d, want 1", grid.Bar)
-	}
 	if grid.TotalBars != 2 {
 		t.Errorf("grid total bars = %d, want 2", grid.TotalBars)
+	}
+	if grid.TotalSteps != 32 {
+		t.Errorf("grid total steps = %d, want 32", grid.TotalSteps)
 	}
 	if len(grid.Rows) != 1 {
 		t.Fatalf("grid rows = %d, want 1 (only track 0 has events)", len(grid.Rows))
@@ -146,33 +146,34 @@ func TestBuildGrid(t *testing.T) {
 	if row.TrackName != "Drums" {
 		t.Errorf("row track name = %q, want %q", row.TrackName, "Drums")
 	}
+	if len(row.Steps) != 32 {
+		t.Fatalf("row steps = %d, want 32 (2 bars × 16)", len(row.Steps))
+	}
 
-	// Step 0 should be active (tick 0)
+	// Bar 1 events are at globalSteps 0–15.
 	if !row.Steps[0].Active {
-		t.Error("step 0 should be active")
+		t.Error("globalStep 0 (bar1 step0) should be active")
 	}
 	if row.Steps[0].Note != 36 {
-		t.Errorf("step 0 note = %d, want 36", row.Steps[0].Note)
+		t.Errorf("globalStep 0 note = %d, want 36", row.Steps[0].Note)
 	}
-
-	// Step 1 should be active (tick 24)
 	if !row.Steps[1].Active {
-		t.Error("step 1 should be active")
+		t.Error("globalStep 1 (bar1 step1) should be active")
 	}
-
-	// Step 2 should be active (tick 48)
 	if !row.Steps[2].Active {
-		t.Error("step 2 should be active")
+		t.Error("globalStep 2 (bar1 step2) should be active")
 	}
-
-	// Step 3 should be inactive
 	if row.Steps[3].Active {
-		t.Error("step 3 should be inactive")
+		t.Error("globalStep 3 (bar1 step3) should be inactive")
+	}
+	if !row.Steps[4].Active {
+		t.Error("globalStep 4 (bar1 step4) should be active")
 	}
 
-	// Step 4 should be active (tick 96)
-	if !row.Steps[4].Active {
-		t.Error("step 4 should be active")
+	// Verify Bar/StepInBar/GlobalStep fields.
+	if row.Steps[4].Bar != 1 || row.Steps[4].StepInBar != 4 || row.Steps[4].GlobalStep != 4 {
+		t.Errorf("globalStep 4: Bar=%d StepInBar=%d GlobalStep=%d, want 1/4/4",
+			row.Steps[4].Bar, row.Steps[4].StepInBar, row.Steps[4].GlobalStep)
 	}
 }
 
@@ -188,20 +189,30 @@ func TestBuildGridBar2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	grid := BuildGrid(s, 2, nil)
+	grid := BuildGrid(s, nil)
 	if len(grid.Rows) != 1 {
 		t.Fatalf("grid rows = %d, want 1", len(grid.Rows))
 	}
+	if len(grid.Rows[0].Steps) != 32 {
+		t.Fatalf("steps = %d, want 32", len(grid.Rows[0].Steps))
+	}
 
-	// Only step 0 of bar 2 should be active
-	if !grid.Rows[0].Steps[0].Active {
-		t.Error("bar 2 step 0 should be active")
+	// Bar 2, step 0 = globalStep 16.
+	if !grid.Rows[0].Steps[16].Active {
+		t.Error("globalStep 16 (bar2 step0) should be active")
 	}
-	if grid.Rows[0].Steps[0].Note != 38 {
-		t.Errorf("bar 2 step 0 note = %d, want 38", grid.Rows[0].Steps[0].Note)
+	if grid.Rows[0].Steps[16].Note != 38 {
+		t.Errorf("globalStep 16 note = %d, want 38", grid.Rows[0].Steps[16].Note)
 	}
-	if grid.Rows[0].Steps[1].Active {
-		t.Error("bar 2 step 1 should be inactive")
+	if grid.Rows[0].Steps[17].Active {
+		t.Error("globalStep 17 (bar2 step1) should be inactive")
+	}
+
+	// Verify Bar/StepInBar/GlobalStep fields for the bar-2 cell.
+	cell := grid.Rows[0].Steps[16]
+	if cell.Bar != 2 || cell.StepInBar != 0 || cell.GlobalStep != 16 {
+		t.Errorf("globalStep 16: Bar=%d StepInBar=%d GlobalStep=%d, want 2/0/16",
+			cell.Bar, cell.StepInBar, cell.GlobalStep)
 	}
 }
 

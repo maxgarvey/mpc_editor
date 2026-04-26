@@ -38,7 +38,7 @@ func main() {
 	url := "http://" + addr
 	fmt.Printf("MPC Editor running at %s\n", url)
 
-	if runtime.GOOS == "darwin" {
+	if runtime.GOOS == "darwin" && os.Getenv("NO_BROWSER") == "" {
 		go exec.Command("open", url).Start() //nolint:errcheck // fire-and-forget browser open
 	}
 

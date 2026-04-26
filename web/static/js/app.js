@@ -208,27 +208,64 @@ function handleSlicerDrop(e) {
     });
 }
 
-function uploadFiles(files, padIndex, mode) {
-    const formData = new FormData();
-    for (const file of files) {
-        formData.append('files', file);
+function showUploadBar(label) {
+    var bar = document.getElementById('global-upload-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'global-upload-bar';
+        bar.className = 'global-upload-bar';
+        bar.innerHTML = '<div class="global-upload-fill" id="global-upload-fill"></div>' +
+                        '<span class="global-upload-label" id="global-upload-label"></span>';
+        document.body.appendChild(bar);
     }
+    document.getElementById('global-upload-label').textContent = label || 'Uploading...';
+    document.getElementById('global-upload-fill').style.width = '0%';
+    bar.style.display = 'flex';
+}
+
+function updateUploadBar(pct, label) {
+    var fill = document.getElementById('global-upload-fill');
+    var lbl = document.getElementById('global-upload-label');
+    if (fill) fill.style.width = Math.min(100, pct) + '%';
+    if (lbl && label) lbl.textContent = label;
+}
+
+function hideUploadBar() {
+    var bar = document.getElementById('global-upload-bar');
+    if (bar) bar.style.display = 'none';
+}
+
+function uploadFiles(files, padIndex, mode) {
+    var totalBytes = 0;
+    for (var i = 0; i < files.length; i++) totalBytes += files[i].size;
+    var label = files.length === 1 ? files[0].name : files.length + ' files';
+    showUploadBar('Uploading ' + label + '...');
+
+    var formData = new FormData();
+    for (var i = 0; i < files.length; i++) formData.append('files', files[i]);
     formData.append('pad', String(padIndex));
     formData.append('mode', mode);
 
-    fetch('/assign/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        // Refresh the page to show updated pad names
-        AudioPlayer.clearCache();
-        window.location.reload();
-    })
-    .catch(err => {
-        console.warn('Upload failed:', err);
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/assign/upload');
+    xhr.upload.addEventListener('progress', function(e) {
+        if (!e.lengthComputable) return;
+        var pct = (e.loaded / e.total) * 100;
+        updateUploadBar(pct, 'Uploading ' + formatBytes(e.loaded) + ' / ' + formatBytes(e.total) + ' (' + Math.round(pct) + '%)');
     });
+    xhr.addEventListener('load', function() {
+        updateUploadBar(100, 'Done!');
+        setTimeout(function() {
+            hideUploadBar();
+            AudioPlayer.clearCache();
+            window.location.reload();
+        }, 400);
+    });
+    xhr.addEventListener('error', function() {
+        hideUploadBar();
+        console.warn('Upload failed');
+    });
+    xhr.send(formData);
 }
 
 // Init drag-drop on load
@@ -482,6 +519,7 @@ function openNewModal() {
         '</div>' +
         '<div class="new-modal-tabs">' +
             '<button class="new-modal-tab active" data-tab="new-project">New Program</button>' +
+            '<button class="new-modal-tab" data-tab="new-seq">New Sequence</button>' +
             '<button class="new-modal-tab" data-tab="import-files">Import Files</button>' +
         '</div>' +
         '<div class="new-modal-body">' +
@@ -498,6 +536,23 @@ function openNewModal() {
                 '</div>' +
                 '<div class="import-actions">' +
                     '<button class="btn-primary" id="new-project-btn" onclick="confirmNewProject()" disabled>Create Program</button>' +
+                '</div>' +
+            '</div>' +
+            '<div id="new-seq-tab" class="new-modal-tab-content" style="display:none">' +
+                '<p style="color:#aaa;margin-bottom:12px">Create a blank 1-bar, 120 BPM sequence.</p>' +
+                '<div style="margin-bottom:12px">' +
+                    '<label style="color:#aaa;display:block;margin-bottom:4px">Sequence name <span style="color:#666">(max 16 chars, .SEQ appended)</span></label>' +
+                    '<input type="text" id="new-seq-name" class="path-input" maxlength="16" ' +
+                        'placeholder="e.g. Sequence01" style="width:100%" ' +
+                        'oninput="validateSeqName(this)">' +
+                    '<div id="seq-name-hint" style="font-size:11px;margin-top:4px;color:#666"></div>' +
+                '</div>' +
+                '<div style="margin-bottom:12px">' +
+                    '<label style="color:#aaa;display:block;margin-bottom:4px">Directory</label>' +
+                    '<input type="text" id="new-seq-dir" class="path-input" style="width:100%" placeholder="">' +
+                '</div>' +
+                '<div class="import-actions">' +
+                    '<button class="btn-primary" id="new-seq-btn" onclick="confirmNewSeq()" disabled>Create Sequence</button>' +
                 '</div>' +
             '</div>' +
             '<div id="import-files-tab" class="new-modal-tab-content" style="display:none">' +
@@ -536,15 +591,34 @@ function openNewModal() {
                 '<div class="import-actions">' +
                     '<button class="btn-primary" id="import-btn" onclick="confirmImportDest()" disabled>Import</button>' +
                 '</div>' +
+                '<div id="import-progress-wrap" style="display:none;margin-top:10px">' +
+                    '<div class="upload-progress-track">' +
+                        '<div class="upload-progress-fill" id="import-progress-fill"></div>' +
+                    '</div>' +
+                    '<div id="import-progress-label" class="upload-progress-label">Uploading...</div>' +
+                '</div>' +
             '</div>' +
         '</div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    // Populate default seq dir from current program path
+    var pgmPathEl = document.getElementById('save-pgm-path');
+    var seqDirEl = document.getElementById('new-seq-dir');
+    if (seqDirEl) {
+        var defaultSeqDir = '';
+        if (pgmPathEl && pgmPathEl.value) {
+            defaultSeqDir = pgmPathEl.value.replace(/\/[^\/]+$/, '');
+        } else {
+            defaultSeqDir = workspace || '';
+        }
+        seqDirEl.value = defaultSeqDir;
+    }
+
     // Tab switching
     var tabs = modal.querySelectorAll('.new-modal-tab');
-    var tabIds = ['new-project-tab', 'import-files-tab'];
+    var tabIds = ['new-project-tab', 'new-seq-tab', 'import-files-tab'];
     tabs.forEach(function(tab) {
         tab.addEventListener('click', function() {
             tabs.forEach(function(t) { t.classList.remove('active'); });
@@ -639,6 +713,63 @@ function confirmNewProject() {
         htmx.ajax('GET', '/browse/nav?dir=' + encodeURIComponent(data.project_dir), { target: '#file-nav' });
     }).catch(function(err) {
         alert('Create program failed: ' + err.message);
+    });
+}
+
+function validateSeqName(input) {
+    var name = input.value.trim();
+    var btn = document.getElementById('new-seq-btn');
+    var hint = document.getElementById('seq-name-hint');
+    if (!btn || !hint) return;
+
+    if (name.length === 0) {
+        btn.disabled = true;
+        hint.textContent = '';
+        hint.style.color = '#666';
+        return;
+    }
+
+    if (/[\/\\]/.test(name) || name === '.' || name === '..') {
+        btn.disabled = true;
+        hint.textContent = 'Invalid characters in name';
+        hint.style.color = '#ff6b4a';
+        return;
+    }
+
+    if (/\s/.test(name)) {
+        hint.textContent = 'Spaces may cause issues on some MPC firmware';
+        hint.style.color = '#c8a040';
+    } else {
+        hint.textContent = 'Creates: ' + name + '.SEQ';
+        hint.style.color = '#666';
+    }
+
+    btn.disabled = false;
+}
+
+function confirmNewSeq() {
+    var nameEl = document.getElementById('new-seq-name');
+    var dirEl = document.getElementById('new-seq-dir');
+    var name = nameEl ? nameEl.value.trim() : '';
+    var dir = dirEl ? dirEl.value.trim() : '';
+    if (!name) return;
+
+    closeNewModal();
+    fetch('/sequence/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'name=' + encodeURIComponent(name) + '&dir=' + encodeURIComponent(dir)
+    }).then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+        return r.json();
+    }).then(function(data) {
+        TabManager.openFile(data.seq_abs);
+        var dirEl2 = document.getElementById('browser-current-dir');
+        if (dirEl2) {
+            htmx.ajax('GET', '/browse/nav?dir=' + encodeURIComponent(dir || dirEl2.value), { target: '#file-nav' });
+        }
+    }).catch(function(err) {
+        alert('Create sequence failed: ' + err.message);
     });
 }
 
@@ -787,6 +918,12 @@ function confirmImportDest() {
     }
 }
 
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
 function doWorkspaceImport() {
     if (_importFiles.length === 0 && _importDirs.length === 0) return;
 
@@ -797,45 +934,168 @@ function doWorkspaceImport() {
     var flattenEl = document.getElementById('import-flatten');
     var flatten = flattenEl ? flattenEl.checked : false;
 
+    // Switch to progress UI
     var btn = document.getElementById('import-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+    if (btn) btn.style.display = 'none';
+    var progressWrap = document.getElementById('import-progress-wrap');
+    var progressFill = document.getElementById('import-progress-fill');
+    var progressLabel = document.getElementById('import-progress-label');
+    if (progressWrap) progressWrap.style.display = 'block';
 
-    var promises = [];
-
-    if (_importFiles.length > 0) {
-        var formData = new FormData();
-        for (var i = 0; i < _importFiles.length; i++) {
-            formData.append('files', _importFiles[i]);
-        }
-        formData.append('dest', destDir);
-        if (source) formData.append('source', source);
-        promises.push(fetch('/workspace/import', { method: 'POST', body: formData }).then(function(r) { return r.json(); }));
+    function setProgress(pct, label) {
+        if (progressFill) progressFill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+        if (progressLabel) progressLabel.textContent = label;
     }
 
+    function resetUI(errMsg) {
+        if (progressWrap) progressWrap.style.display = 'none';
+        if (btn) { btn.style.display = ''; btn.disabled = false; btn.textContent = 'Import'; }
+        if (errMsg) alert('Import failed: ' + errMsg);
+    }
+
+    var totalBytes = 0;
+    for (var i = 0; i < _importFiles.length; i++) totalBytes += _importFiles[i].size;
+
+    var dirTotal = _importDirs.length;
+    var dirsDone = 0;
+    var promises = [];
+
+    // File upload via XHR for real progress events
+    if (_importFiles.length > 0) {
+        var filePromise = new Promise(function(resolve, reject) {
+            var formData = new FormData();
+            for (var i = 0; i < _importFiles.length; i++) formData.append('files', _importFiles[i]);
+            formData.append('dest', destDir);
+            if (source) formData.append('source', source);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/workspace/import');
+            xhr.upload.addEventListener('progress', function(e) {
+                if (!e.lengthComputable) { setProgress(50, 'Uploading...'); return; }
+                var pct = (e.loaded / e.total) * 100;
+                setProgress(pct, 'Uploading ' + formatBytes(e.loaded) + ' / ' + formatBytes(e.total) + ' (' + Math.round(pct) + '%)');
+            });
+            xhr.addEventListener('load', function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try { resolve(JSON.parse(xhr.responseText)); } catch(e) { resolve({}); }
+                } else {
+                    reject(new Error(xhr.status + ' ' + xhr.statusText));
+                }
+            });
+            xhr.addEventListener('error', function() { reject(new Error('Network error')); });
+            xhr.addEventListener('abort', function() { reject(new Error('Aborted')); });
+            xhr.send(formData);
+        });
+        promises.push(filePromise);
+    }
+
+    // Dir copy requests (server-side, no upload data — show indeterminate progress)
     for (var d = 0; d < _importDirs.length; d++) {
-        var params = new URLSearchParams();
-        params.append('src_dir', _importDirs[d].path);
-        params.append('dest', destDir);
-        params.append('flatten', flatten ? '1' : '0');
-        if (source) params.append('source', source);
-        promises.push(fetch('/workspace/import/dir', { method: 'POST', body: params }).then(function(r) { return r.json(); }));
+        (function(dir) {
+            var params = new URLSearchParams();
+            params.append('src_dir', dir.path);
+            params.append('dest', destDir);
+            params.append('flatten', flatten ? '1' : '0');
+            if (source) params.append('source', source);
+            promises.push(
+                fetch('/workspace/import/dir', { method: 'POST', body: params })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        dirsDone++;
+                        if (_importFiles.length === 0) {
+                            setProgress((dirsDone / dirTotal) * 100,
+                                'Copying folder ' + dirsDone + ' of ' + dirTotal + '...');
+                        }
+                        return data;
+                    })
+            );
+        })(_importDirs[d]);
+    }
+
+    if (_importFiles.length === 0 && dirTotal > 0) {
+        setProgress(0, 'Copying ' + dirTotal + ' folder' + (dirTotal > 1 ? 's' : '') + '...');
     }
 
     Promise.all(promises)
         .then(function() {
-            closeNewModal();
-            htmx.ajax('GET', '/browse/nav?dir=' + encodeURIComponent(destDir), '#file-nav');
+            setProgress(100, 'Done!');
+            setTimeout(function() {
+                closeNewModal();
+                htmx.ajax('GET', '/browse/nav?dir=' + encodeURIComponent(destDir), '#file-nav');
+            }, 500);
         })
         .catch(function(err) {
             console.warn('Import failed:', err);
-            if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
+            resetUI(err.message);
         });
+}
+
+// --- WAV Preview in Browser Nav ---
+
+var _previewBtn = null;
+var _previewAudio = null;
+
+function _clearBrowserPreviewState() {
+    if (_previewBtn) {
+        _previewBtn.classList.remove('playing');
+        _previewBtn.innerHTML = '&#9654;';
+        _previewBtn = null;
+    }
+    _previewAudio = null;
+}
+
+// Stop browser preview whenever AudioPlayer takes over playback.
+AudioPlayer.onStopAll(function() {
+    if (_previewAudio) {
+        _previewAudio.pause();
+        _clearBrowserPreviewState();
+    }
+});
+
+function previewWavInBrowser(absPath, btn) {
+    // Toggle off if already playing this button.
+    if (_previewBtn === btn) {
+        if (_previewAudio) _previewAudio.pause();
+        _clearBrowserPreviewState();
+        return;
+    }
+    // Stop any existing preview.
+    if (_previewAudio) _previewAudio.pause();
+    _clearBrowserPreviewState();
+
+    _previewBtn = btn;
+    btn.classList.add('playing');
+    btn.innerHTML = '&#9646;&#9646;';
+
+    var audio = new Audio('/audio/file?path=' + encodeURIComponent(absPath));
+    _previewAudio = audio;
+    audio.addEventListener('ended', function() {
+        if (_previewAudio === audio) _clearBrowserPreviewState();
+    });
+    audio.addEventListener('error', function() {
+        if (_previewAudio === audio) _clearBrowserPreviewState();
+    });
+    audio.play().catch(function() {
+        if (_previewAudio === audio) _clearBrowserPreviewState();
+    });
 }
 
 // --- Browser Refresh (triggered by server via HX-Trigger) ---
 
+// Refresh the file nav, re-running any active search query instead of resetting to directory view.
+function refreshBrowserNav(dir) {
+    var searchInput = document.getElementById('workspace-search');
+    var query = searchInput ? searchInput.value.trim() : '';
+    if (query) {
+        htmx.ajax('GET', '/browse/search?q=' + encodeURIComponent(query), { target: '#file-nav' });
+    } else {
+        var url = '/browse/nav' + (dir ? '?dir=' + encodeURIComponent(dir) : '');
+        htmx.ajax('GET', url, { target: '#file-nav' });
+    }
+}
+
 document.addEventListener('refreshBrowser', function() {
-    htmx.ajax('GET', '/browse/nav', { target: '#file-nav' });
+    refreshBrowserNav();
 });
 
 // --- Browser Nav Highlighting ---
@@ -1302,8 +1562,10 @@ function loadPickerPads() {
         .then(function(r) { return r.json(); })
         .then(function(pads) {
             var html = '';
-            for (var i = 0; i < pads.length; i++) {
-                var p = pads[i];
+            // Reorder to match MPC 1000 physical layout: pads 13-16 top, 1-4 bottom.
+            for (var uiPos = 0; uiPos < 16; uiPos++) {
+                var srcIdx = (3 - Math.floor(uiPos / 4)) * 4 + (uiPos % 4);
+                var p = pads[srcIdx];
                 var cls = 'pad-picker-btn';
                 if (p.layers > 0) cls += ' has-sample';
                 var title = p.name || '(empty)';
@@ -1556,7 +1818,7 @@ function confirmDelete(path, mode) {
                 TabManager.close(tab.id);
             }
         });
-        htmx.ajax('GET', '/browse/nav', { target: '#file-nav' });
+        refreshBrowserNav();
     }).catch(function(err) {
         alert('Delete failed: ' + err.message);
     });

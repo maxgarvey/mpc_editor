@@ -67,6 +67,8 @@ const TabManager = (function() {
         var content = document.getElementById('detail-tab-content');
         if (!content) return;
 
+        content.innerHTML = '<div class="detail-loading"><div class="detail-loading-spinner"></div></div>';
+
         fetch('/detail?path=' + encodeURIComponent(tab.path))
             .then(function(r) { return r.text(); })
             .then(function(html) {

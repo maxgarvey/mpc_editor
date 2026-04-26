@@ -25,6 +25,7 @@
             <span class="entry-name">{{if .RelPath}}{{.RelPath}}{{else}}{{.Name}}{{end}}</span>{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}
             {{if .WavInfo}}<span class="entry-meta">{{.WavInfo}}</span>{{end}}
         </span>
+        {{if eq .Ext ".wav"}}<button class="entry-preview-btn" title="Preview" onclick="event.stopPropagation(); previewWavInBrowser('{{.Path}}', this)">&#9654;</button>{{end}}
     </div>
     {{end}}
 </div>

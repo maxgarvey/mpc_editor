@@ -178,25 +178,17 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		return
 	}
 
-	bar := parseIntParam(r, "bar", 1)
-	if bar < 1 {
-		bar = 1
-	}
-	if bar > sequence.Bars {
-		bar = sequence.Bars
-	}
-
-	grid := seq.BuildGrid(sequence, bar, s.noteToPadMap())
+	pgmRelPath := r.FormValue("pgm")
+	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath))
 	data := SequenceViewData{
-		Path:       path,
-		FileName:   filepath.Base(path),
-		BPM:        sequence.BPM,
-		Bars:       sequence.Bars,
-		Version:    sequence.Version,
-		CurrentBar: bar,
-		Grid:       grid,
-		PGMPath:    r.FormValue("pgm"),
-		PGMFiles:   s.pgmFilesInWorkspace(),
+		Path:     path,
+		FileName: filepath.Base(path),
+		BPM:      sequence.BPM,
+		Bars:     sequence.Bars,
+		Version:  sequence.Version,
+		Grid:     grid,
+		PGMPath:  pgmRelPath,
+		PGMFiles: s.pgmFilesInWorkspace(),
 	}
 
 	// Look up file ID for tags.

@@ -18,16 +18,45 @@ const SequencePlayer = (function() {
     var LOOKAHEAD_MS = 25;
     var selectedPgm = '';
 
+    // Smooth playhead line
+    var playheadEl = null;
+    var playheadStepLeft = 0;  // content-area x of step-col-0 left edge
+    var playheadStepWidth = 0; // width of one step column
+
+    function initPlayhead() {
+        var scrollEl = document.querySelector('.seq-grid-scroll');
+        var firstStep = document.querySelector('#seq-step-grid thead th:nth-child(2)');
+        playheadEl = document.getElementById('seq-playhead');
+        if (!scrollEl || !firstStep || !playheadEl) { playheadEl = null; return; }
+        var sr = scrollEl.getBoundingClientRect();
+        var fr = firstStep.getBoundingClientRect();
+        playheadStepLeft = (fr.left - sr.left) + scrollEl.scrollLeft;
+        playheadStepWidth = fr.width;
+        playheadEl.style.height = scrollEl.scrollHeight + 'px';
+        playheadEl.style.display = 'block';
+    }
+
+    function updatePlayhead(fractionalStep) {
+        if (!playheadEl) return;
+        playheadEl.style.left = (playheadStepLeft + fractionalStep * playheadStepWidth) + 'px';
+    }
+
+    function hidePlayhead() {
+        if (playheadEl) { playheadEl.style.display = 'none'; playheadEl = null; }
+    }
+
     const mutedPads = new Set();
     const soloPads = new Set();
 
-    var visibleBanks = 0; // 0=A only, 1=A+B, 2=A+B+C, 3=all
-
-    var EXTRA_BANKS = [
-        { rowClass: '.bank-b-row', sepClass: '.bank-b-sep' },
-        { rowClass: '.bank-c-row', sepClass: '.bank-c-sep' },
-        { rowClass: '.bank-d-row', sepClass: '.bank-d-sep' },
+    var ALL_BANKS = [
+        { letter: 'a', rowClass: '.bank-a-row', sepClass: '.bank-a-sep' },
+        { letter: 'b', rowClass: '.bank-b-row', sepClass: '.bank-b-sep' },
+        { letter: 'c', rowClass: '.bank-c-row', sepClass: '.bank-c-sep' },
+        { letter: 'd', rowClass: '.bank-d-row', sepClass: '.bank-d-sep' },
     ];
+
+    // Set of bank letters currently expanded.
+    var expandedBanks = new Set(['a']);
 
     document.addEventListener('htmx:afterSwap', function(evt) {
         var target = evt.detail && evt.detail.target;
@@ -35,55 +64,44 @@ const SequencePlayer = (function() {
         var btn = document.getElementById('seq-loop-btn');
         if (btn) btn.classList.toggle('active', looping);
         SequenceEditor.restoreModeButtons();
-        restoreVisibleBanks(); // use in-memory state — only DOMContentLoaded reads localStorage
+        restoreBankState();
+        refreshEvents();
     });
 
-    document.addEventListener('DOMContentLoaded', loadVisibleBanksFromStorage);
-
-    // Reads the persisted count from localStorage and resyncs the DOM.
-    // Called on page load and after HTMX full-swaps.
-    function loadVisibleBanksFromStorage() {
-        visibleBanks = Math.min(3, Math.max(0, parseInt(localStorage.getItem('seq-visible-banks')) || 0));
-        restoreVisibleBanks();
-    }
-
-    // Resyncs the DOM to match the current in-memory visibleBanks count.
-    // Called after every grid re-render (postEdit and htmx:afterSwap).
-    // Never reads localStorage — only DOMContentLoaded does that.
-    function restoreVisibleBanks() {
-        for (var i = 0; i < 3; i++) {
-            var bank = EXTRA_BANKS[i];
-            var show = i < visibleBanks;
-            document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
-                el.style.display = show ? '' : 'none';
-            });
+    document.addEventListener('DOMContentLoaded', function() {
+        var stored = localStorage.getItem('seq-expanded-banks');
+        if (stored !== null) {
+            expandedBanks = new Set(stored ? stored.split(',') : []);
         }
-        var moreBtn = document.getElementById('seq-show-more-btn');
-        var lessBtn = document.getElementById('seq-show-less-btn');
-        if (moreBtn) moreBtn.style.display = visibleBanks >= 3 ? 'none' : '';
-        if (lessBtn) lessBtn.style.display = visibleBanks > 0 ? '' : 'none';
+        restoreBankState();
+    });
+
+    function saveBankState() {
+        localStorage.setItem('seq-expanded-banks', Array.from(expandedBanks).join(','));
     }
 
-    function showMoreBanks() {
-        if (visibleBanks >= 3) return;
-        var bank = EXTRA_BANKS[visibleBanks];
-        document.querySelectorAll(bank.rowClass + ', ' + bank.sepClass).forEach(function(el) {
-            el.style.display = '';
-        });
-        visibleBanks++;
-        localStorage.setItem('seq-visible-banks', String(visibleBanks));
-        restoreVisibleBanks();
-    }
-
-    function showLessBanks() {
-        EXTRA_BANKS.forEach(function(b) {
-            document.querySelectorAll(b.rowClass + ', ' + b.sepClass).forEach(function(el) {
-                el.style.display = 'none';
+    function restoreBankState() {
+        ALL_BANKS.forEach(function(bank) {
+            var expanded = expandedBanks.has(bank.letter);
+            document.querySelectorAll(bank.rowClass).forEach(function(el) {
+                el.style.display = expanded ? '' : 'none';
+            });
+            document.querySelectorAll(bank.sepClass).forEach(function(sep) {
+                var arrow = sep.querySelector('.bank-sep-arrow');
+                if (arrow) arrow.textContent = expanded ? '▼' : '▶';
+                sep.classList.toggle('bank-sep-collapsed', !expanded);
             });
         });
-        visibleBanks = 0;
-        localStorage.setItem('seq-visible-banks', '0');
-        restoreVisibleBanks();
+    }
+
+    function toggleBank(letter) {
+        if (expandedBanks.has(letter)) {
+            expandedBanks.delete(letter);
+        } else {
+            expandedBanks.add(letter);
+        }
+        saveBankState();
+        restoreBankState();
     }
 
     function isPadAudible(padIndex) {
@@ -114,6 +132,8 @@ const SequencePlayer = (function() {
         seqBpm = data.bpm || 120;
         seqEvents = data.events || [];
         stepDurationSec = (60 / seqBpm) / 4;
+        // When bar=0 (all bars), totalSteps spans the entire sequence.
+        totalSteps = (data.stepsPerBar || 16) * (data.bars || 1);
 
         var ctx = AudioPlayer.getContext();
         startAudioTime = ctx.currentTime + 0.05;
@@ -122,6 +142,7 @@ const SequencePlayer = (function() {
         currentStep = 0;
         playing = true;
 
+        initPlayhead();
         scheduler();
         drawLoop();
     }
@@ -153,18 +174,23 @@ const SequencePlayer = (function() {
         if (!playing) return;
         var ctx = AudioPlayer.getContext();
         var elapsed = ctx.currentTime - startAudioTime;
-        var absStep = Math.floor(elapsed / stepDurationSec);
+        var absStepFrac = elapsed / stepDurationSec;
+        var absStep = Math.floor(absStepFrac);
 
         if (!looping && absStep >= totalSteps) {
             stop();
             return;
         }
 
-        var step = absStep % totalSteps;
+        var fractionalStep = absStepFrac % totalSteps;
+        var step = Math.floor(fractionalStep);
+
         if (step !== currentStep) {
             currentStep = step;
             highlightStep(currentStep);
         }
+
+        updatePlayhead(fractionalStep);
 
         rafHandle = requestAnimationFrame(drawLoop);
     }
@@ -173,6 +199,7 @@ const SequencePlayer = (function() {
         document.querySelectorAll('.step-cell.step-playing').forEach(function(cell) {
             cell.classList.remove('step-playing');
         });
+        // step-col-N uses the globalStep index; bar-1 steps are 0–15
         document.querySelectorAll('.step-col-' + step).forEach(function(cell) {
             cell.classList.add('step-playing');
         });
@@ -187,6 +214,26 @@ const SequencePlayer = (function() {
         document.querySelectorAll('.step-cell.step-playing').forEach(function(cell) {
             cell.classList.remove('step-playing');
         });
+        hidePlayhead();
+    }
+
+    // Re-fetch events and re-attach playhead after a grid DOM update during playback.
+    // Safe to call when not playing — returns immediately.
+    function refreshEvents() {
+        if (!playing) return;
+        initPlayhead();
+        var grid = document.getElementById('seq-step-grid');
+        if (!grid) return;
+        var seqPath = grid.dataset.seqPath;
+        if (!seqPath) return;
+        var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
+        fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                seqEvents = data.events || [];
+                totalSteps = (data.stepsPerBar || 16) * (data.bars || 1);
+            })
+            .catch(function(err) { console.warn('Event refresh failed:', err); });
     }
 
     function toggleMutePad(padIndex, btn) {
@@ -225,9 +272,9 @@ const SequencePlayer = (function() {
         isPlaying: function() { return playing; },
         toggleMutePad: toggleMutePad,
         toggleSoloPad: toggleSoloPad,
-        showMoreBanks: showMoreBanks,
-        showLessBanks: showLessBanks,
-        restoreVisibleBanks: restoreVisibleBanks,
+        toggleBank: toggleBank,
+        restoreBankState: restoreBankState,
+        refreshEvents: refreshEvents,
         toggleLoop: function(btn) {
             looping = !looping;
             btn.classList.toggle('active', looping);
@@ -241,13 +288,14 @@ const SequenceEditor = (function() {
     var mode = 'view'; // 'view' | 'insert' | 'edit'
 
     // --- drag state ---
-    var drag = null; // { pad, step, el }
+    var drag = null; // { pad, step, bar, el }
     var dragGhost = null;
     var dragOverCell = null;
 
     // --- detail popover state ---
     var detailPad = -1;
     var detailStep = -1;
+    var detailBar = -1;
 
     // ---- helpers ----
 
@@ -260,7 +308,6 @@ const SequenceEditor = (function() {
         if (!g) return null;
         return {
             path: g.dataset.seqPath,
-            bar: g.dataset.seqBar,
             pgm: g.dataset.seqPgm || ''
         };
     }
@@ -268,7 +315,7 @@ const SequenceEditor = (function() {
     function postEdit(params) {
         var meta = gridMeta();
         if (!meta) return;
-        var body = new URLSearchParams(Object.assign({ path: meta.path, bar: meta.bar, pgm: meta.pgm }, params));
+        var body = new URLSearchParams(Object.assign({ path: meta.path, pgm: meta.pgm }, params));
         fetch('/sequence/event/edit', { method: 'POST', body: body })
             .then(function(r) {
                 if (!r.ok) return r.text().then(function(t) { console.error('seq edit error:', t); });
@@ -281,7 +328,8 @@ const SequenceEditor = (function() {
                     grid.innerHTML = html;
                     if (window.htmx) htmx.process(grid);
                     SequenceEditor.restoreModeButtons();
-                    SequencePlayer.restoreVisibleBanks();
+                    SequencePlayer.restoreBankState();
+                    SequencePlayer.refreshEvents();
                 }
             })
             .catch(function(err) { console.error('seq edit fetch failed:', err); });
@@ -315,7 +363,8 @@ const SequenceEditor = (function() {
         if (drag) return; // ignore clicks that follow a drag
         var pad = parseInt(cell.dataset.pad);
         var step = parseInt(cell.dataset.step);
-        postEdit({ action: 'toggle', pad: pad, step: step, velocity: 100, duration: 23 });
+        var bar = parseInt(cell.dataset.bar) || 1;
+        postEdit({ action: 'toggle', pad: pad, step: step, bar: bar, velocity: 100, duration: 23 });
     });
 
     // ---- edit mode: mouse-drag to move ----
@@ -327,7 +376,12 @@ const SequenceEditor = (function() {
         if (!cell || !cell.classList.contains('step-active')) return;
         e.preventDefault();
 
-        drag = { pad: parseInt(cell.dataset.pad), step: parseInt(cell.dataset.step), el: cell };
+        drag = {
+            pad: parseInt(cell.dataset.pad),
+            step: parseInt(cell.dataset.step),
+            bar: parseInt(cell.dataset.bar) || 1,
+            el: cell
+        };
         cell.classList.add('step-dragging');
 
         dragGhost = document.createElement('div');
@@ -361,14 +415,13 @@ const SequenceEditor = (function() {
 
         var fromPad = drag.pad;
         var fromStep = drag.step;
+        var fromBar = drag.bar;
         var sourceEl = drag.el;
 
         // Remove ghost first so it cannot interfere with elementFromPoint below.
         if (dragGhost) { dragGhost.remove(); dragGhost = null; }
 
         // Always use elementFromPoint at the release position as the source of truth.
-        // Relying on dragOverCell risks using a stale cell from when the cursor last
-        // passed over it (e.g. A16) rather than where the mouse actually landed.
         var target = null;
         var el = document.elementFromPoint(e.clientX, e.clientY);
         if (el) {
@@ -385,7 +438,12 @@ const SequenceEditor = (function() {
         if (target) {
             var toPad = parseInt(target.dataset.pad);
             var toStep = parseInt(target.dataset.step);
-            postEdit({ action: 'move', from_pad: fromPad, from_step: fromStep, to_pad: toPad, to_step: toStep });
+            var toBar = parseInt(target.dataset.bar) || 1;
+            postEdit({
+                action: 'move',
+                from_pad: fromPad, from_step: fromStep, from_bar: fromBar,
+                to_pad: toPad, to_step: toStep, to_bar: toBar
+            });
         }
     });
 
@@ -397,6 +455,7 @@ const SequenceEditor = (function() {
         e.preventDefault();
         detailPad = parseInt(cell.dataset.pad);
         detailStep = parseInt(cell.dataset.step);
+        detailBar = parseInt(cell.dataset.bar) || 1;
         var vel = parseInt(cell.dataset.vel) || 100;
         var dur = parseInt(cell.dataset.dur) || 23;
         openDetail(e.clientX, e.clientY, vel, dur);
@@ -420,16 +479,16 @@ const SequenceEditor = (function() {
     }
 
     function saveDetail() {
-        if (detailPad < 0 || detailStep < 0) return;
+        if (detailPad < 0 || detailStep < 0 || detailBar < 0) return;
         var vel = parseInt(document.getElementById('seq-detail-vel').value);
         var dur = parseInt(document.getElementById('seq-detail-dur').value);
-        postEdit({ action: 'update', pad: detailPad, step: detailStep, velocity: vel, duration: dur });
+        postEdit({ action: 'update', pad: detailPad, step: detailStep, bar: detailBar, velocity: vel, duration: dur });
         closeDetail();
     }
 
     function deleteDetail() {
-        if (detailPad < 0 || detailStep < 0) return;
-        postEdit({ action: 'delete', pad: detailPad, step: detailStep });
+        if (detailPad < 0 || detailStep < 0 || detailBar < 0) return;
+        postEdit({ action: 'delete', pad: detailPad, step: detailStep, bar: detailBar });
         closeDetail();
     }
 
@@ -438,6 +497,7 @@ const SequenceEditor = (function() {
         if (panel) panel.style.display = 'none';
         detailPad = -1;
         detailStep = -1;
+        detailBar = -1;
     }
 
     // Close detail on click outside.
@@ -453,11 +513,51 @@ const SequenceEditor = (function() {
         if (e.key === 'Escape') closeDetail();
     });
 
+    // ---- pad / step preview ----
+
+    function previewPad(padIndex) {
+        var meta = gridMeta();
+        var pgm = meta ? meta.pgm : '';
+        AudioPlayer.stop();
+        var ctx = AudioPlayer.getContext();
+        AudioPlayer.playPadAtTime(padIndex, 100, ctx.currentTime + 0.01, pgm);
+    }
+
+    function previewStep(globalStep) {
+        var meta = gridMeta();
+        var pgm = meta ? meta.pgm : '';
+        AudioPlayer.stop();
+        var ctx = AudioPlayer.getContext();
+        var atTime = ctx.currentTime + 0.01;
+        document.querySelectorAll('.step-col-' + globalStep + '.step-active').forEach(function(cell) {
+            var padIdx = parseInt(cell.dataset.pad);
+            var vel = parseInt(cell.dataset.vel) || 100;
+            if (!isNaN(padIdx)) {
+                AudioPlayer.playPadAtTime(padIdx, vel, atTime, pgm);
+            }
+        });
+    }
+
+    // View mode: click active step to preview all events at that step.
+    document.addEventListener('click', function(e) {
+        if (mode !== 'view') return;
+        var cell = e.target.closest('#seq-step-grid .step-cell');
+        if (!cell || !cell.classList.contains('step-active')) return;
+        var globalStep = null;
+        cell.classList.forEach(function(cls) {
+            var m = cls.match(/^step-col-(\d+)$/);
+            if (m) globalStep = parseInt(m[1]);
+        });
+        if (globalStep !== null) previewStep(globalStep);
+    });
+
     return {
         setMode: setMode,
         restoreModeButtons: restoreModeButtons,
         saveDetail: saveDetail,
         deleteDetail: deleteDetail,
-        closeDetail: closeDetail
+        closeDetail: closeDetail,
+        previewPad: previewPad,
+        previewStep: previewStep
     };
 })();

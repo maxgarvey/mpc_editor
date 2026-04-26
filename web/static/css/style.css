@@ -269,6 +269,26 @@ body {
 }
 
 /* Detail welcome/empty state */
+.detail-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+}
+
+.detail-loading-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid #333;
+    border-top-color: #a0c840;
+    border-radius: 50%;
+    animation: detail-spin 0.7s linear infinite;
+}
+
+@keyframes detail-spin {
+    to { transform: rotate(360deg); }
+}
+
 .detail-welcome {
     text-align: center;
     color: #666;
@@ -966,6 +986,37 @@ body {
     text-overflow: ellipsis;
 }
 
+.entry-preview-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid #3a3a3a;
+    border-radius: 3px;
+    color: #666;
+    font-size: 9px;
+    padding: 1px 5px;
+    cursor: pointer;
+    line-height: 14px;
+    opacity: 0;
+    transition: opacity 0.1s, color 0.1s;
+    margin-top: 1px;
+    align-self: flex-start;
+}
+
+.browser-entry:hover .entry-preview-btn {
+    opacity: 1;
+}
+
+.entry-preview-btn:hover {
+    color: #a0c840;
+    border-color: #a0c840;
+}
+
+.entry-preview-btn.playing {
+    opacity: 1;
+    color: #a0c840;
+    border-color: #a0c840;
+}
+
 .browser-empty {
     padding: 40px 16px;
     text-align: center;
@@ -1271,7 +1322,7 @@ body {
 /* Sequence viewer */
 
 .sequence-layout {
-    max-width: 1100px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 16px;
 }
@@ -1343,6 +1394,12 @@ body {
     width: 44px;
 }
 
+.seq-bars-btn {
+    padding: 1px 5px;
+    font-size: 13px;
+    line-height: 1;
+}
+
 .seq-meta-version {
     color: #666;
     font-size: 11px;
@@ -1353,31 +1410,55 @@ body {
     color: #999;
 }
 
-.bar-nav {
+.seq-controls {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
 }
 
-.bar-label {
-    color: #ccc;
-    font-size: 13px;
+.seq-mode-sep {
+    color: #555;
 }
 
-.bar-select {
-    background: #222;
-    color: #ccc;
-    border: 1px solid #444;
-    border-radius: 4px;
-    padding: 2px 4px;
-    font-size: 13px;
+.seq-mode-label {
+    color: #999;
+    font-size: 12px;
+}
+
+.seq-mode-btn.active {
+    background: #1a3a00;
+    color: #a0c840;
+    border-color: #a0c840;
+}
+
+.seq-grid-scroll {
+    overflow-x: auto;
+    margin-bottom: 6px;
+    position: relative;
+}
+
+.seq-playhead {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        rgba(255, 210, 60, 0.85) 3%,
+        rgba(255, 210, 60, 0.85) 97%,
+        transparent 100%);
+    pointer-events: none;
+    z-index: 6;
+    display: none;
+    transform: translateX(-1px);
+    will-change: left;
 }
 
 .step-grid {
-    width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
+    /* width is determined by content — not 100% — so it can be wider than viewport */
 }
 
 .step-grid th {
@@ -1420,7 +1501,8 @@ body {
 }
 
 .track-mute-btn,
-.track-solo-btn {
+.track-solo-btn,
+.track-preview-btn {
     width: 18px;
     height: 18px;
     padding: 0;
@@ -1435,8 +1517,14 @@ body {
     text-align: center;
 }
 
+.track-preview-btn {
+    font-size: 8px;
+    color: #666;
+}
+
 .track-mute-btn:hover { background: #444; }
 .track-solo-btn:hover { background: #444; }
+.track-preview-btn:hover { background: #444; color: #a0c840; border-color: #a0c840; }
 
 .track-mute-btn.active {
     background: #cc6600;
@@ -1459,7 +1547,8 @@ tr.track-muted .track-label {
 }
 
 .step-cell {
-    width: 40px;
+    width: 26px;
+    min-width: 26px;
     height: 28px;
     background: #222;
     border: 1px solid #333;
@@ -1472,8 +1561,24 @@ tr.track-muted .track-label {
     border-left: 2px solid #555;
 }
 
+.step-cell.bar-start {
+    border-left: 3px solid #777;
+}
+
 .step-header.beat-start {
     border-left: 2px solid #555;
+}
+
+.step-header.bar-start {
+    border-left: 3px solid #777;
+    color: #ccc;
+    font-weight: bold;
+}
+
+.bar-num {
+    font-size: 10px;
+    font-weight: bold;
+    color: #ccc;
 }
 
 .step-active {
@@ -1507,14 +1612,14 @@ tr.pad-row:not(.has-events) .track-label {
     border-color: #a0c840;
 }
 
-.seq-bank-toggle-row {
-    margin-top: 6px;
-    text-align: left;
+.bank-separator {
+    cursor: pointer;
+    user-select: none;
 }
 
-.seq-bank-toggle-btn {
-    color: #888;
-    font-size: 11px;
+.bank-separator:hover .bank-separator-cell {
+    background: #222;
+    color: #999;
 }
 
 .bank-separator-cell {
@@ -1526,6 +1631,13 @@ tr.pad-row:not(.has-events) .track-label {
     border-top: 2px solid #3a3a1a;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+}
+
+.bank-sep-arrow {
+    display: inline-block;
+    width: 12px;
+    font-size: 9px;
+    color: #555;
 }
 
 .sequence-error {
@@ -1560,6 +1672,15 @@ tr.pad-row:not(.has-events) .track-label {
 [data-seq-mode="insert"] .step-cell.step-active:hover {
     border-color: #ff6060;
     box-shadow: inset 0 0 6px rgba(255, 96, 96, 0.4);
+}
+
+/* View mode: active cells are clickable to preview */
+[data-seq-mode="view"] .step-cell.step-active {
+    cursor: pointer;
+}
+[data-seq-mode="view"] .step-cell.step-active:hover {
+    border-color: #a0c840;
+    box-shadow: inset 0 0 6px rgba(160, 200, 64, 0.25);
 }
 
 /* Edit mode: active cells become draggable */
@@ -1802,6 +1923,65 @@ tr.pad-row:not(.has-events) .track-label {
     gap: 8px;
     justify-content: flex-end;
     margin-top: 16px;
+}
+
+/* --- Upload progress --- */
+
+.upload-progress-track {
+    height: 6px;
+    background: #2a2a2a;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #a0c840;
+    border-radius: 3px;
+    transition: width 0.15s ease;
+}
+
+.upload-progress-label {
+    font-size: 11px;
+    color: #888;
+    margin-top: 5px;
+    text-align: center;
+}
+
+/* Fixed top bar for pad assign uploads */
+.global-upload-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    height: 28px;
+    background: #1a2a10;
+    border-bottom: 1px solid #3a5a1a;
+    display: none;
+    align-items: center;
+    padding: 0 12px;
+    gap: 10px;
+}
+
+.global-upload-fill {
+    height: 4px;
+    width: 0%;
+    background: #a0c840;
+    border-radius: 2px;
+    transition: width 0.15s ease;
+    flex-shrink: 0;
+    min-width: 80px;
+    max-width: 200px;
+}
+
+.global-upload-label {
+    font-size: 11px;
+    color: #a0c840;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* --- Tags --- */

@@ -4,7 +4,7 @@ GOFLAGS   := -trimpath
 LDFLAGS   := -s -w
 LINT_VER  := v2.11.4
 
-.PHONY: all build run test lint vet fmt check clean install dev generate help test-e2e test-e2e-headed test-e2e-ui
+.PHONY: all build run test lint vet fmt check clean install dev generate help test-e2e test-e2e-headed test-e2e-ui electron electron-dist
 
 ## —— Primary targets ——
 
@@ -74,6 +74,14 @@ test-e2e-ui:  ## Open Playwright UI mode for interactive testing
 dev:  ## Run with live rebuild on file changes (requires watchexec)
 	@command -v watchexec >/dev/null 2>&1 || { echo "Install watchexec: brew install watchexec"; exit 1; }
 	watchexec -r -e go,html,css,js -- go run $(CMD)
+
+## —— Electron desktop app ——
+
+electron: build  ## Build Go binary then launch Electron app (requires npm)
+	cd electron && npm install --silent && npm start
+
+electron-dist: build  ## Build Go binary then package Electron distributable
+	cd electron && npm install --silent && npm run dist:mac
 
 clean:  ## Remove build artifacts
 	rm -f $(BINARY) coverage.out

@@ -50,8 +50,9 @@ func encodeEvent(ev Event) [eventSize]byte {
 
 // Create builds a complete, self-consistent .SEQ binary from scratch.
 // trackName and pgmName may be empty; events are sorted by tick before encoding.
+// loop=true sets the MPC loop flag (byte 0x17=1, meaning "1-End"); loop=false means off.
 // The returned bytes are ready to write directly to a .SEQ file.
-func Create(bpm float64, bars int, trackName, pgmName string, events []Event) []byte {
+func Create(bpm float64, bars int, trackName, pgmName string, loop bool, events []Event) []byte {
 	// Sort events by tick before encoding.
 	evs := make([]Event, len(events))
 	copy(evs, events)
@@ -70,7 +71,9 @@ func Create(bpm float64, bars int, trackName, pgmName string, events []Event) []
 	data[0x14] = 0x00
 	data[0x15] = 0x01
 	data[0x16] = 0x01
-	data[0x17] = 0x00
+	if loop {
+		data[0x17] = 0x01
+	}
 	data[0x18] = 0x01
 	data[0x19] = 0x00
 	binary.LittleEndian.PutUint16(data[0x1A:], 1000) // unknown constant
