@@ -17,20 +17,6 @@ import (
 	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
-// noteToPadMap builds a MIDI note → pad index map from the session's loaded program.
-// Returns nil if no program is loaded (callers use the chromatic fallback).
-func (s *Server) noteToPadMap() map[int]int {
-	if s.session.Program == nil {
-		return nil
-	}
-	prog := s.session.Program
-	m := make(map[int]int, prog.PadCount())
-	for i := 0; i < prog.PadCount(); i++ {
-		m[prog.Pad(i).GetMIDINote()] = i
-	}
-	return m
-}
-
 // noteToPadMapFor builds a MIDI note → pad index map using the selected or session program.
 func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
 	var prog *pgm.Program

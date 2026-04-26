@@ -102,7 +102,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int) *StepGrid {
 		if ev.Tick >= barTicks {
 			continue
 		}
-		barIdx := int(ev.Tick) / TicksPerBar   // 0-indexed
+		barIdx := int(ev.Tick) / TicksPerBar // 0-indexed
 		stepInBar := int(ev.Tick%uint32(TicksPerBar)) / TicksPerStep
 		if stepInBar >= StepsPerBar {
 			continue
