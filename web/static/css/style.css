@@ -1766,6 +1766,162 @@ tr.pad-row:not(.has-events) .track-label {
     font-style: italic;
 }
 
+/* ---- Continuous (piano-roll) view ---- */
+
+.seq-view-btn.active {
+    background: #1a3a00;
+    color: #a0c840;
+    border-color: #a0c840;
+}
+
+.seq-cont-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 55vh;
+    margin-bottom: 6px;
+    border: 1px solid #333;
+    border-radius: 4px;
+}
+
+.seq-cont-inner {
+    display: flex;
+    flex-direction: column;
+    min-width: max-content;
+}
+
+.seq-cont-header {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1e1e1e;
+    border-bottom: 1px solid #333;
+}
+
+.seq-cont-header-name {
+    width: 140px;
+    min-width: 140px;
+    flex-shrink: 0;
+}
+
+.seq-cont-header-timeline {
+    position: relative;
+    height: 26px;
+    flex: 1;
+}
+
+.seq-cont-bar-label {
+    position: absolute;
+    top: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #aaa;
+    white-space: nowrap;
+    padding-left: 3px;
+}
+
+.seq-cont-beat-label {
+    position: absolute;
+    top: 4px;
+    font-size: 9px;
+    color: #666;
+    white-space: nowrap;
+    padding-left: 2px;
+}
+
+.seq-cont-tracks {
+    position: relative;
+}
+
+.seq-cont-track {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.seq-cont-track:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.seq-cont-track-name {
+    width: 140px;
+    min-width: 140px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 11px;
+    color: #aaa;
+    background: #1e1e1e;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    border-right: 1px solid #333;
+}
+
+.seq-cont-track-body {
+    position: relative;
+    flex: 1;
+    height: 32px;
+}
+
+.seq-cont-gridline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    pointer-events: none;
+}
+
+.seq-cont-gridline-bar {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.seq-cont-gridline-beat {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.seq-cont-gridline-step {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.seq-cont-event {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    min-width: 3px;
+    border-radius: 2px;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.seq-cont-event:hover {
+    filter: brightness(1.3);
+}
+
+#seq-cont-playhead {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        rgba(255, 210, 60, 0.85) 3%,
+        rgba(255, 210, 60, 0.85) 97%,
+        transparent 100%);
+    pointer-events: none;
+    z-index: 8;
+    display: none;
+    transform: translateX(-1px);
+    will-change: left;
+}
+
+.seq-cont-empty {
+    color: #666;
+    padding: 20px 16px;
+    font-size: 12px;
+    font-style: italic;
+}
+
 .toolbar-link {
     color: #a0c840;
     text-decoration: none;

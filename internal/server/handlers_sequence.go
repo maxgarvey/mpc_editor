@@ -376,6 +376,8 @@ type sequenceEventJSON struct {
 	PadIndex      int `json:"padIndex"`
 	Velocity      int `json:"velocity"`
 	DurationSteps int `json:"durationSteps"`
+	Tick          int `json:"tick"`          // exact tick offset from range start
+	DurationTicks int `json:"durationTicks"` // exact duration in ticks
 }
 
 // sequenceEventsResponse is the JSON payload for /sequence/events.
@@ -385,6 +387,7 @@ type sequenceEventsResponse struct {
 	TicksPerStep int                 `json:"ticksPerStep"`
 	Bars         int                 `json:"bars"`
 	CurrentBar   int                 `json:"currentBar"`
+	TotalTicks   int                 `json:"totalTicks"`
 	Events       []sequenceEventJSON `json:"events"`
 }
 
@@ -452,6 +455,8 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 			PadIndex:      padForNote(int(ev.Note)),
 			Velocity:      int(ev.Velocity),
 			DurationSteps: durSteps,
+			Tick:          int(ev.Tick - tickStart),
+			DurationTicks: int(ev.Duration),
 		})
 	}
 
@@ -461,6 +466,7 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		TicksPerStep: seq.TicksPerStep,
 		Bars:         sequence.Bars,
 		CurrentBar:   bar,
+		TotalTicks:   int(tickEnd - tickStart),
 		Events:       events,
 	}
 

@@ -39,6 +39,10 @@
         <button class="btn-sm seq-mode-btn seq-mode-btn--view" onclick="SequenceEditor.setMode('view', this)">View</button>
         <button class="btn-sm seq-mode-btn seq-mode-btn--insert" onclick="SequenceEditor.setMode('insert', this)">Insert</button>
         <button class="btn-sm seq-mode-btn seq-mode-btn--edit" onclick="SequenceEditor.setMode('edit', this)">Edit</button>
+        <span class="seq-mode-sep">|</span>
+        <span class="seq-mode-label">Layout:</span>
+        <button class="btn-sm seq-view-btn seq-view-btn--grid active" onclick="SequencePlayer.setViewMode('grid')">Grid</button>
+        <button class="btn-sm seq-view-btn seq-view-btn--continuous" onclick="SequencePlayer.setViewMode('continuous')">Piano Roll</button>
     </div>
 
     <div class="pgm-picker">
@@ -56,7 +60,7 @@
     </div>
 
     {{if .Grid}}
-    <div class="seq-grid-scroll">
+    <div class="seq-grid-scroll" id="seq-grid-scroll">
     <div id="seq-playhead" class="seq-playhead"></div>
     <table class="step-grid" id="seq-step-grid"
            data-seq-path="{{.Path}}"
@@ -152,6 +156,8 @@
         </tbody>
     </table>
     </div>
+
+    <div id="seq-continuous-view" class="seq-cont-wrap" style="display:none"></div>
 
     {{end}}
 
