@@ -282,10 +282,10 @@ const SequencePlayer = (function() {
     const soloPads = new Set();
 
     var ALL_BANKS = [
-        { letter: 'a', rowClass: '.bank-a-row', sepClass: '.bank-a-sep' },
-        { letter: 'b', rowClass: '.bank-b-row', sepClass: '.bank-b-sep' },
-        { letter: 'c', rowClass: '.bank-c-row', sepClass: '.bank-c-sep' },
-        { letter: 'd', rowClass: '.bank-d-row', sepClass: '.bank-d-sep' },
+        { letter: 'a', rowClass: '.bank-a-row' },
+        { letter: 'b', rowClass: '.bank-b-row' },
+        { letter: 'c', rowClass: '.bank-c-row' },
+        { letter: 'd', rowClass: '.bank-d-row' },
     ];
 
     // Set of bank letters currently expanded.
@@ -317,13 +317,16 @@ const SequencePlayer = (function() {
     function restoreBankState() {
         ALL_BANKS.forEach(function(bank) {
             var expanded = expandedBanks.has(bank.letter);
-            document.querySelectorAll(bank.rowClass).forEach(function(el) {
-                el.style.display = expanded ? '' : 'none';
-            });
-            document.querySelectorAll(bank.sepClass).forEach(function(sep) {
-                var arrow = sep.querySelector('.bank-sep-arrow');
-                if (arrow) arrow.textContent = expanded ? '▼' : '▶';
-                sep.classList.toggle('bank-sep-collapsed', !expanded);
+            var rows = Array.from(document.querySelectorAll(bank.rowClass));
+            rows.forEach(function(el, idx) {
+                if (idx === 0) {
+                    // First row is always visible — it acts as the bank header.
+                    el.style.display = '';
+                    var arrow = el.querySelector('.bank-sep-arrow');
+                    if (arrow) arrow.textContent = expanded ? '▼' : '▶';
+                } else {
+                    el.style.display = expanded ? '' : 'none';
+                }
             });
         });
     }

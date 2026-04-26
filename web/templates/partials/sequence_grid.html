@@ -107,16 +107,12 @@
             </tr>
         </thead>
         <tbody>
-            <tr class="bank-separator bank-a-sep" onclick="SequencePlayer.toggleBank('a')">
-                <td colspan="9999" class="bank-separator-cell">
-                    <span class="bank-sep-arrow">▼</span> Bank A
-                </td>
-            </tr>
             {{range .Grid.BankAPadRows}}
             {{$padIdx := .PadIndex}}
             <tr class="pad-row bank-a-row" data-pad="{{$padIdx}}">
                 <td class="track-name-cell">
                     <span class="track-controls">
+                        {{if eq $padIdx 0}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('a')" title="Toggle Bank A"><span class="bank-sep-arrow">▼</span></button>{{end}}
                         <button class="track-preview-btn" onclick="SequenceEditor.previewPad({{$padIdx}})" title="Preview pad">&#9654;</button>
                         <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
                         <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
@@ -141,28 +137,13 @@
             {{end}}
             {{range $i, $row := .Grid.ExtraBankPadRows}}
             {{$padIdx := $row.PadIndex}}
-            {{if eq $i 0}}
-            <tr class="bank-separator bank-b-sep" onclick="SequencePlayer.toggleBank('b')">
-                <td colspan="9999" class="bank-separator-cell">
-                    <span class="bank-sep-arrow">▶</span> Bank B
-                </td>
-            </tr>
-            {{else if eq $i 16}}
-            <tr class="bank-separator bank-c-sep" onclick="SequencePlayer.toggleBank('c')">
-                <td colspan="9999" class="bank-separator-cell">
-                    <span class="bank-sep-arrow">▶</span> Bank C
-                </td>
-            </tr>
-            {{else if eq $i 32}}
-            <tr class="bank-separator bank-d-sep" onclick="SequencePlayer.toggleBank('d')">
-                <td colspan="9999" class="bank-separator-cell">
-                    <span class="bank-sep-arrow">▶</span> Bank D
-                </td>
-            </tr>
-            {{end}}
-            <tr class="pad-row {{if lt $i 16}}bank-b-row{{else if lt $i 32}}bank-c-row{{else}}bank-d-row{{end}}" data-pad="{{$padIdx}}" style="display:none">
+            <tr class="pad-row {{if lt $i 16}}bank-b-row{{else if lt $i 32}}bank-c-row{{else}}bank-d-row{{end}}{{if or (eq $i 0) (eq $i 16) (eq $i 32)}} bank-first-row{{end}}" data-pad="{{$padIdx}}"{{if and (ne $i 0) (ne $i 16) (ne $i 32)}} style="display:none"{{end}}>
                 <td class="track-name-cell">
                     <span class="track-controls">
+                        {{if eq $i 0}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('b')" title="Toggle Bank B"><span class="bank-sep-arrow">▶</span></button>
+                        {{else if eq $i 16}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('c')" title="Toggle Bank C"><span class="bank-sep-arrow">▶</span></button>
+                        {{else if eq $i 32}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('d')" title="Toggle Bank D"><span class="bank-sep-arrow">▶</span></button>
+                        {{end}}
                         <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
                         <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
                     </span>

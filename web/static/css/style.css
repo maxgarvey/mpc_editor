@@ -1612,32 +1612,28 @@ tr.pad-row:not(.has-events) .track-label {
     border-color: #a0c840;
 }
 
-.bank-separator {
+.bank-toggle-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 9px;
     cursor: pointer;
+    padding: 0 2px 0 0;
+    line-height: 1;
+    vertical-align: middle;
     user-select: none;
 }
 
-.bank-separator:hover .bank-separator-cell {
-    background: #222;
-    color: #999;
-}
-
-.bank-separator-cell {
-    padding: 4px 8px;
-    font-size: 11px;
-    font-weight: bold;
-    color: #666;
-    background: #1a1a1a;
-    border-top: 2px solid #3a3a1a;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+.bank-toggle-btn:hover {
+    color: #aaa;
 }
 
 .bank-sep-arrow {
     display: inline-block;
-    width: 12px;
-    font-size: 9px;
-    color: #555;
+}
+
+.bank-first-row {
+    border-top: 1px solid #333;
 }
 
 .sequence-error {
