@@ -43,28 +43,30 @@ PORT=9090 make run
 
 ## Architecture
 
-```
-internal/
-  pgm/       Binary .pgm format: read/write, pads, layers, parameters
-  audio/     WAV file I/O, beat detection slicer, marker management
-  midi/      Standard MIDI File Type 0 writer/reader
-  seq/       Binary .seq sequence format: read, events, timing
-  command/   Import, export, sample assignment, batch creation
-  server/    HTTP handlers, session state, preferences
-  db/        SQLite queries (sqlc-generated) for workspace file catalog
-  scanner/   Workspace directory scanner, indexes WAV/PGM files into DB
-  device/    MPC USB device auto-detection (macOS/Linux)
-web/
-  templates/ Go html/template files (layout + HTMX partials)
-  static/    CSS, JS (HTMX 2.0, Web Audio API, Canvas waveform)
-cmd/
-  mpc_editor/   Entry point
-```
+| Package | Description |
+|---------|-------------|
+| [`internal/pgm`](internal/pgm/README.md) | Binary `.pgm` format: read/write, pads, layers, parameters |
+| [`internal/seq`](internal/seq/README.md) | Binary `.seq` sequence format: parse, events, step grid |
+| [`internal/audio`](internal/audio/README.md) | WAV I/O, energy-based beat detection, marker management, waveform downsampling |
+| [`internal/midi`](internal/midi/README.md) | Standard MIDI File Type 0 writer/reader |
+| [`internal/command`](internal/command/README.md) | Import, export, sample assignment, batch creation |
+| [`internal/server`](internal/server/README.md) | HTTP handlers, session state, template rendering |
+| [`internal/db`](internal/db/README.md) | SQLite schema, migrations, sqlc-generated queries |
+| [`internal/scanner`](internal/scanner/README.md) | Background workspace scanner, file catalog, auto-tags |
+| [`internal/device`](internal/device/README.md) | MPC USB device auto-detection (macOS/Linux) |
+| [`web`](web/README.md) | Go templates, CSS, JS (HTMX 2.0, Web Audio API, Canvas waveform) |
 
 - **Backend**: Go `net/http` server rendering HTML partials
 - **Frontend**: HTMX for dynamic updates, no JS framework
 - **Audio**: Web Audio API for browser-side playback; server sends WAV data
 - **Waveform**: Canvas 2D rendering with server-side peak downsampling
+
+## File Format Docs
+
+| Document | Description |
+|----------|-------------|
+| [`docs/seq-format.md`](docs/seq-format.md) | Byte-level `.SEQ` format spec (derived from hex analysis of real files) |
+| [`docs/references.md`](docs/references.md) | External format references, open-source MPC projects, community resources |
 
 ## Development
 

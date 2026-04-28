@@ -34,3 +34,9 @@ A volume is considered an MPC if it has an `AUTOLOAD` subdirectory or at least o
 ## Platform Notes
 
 Currently only meaningful on macOS (`/Volumes`). On Linux, the base path would need to be overridden (e.g. `/media/user` or `/mnt`). No kernel USB events are used — pure filesystem polling.
+
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/server`](../server/README.md) | `Server.detector` holds the `Detector`; `handlers_device.go` reads `detector.Current()` and exposes the device mount path as a workspace shortcut |

@@ -76,6 +76,15 @@ Two IIFEs: `SequencePlayer` and `SequenceEditor`.
 - `.seq-cont-*`: piano roll (continuous view) layout — rulers, track rows, event blocks, gridlines.
 - Color convention: blue = low velocity, green = medium, red = high.
 
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/server`](../internal/server/README.md) | Embeds and serves these assets; registers template functions; renders partials in response to HTMX requests |
+| [`internal/seq`](../internal/seq/README.md) | `sequence_grid.html` renders `StepGrid` / `PadRow` / `StepCell` structs; JS posts to `/sequence/event/edit` using `GlobalStep` coordinates |
+| [`internal/audio`](../internal/audio/README.md) | `wav_waveform.js` renders peak data from `/audio/waveform`; `audio.js` decodes WAV streams from `/audio/stream` |
+| [`docs/seq-format.md`](../docs/seq-format.md) | Binary format reference for the timing constants and coordinate system used in `sequencer.js` |
+
 ## Template Functions (registered in `server.go`)
 
 | Function | Signature | Use |

@@ -37,3 +37,11 @@ Saves the `.pgm` file to `destDir` and copies all samples referenced by the matr
 ## Relationship to Handlers
 
 These functions have no HTTP dependencies. Server handlers construct the inputs (parse form values, resolve paths, load programs) and then call these functions, keeping the application logic testable in isolation.
+
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/pgm`](../pgm/README.md) | All functions operate on `*pgm.Program` and `*pgm.SampleMatrix` |
+| [`internal/audio`](../audio/README.md) | `ExportProgram` copies WAV files that the matrix references on disk |
+| [`internal/server`](../server/README.md) | `handlers_assign.go`, `handlers_import.go`, and `handlers_program.go` call into this package |

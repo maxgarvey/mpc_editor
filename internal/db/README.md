@@ -54,3 +54,10 @@ make generate   # runs sqlc generate
 ```
 
 Requires `sqlc` to be installed. The generated `queries.sql.go` and `models.go` should be committed.
+
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/server`](../server/README.md) | Holds `*db.Queries` on `Server`; preferences and file catalog are read/written by handlers |
+| [`internal/scanner`](../scanner/README.md) | The primary writer: upserts file records, metadata, and auto-tags during workspace scans |

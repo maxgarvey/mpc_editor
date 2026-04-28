@@ -76,3 +76,17 @@ HTMX requests (`HX-Request: true`) receive partial HTML; full-page requests rece
 ## Security Notes
 
 All user-supplied paths are validated via `s.resolvePath()` and `s.validateWithinWorkspace()` before any file I/O to prevent directory traversal. File rename/move/delete operations are also workspace-scoped.
+
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/pgm`](../pgm/README.md) | `Session.Program` is a `*pgm.Program`; pad/layer handlers read and write it directly |
+| [`internal/seq`](../seq/README.md) | Sequence handlers open `.seq` files, call `BuildGrid`, `WriteEvents`, `PatchLoop`, `PatchFile` |
+| [`internal/audio`](../audio/README.md) | `Session.Slicer` is an `*audio.Slicer`; audio stream and waveform handlers use `OpenWAV` and `DownsamplePeaks` |
+| [`internal/midi`](../midi/README.md) | Slicer export handler calls `midi.WriteSMF` to produce a `.mid` file |
+| [`internal/command`](../command/README.md) | Import, assign, and export handlers delegate to `command.ImportSamples`, `SimpleAssign`, `ExportProgram` |
+| [`internal/db`](../db/README.md) | `Server.queries` is a `*db.Queries`; all catalog reads/writes (preferences, file tags, seq meta) go through it |
+| [`internal/scanner`](../scanner/README.md) | `Server.scanner` is called after file writes to keep the catalog fresh |
+| [`internal/device`](../device/README.md) | `Server.detector` polls for USB MPC devices; `handlers_device.go` exposes the result to the UI |
+| [`web`](../../web/README.md) | Templates and static assets are embedded via `web.TemplateFS` / `web.StaticFS` and served by the server |

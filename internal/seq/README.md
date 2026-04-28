@@ -63,7 +63,16 @@ Create:     Create(bpm, bars, name, pgm, loop, events) → []byte (full fresh fi
 
 Events store MIDI notes, not pad indices. The mapping from note → pad is provided by the loaded `.pgm` file. The default factory mapping is `note - 36` for bank A (pad 0 = note 36). A chromatic fallback (`note - 35`) is used when no program is loaded.
 
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/pgm`](../pgm/README.md) | Provides the MIDI note → pad map used when building the `StepGrid` |
+| [`internal/server`](../server/README.md) | Handlers parse `GridParams` from requests and call `BuildGrid`; `/sequence/event/edit` calls `WriteEvents` and `PatchLoop` |
+| [`internal/scanner`](../scanner/README.md) | Extracts BPM, bars, version, and track metadata from `.seq` files for the catalog |
+
 ## References
 
-- Binary format spec: `docs/seq-format.md` (project-internal, derived from hex analysis of real files)
+- Binary format spec: [`docs/seq-format.md`](../../docs/seq-format.md) (project-internal, derived from hex analysis of real files)
+- External format references: [`docs/references.md`](../../docs/references.md)
 - Python reference: https://github.com/JOJ0/mpc1k-seq

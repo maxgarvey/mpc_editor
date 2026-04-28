@@ -57,3 +57,12 @@ Sensitivity can be adjusted post-detection via `slicer.SetSensitivity(n)` withou
 ## Transcode Utilities (`transcode.go`)
 
 `CropWAV(src, dst, startFrame, endFrame)` writes a region of a WAV file to a new file, used when exporting a specific region to disk.
+
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/midi`](../midi/README.md) | `BuildFromMarkers` converts slicer marker frame positions into a MIDI sequence for export |
+| [`internal/command`](../command/README.md) | `ExportProgram` copies WAV files referenced by the sample matrix |
+| [`internal/server`](../server/README.md) | `Session.Slicer` holds the active slicer; handlers in `handlers_slicer.go` and `handlers_audio.go` drive the pipeline |
+| [`internal/scanner`](../scanner/README.md) | Uses `ReadWAVHeader` to extract format metadata without loading PCM data |

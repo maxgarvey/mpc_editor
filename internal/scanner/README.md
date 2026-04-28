@@ -47,3 +47,13 @@ After parsing, the scanner writes machine-generated tags (tagged with `auto=1`) 
 - `bars=4` on a `.seq` file
 
 Auto-tags are removed and regenerated on each re-parse to stay current.
+
+## Related Modules
+
+| Module | Relationship |
+|--------|-------------|
+| [`internal/db`](../db/README.md) | All catalog writes go through `*db.Queries`; the scanner holds both `*sql.DB` (for migrations) and `*db.Queries` |
+| [`internal/pgm`](../pgm/README.md) | `pgm.OpenProgram` parses `.pgm` files to extract `midi_pgm_change` and pad-sample assignments |
+| [`internal/seq`](../seq/README.md) | `seq.Open` parses `.seq` files to extract BPM, bars, version, and track metadata |
+| [`internal/audio`](../audio/README.md) | `audio.ReadWAVHeader` extracts format metadata without loading PCM data |
+| [`internal/server`](../server/README.md) | `Server.scanner` is the sole `Scanner` instance; the server triggers scans at startup and after file writes |
