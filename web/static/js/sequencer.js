@@ -949,6 +949,20 @@ const SequenceEditor = (function() {
         closeDetail();
     }
 
+    function quantizeDetail() {
+        var qEl = document.getElementById('seq-detail-quantize');
+        var qTicks = qEl ? (parseInt(qEl.value) || 24) : 24;
+        if (detailIsMulti) {
+            var evs = getSelectedEvents();
+            if (evs.length > 0) postEdit({ action: 'multi_quantize', events: JSON.stringify(evs), quantize_ticks: qTicks });
+            closeDetail();
+            return;
+        }
+        if (detailPad < 0 || detailStep < 0 || detailBar < 0) return;
+        postEdit({ action: 'quantize', pad: detailPad, step: detailStep, bar: detailBar, quantize_ticks: qTicks });
+        closeDetail();
+    }
+
     function closeDetail() {
         var panel = document.getElementById('seq-event-detail');
         if (panel) panel.style.display = 'none';
@@ -1035,6 +1049,7 @@ const SequenceEditor = (function() {
         clearSelection: clearSelection,
         saveDetail: saveDetail,
         deleteDetail: deleteDetail,
+        quantizeDetail: quantizeDetail,
         closeDetail: closeDetail,
         previewPad: previewPad,
         previewStep: previewStep

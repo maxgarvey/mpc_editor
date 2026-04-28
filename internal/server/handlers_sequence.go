@@ -356,6 +356,49 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
+	case "quantize":
+		bar := parseIntParam(r, "bar", 1)
+		padIndex := parseIntParam(r, "pad", 0)
+		step := parseIntParam(r, "step", 0)
+		qTicks := parseIntParam(r, "quantize_ticks", seq.TicksPerStep)
+		if qTicks < 1 {
+			qTicks = seq.TicksPerStep
+		}
+		sourceTick := tickForBarStep(bar, step)
+		for i, ev := range sequence.Events {
+			if ev.Tick == sourceTick && padForNote(ev.Note) == padIndex {
+				sequence.Events[i].Tick = quantizeTick(ev.Tick, qTicks)
+				break
+			}
+		}
+
+	case "multi_quantize":
+		var targets []struct {
+			Pad        int `json:"pad"`
+			GlobalStep int `json:"global_step"`
+		}
+		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		qTicks := parseIntParam(r, "quantize_ticks", seq.TicksPerStep)
+		if qTicks < 1 {
+			qTicks = seq.TicksPerStep
+		}
+		type qKey struct {
+			tick uint32
+			pad  int
+		}
+		toQuantize := make(map[qKey]bool, len(targets))
+		for _, t := range targets {
+			toQuantize[qKey{uint32(t.GlobalStep * gp.TicksPerStep), t.Pad}] = true
+		}
+		for i, ev := range sequence.Events {
+			if toQuantize[qKey{ev.Tick, padForNote(ev.Note)}] {
+				sequence.Events[i].Tick = quantizeTick(ev.Tick, qTicks)
+			}
+		}
+
 	default:
 		http.Error(w, "unknown action: "+action, http.StatusBadRequest)
 		return
@@ -401,6 +444,12 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		Division: division,
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
+}
+
+// quantizeTick rounds tick to the nearest multiple of qTicks.
+func quantizeTick(tick uint32, qTicks int) uint32 {
+	q := uint32(qTicks)
+	return uint32(math.Round(float64(tick)/float64(q))) * q
 }
 
 // pgmFilesInWorkspace returns the workspace-relative paths of all PGM files in the catalog.

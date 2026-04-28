@@ -185,6 +185,20 @@
             Duration (ticks):
             <input type="number" id="seq-detail-dur" min="1" max="384" value="23" class="seq-detail-dur-input">
         </label>
+        <label class="seq-detail-label seq-detail-quantize-row">
+            Quantize to:
+            <select id="seq-detail-quantize" class="seq-detail-quantize-select">
+                <option value="96">1/4</option>
+                <option value="48">1/8</option>
+                <option value="24" selected>1/16</option>
+                <option value="12">1/32</option>
+                <option value="6">1/64</option>
+                <option value="32">1/8T</option>
+                <option value="16">1/16T</option>
+                <option value="8">1/32T</option>
+            </select>
+            <button class="btn-sm" onclick="SequenceEditor.quantizeDetail()">Apply</button>
+        </label>
         <div class="seq-event-detail-actions">
             <button class="btn-sm btn-set" onclick="SequenceEditor.saveDetail()">Save</button>
             <button class="btn-sm btn-danger" onclick="SequenceEditor.deleteDetail()">Delete</button>
