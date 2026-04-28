@@ -2226,3 +2226,33 @@ function _fmtBytes(b) {
     if (b < 1048576) return (b / 1024).toFixed(1) + 'K';
     return (b / 1048576).toFixed(1) + 'M';
 }
+
+const WorkspacePanel = (function() {
+    var collapsed = false;
+
+    function apply() {
+        var layout = document.getElementById('browser-layout');
+        var btn = document.getElementById('panel-collapse-btn');
+        if (!layout) return;
+        if (collapsed) {
+            layout.classList.add('panel-collapsed');
+            if (btn) { btn.innerHTML = '&#x25BA;'; btn.title = 'Expand panel'; }
+        } else {
+            layout.classList.remove('panel-collapsed');
+            if (btn) { btn.innerHTML = '&#x25C4;'; btn.title = 'Collapse panel'; }
+        }
+    }
+
+    function toggle() {
+        collapsed = !collapsed;
+        localStorage.setItem('workspace-panel-collapsed', collapsed ? '1' : '0');
+        apply();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        collapsed = localStorage.getItem('workspace-panel-collapsed') === '1';
+        apply();
+    });
+
+    return { toggle: toggle };
+})();

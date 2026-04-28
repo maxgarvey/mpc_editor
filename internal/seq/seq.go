@@ -12,6 +12,7 @@ const (
 
 	versionOffset = 0x04
 	versionLen    = 16
+	loopOffset    = 0x17 // 0x01 = loop "1-End"; 0x00 = off
 	barsOffset    = 0x1C
 	bpmOffset     = 0x20
 
@@ -43,6 +44,7 @@ type Sequence struct {
 	Version string
 	BPM     float64
 	Bars    int
+	Loop    bool
 	Tracks  [64]Track
 	Events  []Event
 }

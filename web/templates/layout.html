@@ -37,9 +37,13 @@
         </div>
     </header>
 
-    <main class="browser-layout">
+    <main class="browser-layout" id="browser-layout">
         <aside class="browser-panel">
-            <div class="browser-panel-header">Workspace</div>
+            <div class="browser-panel-header">
+                <span class="browser-panel-label">Workspace</span>
+                <button class="panel-collapse-btn" id="panel-collapse-btn"
+                        onclick="WorkspacePanel.toggle()" title="Collapse panel">&#x25C4;</button>
+            </div>
             <div class="browser-search-box">
                 <input type="search" id="workspace-search" class="browser-search-input"
                        placeholder="Search files..."

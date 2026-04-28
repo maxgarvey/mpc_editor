@@ -7,6 +7,23 @@ import (
 	"sort"
 )
 
+// PatchLoop updates the loop flag (byte 0x17) in an existing .SEQ file in-place.
+func PatchLoop(path string, loop bool) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if len(data) < eventDataOffset {
+		return fmt.Errorf("seq: file too small to patch")
+	}
+	if loop {
+		data[loopOffset] = 0x01
+	} else {
+		data[loopOffset] = 0x00
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
 // PatchFile reads a .SEQ file, updates BPM and bar count in-place, and writes it back.
 func PatchFile(path string, bpm float64, bars int) error {
 	data, err := os.ReadFile(path)

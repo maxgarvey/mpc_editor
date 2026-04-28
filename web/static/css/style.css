@@ -107,6 +107,11 @@ body {
     gap: 0;
     height: calc(100vh - 110px);
     overflow: hidden;
+    transition: grid-template-columns 0.15s ease;
+}
+
+.browser-layout.panel-collapsed {
+    grid-template-columns: 28px 1fr;
 }
 
 .browser-panel {
@@ -115,6 +120,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
 }
 
 .browser-panel-header {
@@ -124,6 +130,43 @@ body {
     padding: 10px 12px;
     border-bottom: 1px solid #333;
     background: #111;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    white-space: nowrap;
+    gap: 8px;
+}
+
+.panel-collapse-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0 2px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.panel-collapse-btn:hover {
+    color: #a0c840;
+}
+
+.browser-panel-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.browser-layout.panel-collapsed .browser-panel-label,
+.browser-layout.panel-collapsed .browser-search-box,
+.browser-layout.panel-collapsed #file-nav {
+    display: none;
+}
+
+.browser-layout.panel-collapsed .browser-panel-header {
+    justify-content: center;
+    padding: 10px 4px;
 }
 
 .browser-search-box {
@@ -1558,20 +1601,20 @@ tr.track-muted .track-label {
 }
 
 .step-cell.beat-start {
-    border-left: 2px solid #555;
+    border-left: 2px solid #666;
 }
 
 .step-cell.bar-start {
-    border-left: 3px solid #777;
+    border-left: 3px solid #888;
 }
 
 .step-header.beat-start {
-    border-left: 2px solid #555;
+    border-left: 2px solid #666;
 }
 
 .step-header.bar-start {
-    border-left: 3px solid #777;
-    color: #ccc;
+    border-left: 3px solid #999;
+    color: #ddd;
     font-weight: bold;
 }
 
@@ -1694,6 +1737,12 @@ tr.pad-row:not(.has-events) .track-label {
     border-color: #ffcc00 !important;
     box-shadow: inset 0 0 8px rgba(255, 204, 0, 0.5) !important;
 }
+.step-cell.step-selected {
+    outline: 2px solid #a0c840;
+    outline-offset: -2px;
+    z-index: 1;
+    position: relative;
+}
 .step-drag-ghost {
     position: fixed;
     pointer-events: none;
@@ -1814,8 +1863,34 @@ tr.pad-row:not(.has-events) .track-label {
     width: 140px;
     min-width: 140px;
     flex-shrink: 0;
+    border-right: 1px solid #333;
 }
 
+/* Two-row rulers container (replaces single header-timeline) */
+.seq-cont-rulers {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Row 1: bar / beat tick marks */
+.seq-cont-beats-row {
+    position: relative;
+    height: 26px;
+    border-bottom: 1px solid #2a2a2a;
+    overflow: visible;
+}
+
+/* Row 2: seconds ruler */
+.seq-cont-time-row {
+    position: relative;
+    height: 20px;
+    background: #161818;
+    overflow: visible;
+}
+
+/* Legacy classes kept for compatibility */
 .seq-cont-header-timeline {
     position: relative;
     height: 26px;
@@ -1886,15 +1961,19 @@ tr.pad-row:not(.has-events) .track-label {
 }
 
 .seq-cont-gridline-bar {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .seq-cont-gridline-beat {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.07);
 }
 
 .seq-cont-gridline-step {
     background: rgba(255, 255, 255, 0.02);
+}
+
+.seq-cont-gridline-sec {
+    background: rgba(90, 160, 220, 0.08);
 }
 
 .seq-cont-event {

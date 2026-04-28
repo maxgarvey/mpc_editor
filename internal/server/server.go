@@ -151,6 +151,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/sequence/events", s.handleSequenceEvents)
 	s.mux.HandleFunc("/sequence/event/edit", s.handleSequenceEventEdit)
 	s.mux.HandleFunc("/sequence/new", s.handleSequenceNew)
+	s.mux.HandleFunc("/sequence/toggle-loop", s.handleSequenceToggleLoop)
 
 	// Edit operations
 	s.mux.HandleFunc("/edit/remove-all-samples", s.handleRemoveAllSamples)

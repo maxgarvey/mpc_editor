@@ -133,7 +133,7 @@ const SequencePlayer = (function() {
         inner.className = 'seq-cont-inner';
         inner.style.width = (TRACK_NAME_W + timelineW) + 'px';
 
-        // Header row.
+        // ── Header: beats row + seconds row ───────────────────────────────────
         var header = document.createElement('div');
         header.className = 'seq-cont-header';
 
@@ -141,29 +141,93 @@ const SequencePlayer = (function() {
         headerName.className = 'seq-cont-header-name';
         header.appendChild(headerName);
 
-        var headerTimeline = document.createElement('div');
-        headerTimeline.className = 'seq-cont-header-timeline';
-        headerTimeline.style.width = timelineW + 'px';
+        var rulers = document.createElement('div');
+        rulers.className = 'seq-cont-rulers';
+        rulers.style.width = timelineW + 'px';
 
-        for (var b = 0; b < bars; b++) {
-            var barTick = b * ticksPerBar;
-            var barLabel = document.createElement('span');
-            barLabel.className = 'seq-cont-bar-label';
-            barLabel.style.left = Math.round(barTick * pxpt) + 'px';
-            barLabel.textContent = 'B' + (b + 1);
-            headerTimeline.appendChild(barLabel);
-            // Beat labels (beats 2..N).
-            for (var beat = 1; beat < beatsPerBar; beat++) {
-                var beatTick = barTick + beat * ticksPerBeat;
-                var beatLabel = document.createElement('span');
-                beatLabel.className = 'seq-cont-beat-label';
-                beatLabel.style.left = Math.round(beatTick * pxpt) + 'px';
-                beatLabel.textContent = beat + 1;
-                headerTimeline.appendChild(beatLabel);
+        // Row 1: beat/bar ruler — tick + label at every beat
+        var beatsRow = document.createElement('div');
+        beatsRow.className = 'seq-cont-beats-row';
+        for (var bi = 0; bi < bars; bi++) {
+            var biBarTk = bi * ticksPerBar;
+            var biBarPx = Math.round(biBarTk * pxpt);
+            var barMark = document.createElement('div');
+            barMark.style.cssText = 'position:absolute;top:0;bottom:0;left:' + biBarPx + 'px;pointer-events:none;';
+            var barTickEl = document.createElement('div');
+            barTickEl.style.cssText = 'position:absolute;bottom:0;left:0;width:1px;height:12px;background:rgba(255,255,255,0.5);';
+            barMark.appendChild(barTickEl);
+            var barLbl = document.createElement('span');
+            barLbl.style.cssText = 'position:absolute;top:3px;left:3px;font-size:10px;font-weight:bold;color:#bbb;white-space:nowrap;line-height:1;';
+            barLbl.textContent = 'B' + (bi + 1);
+            barMark.appendChild(barLbl);
+            beatsRow.appendChild(barMark);
+
+            for (var bii = 1; bii < beatsPerBar; bii++) {
+                var biiBeatTk = biBarTk + bii * ticksPerBeat;
+                var biiBeatPx = Math.round(biiBeatTk * pxpt);
+                var beatMark = document.createElement('div');
+                beatMark.style.cssText = 'position:absolute;top:0;bottom:0;left:' + biiBeatPx + 'px;pointer-events:none;';
+                var beatTickEl = document.createElement('div');
+                beatTickEl.style.cssText = 'position:absolute;bottom:0;left:0;width:1px;height:7px;background:rgba(255,255,255,0.25);';
+                beatMark.appendChild(beatTickEl);
+                var beatLbl = document.createElement('span');
+                beatLbl.style.cssText = 'position:absolute;top:4px;left:2px;font-size:9px;color:#777;white-space:nowrap;line-height:1;';
+                beatLbl.textContent = bii + 1;
+                beatMark.appendChild(beatLbl);
+                beatsRow.appendChild(beatMark);
+            }
+        }
+        rulers.appendChild(beatsRow);
+
+        // Row 2: seconds ruler — derived from BPM
+        var bpmVal = data.bpm || 120;
+        var tksPerSec = bpmVal * 96 / 60;
+        var seqDurSec = seqTotalTicks / tksPerSec;
+        var pxPerSec = tksPerSec * pxpt;
+
+        var timeRow = document.createElement('div');
+        timeRow.className = 'seq-cont-time-row';
+
+        // Adaptive density: widen major interval when zoomed out
+        var majSec = 1, minSec = 0.5;
+        if (pxPerSec < 40) { majSec = 10; minSec = 5; }
+        else if (pxPerSec < 80) { majSec = 5; minSec = 1; }
+        else if (pxPerSec < 160) { majSec = 2; minSec = 0.5; }
+
+        // Minor ticks (no label)
+        if (minSec * pxPerSec >= 18) {
+            var nMinor = Math.ceil(seqDurSec / minSec) + 1;
+            for (var mni = 1; mni <= nMinor; mni++) {
+                var mnt = mni * minSec;
+                if (mnt % majSec < 0.001 || mnt % majSec > majSec - 0.001) continue;
+                var mnPx = Math.round(mnt * tksPerSec * pxpt);
+                if (mnPx > timelineW) break;
+                var mnMark = document.createElement('div');
+                mnMark.style.cssText = 'position:absolute;top:0;left:' + mnPx + 'px;width:1px;height:4px;background:rgba(90,160,220,0.3);pointer-events:none;';
+                timeRow.appendChild(mnMark);
             }
         }
 
-        header.appendChild(headerTimeline);
+        // Major ticks + labels
+        var nMaj = Math.ceil(seqDurSec / majSec) + 1;
+        for (var mji = 0; mji <= nMaj; mji++) {
+            var mjt = mji * majSec;
+            var mjPx = Math.round(mjt * tksPerSec * pxpt);
+            if (mjPx > timelineW + 2) break;
+            var mjMark = document.createElement('div');
+            mjMark.style.cssText = 'position:absolute;top:0;bottom:0;left:' + mjPx + 'px;pointer-events:none;';
+            var mjTick = document.createElement('div');
+            mjTick.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:7px;background:rgba(90,160,220,0.6);';
+            mjMark.appendChild(mjTick);
+            var mjLbl = document.createElement('span');
+            mjLbl.style.cssText = 'position:absolute;top:8px;left:2px;font-size:9px;color:#5a9fd4;white-space:nowrap;line-height:1;';
+            mjLbl.textContent = mjt === 0 ? '0s' : (majSec >= 1 ? Math.round(mjt) + 's' : mjt.toFixed(1) + 's');
+            mjMark.appendChild(mjLbl);
+            timeRow.appendChild(mjMark);
+        }
+
+        rulers.appendChild(timeRow);
+        header.appendChild(rulers);
         inner.appendChild(header);
 
         // Tracks container (position: relative for playhead).
@@ -199,6 +263,13 @@ const SequencePlayer = (function() {
             }
             // Final bar end line.
             addGridline(body, timelineW, 'seq-cont-gridline-bar');
+            // Second-aligned gridlines (subtle blue tint, distinct from beat/bar).
+            var nSecLines = Math.ceil(seqTotalTicks / tksPerSec) + 1;
+            for (var scl = 0; scl <= nSecLines; scl++) {
+                var sclPx = Math.round(scl * tksPerSec * pxpt);
+                if (sclPx > timelineW) break;
+                addGridline(body, sclPx, 'seq-cont-gridline-sec');
+            }
 
             // Event blocks.
             padEvents[padIdx].forEach(function(e) {
@@ -291,11 +362,19 @@ const SequencePlayer = (function() {
     // Set of bank letters currently expanded.
     var expandedBanks = new Set(['a']);
 
-    document.addEventListener('htmx:afterSwap', function(evt) {
-        var target = evt.detail && evt.detail.target;
-        if (!target || target.id !== 'sequence-grid') return;
+    function syncLoopFromDOM() {
+        var grid = document.getElementById('seq-step-grid');
+        if (grid && grid.dataset.seqLoop !== undefined) {
+            looping = grid.dataset.seqLoop === 'true';
+        }
         var btn = document.getElementById('seq-loop-btn');
         if (btn) btn.classList.toggle('active', looping);
+    }
+
+    document.addEventListener('htmx:afterSwap', function(evt) {
+        if (!evt.target || !evt.target.closest('#sequence-grid')) return;
+        SequenceEditor.clearSelection();
+        syncLoopFromDOM();
         SequenceEditor.restoreModeButtons();
         restoreBankState();
         restoreViewLayout();
@@ -308,6 +387,7 @@ const SequencePlayer = (function() {
             expandedBanks = new Set(stored ? stored.split(',') : []);
         }
         restoreBankState();
+        syncLoopFromDOM();
     });
 
     function saveBankState() {
@@ -519,9 +599,22 @@ const SequencePlayer = (function() {
         refreshEvents: refreshEvents,
         setViewMode: setViewMode,
         restoreViewLayout: restoreViewLayout,
-        toggleLoop: function(btn) {
-            looping = !looping;
-            btn.classList.toggle('active', looping);
+        syncLoop: syncLoopFromDOM,
+        toggleLoop: function() {
+            var grid = document.getElementById('seq-step-grid');
+            if (!grid) return;
+            var path = grid.dataset.seqPath;
+            if (!path) return;
+            var body = new URLSearchParams({ path: path });
+            fetch('/sequence/toggle-loop', { method: 'POST', body: body })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    looping = !!data.loop;
+                    grid.dataset.seqLoop = looping ? 'true' : 'false';
+                    var btn = document.getElementById('seq-loop-btn');
+                    if (btn) btn.classList.toggle('active', looping);
+                })
+                .catch(function(err) { console.warn('toggle loop failed:', err); });
         }
     };
 })();
@@ -536,12 +629,64 @@ const SequenceEditor = (function() {
     var dragGhost = null;
     var dragOverCell = null;
 
+    // --- multi-select state ---
+    var selectedCells = new Set(); // "pad:globalStep" keys
+    var detailIsMulti = false;
+
     // --- detail popover state ---
     var detailPad = -1;
     var detailStep = -1;
     var detailBar = -1;
 
     // ---- helpers ----
+
+    function cellKey(pad, gs) { return pad + ':' + gs; }
+
+    function getGlobalStep(cell) {
+        for (var i = 0; i < cell.classList.length; i++) {
+            var m = cell.classList[i].match(/^step-col-(\d+)$/);
+            if (m) return parseInt(m[1]);
+        }
+        return -1;
+    }
+
+    function isInSelection(cell) {
+        var pad = parseInt(cell.dataset.pad);
+        var gs = getGlobalStep(cell);
+        return gs >= 0 && selectedCells.has(cellKey(pad, gs));
+    }
+
+    function addToSelection(cell) {
+        var pad = parseInt(cell.dataset.pad);
+        var gs = getGlobalStep(cell);
+        if (gs < 0) return;
+        selectedCells.add(cellKey(pad, gs));
+        cell.classList.add('step-selected');
+    }
+
+    function removeFromSelection(cell) {
+        var pad = parseInt(cell.dataset.pad);
+        var gs = getGlobalStep(cell);
+        selectedCells.delete(cellKey(pad, gs));
+        cell.classList.remove('step-selected');
+    }
+
+    function clearSelection() {
+        selectedCells.clear();
+        document.querySelectorAll('#seq-step-grid .step-selected').forEach(function(el) {
+            el.classList.remove('step-selected');
+        });
+    }
+
+    function getSelectedEvents() {
+        var result = [];
+        document.querySelectorAll('#seq-step-grid .step-cell.step-selected').forEach(function(cell) {
+            var pad = parseInt(cell.dataset.pad);
+            var gs = getGlobalStep(cell);
+            if (pad >= 0 && gs >= 0) result.push({ pad: pad, global_step: gs });
+        });
+        return result;
+    }
 
     function getGrid() {
         return document.getElementById('seq-step-grid');
@@ -573,9 +718,11 @@ const SequenceEditor = (function() {
                 if (grid) {
                     grid.innerHTML = html;
                     if (window.htmx) htmx.process(grid);
+                    clearSelection();
                     SequenceEditor.restoreModeButtons();
                     SequencePlayer.restoreBankState();
                     SequencePlayer.restoreViewLayout();
+                    SequencePlayer.syncLoop();
                     SequencePlayer.refreshEvents();
                 }
             })
@@ -608,6 +755,12 @@ const SequenceEditor = (function() {
         var cell = e.target.closest('#seq-step-grid .step-cell');
         if (!cell) return;
         if (drag) return; // ignore clicks that follow a drag
+        if (e.ctrlKey || e.metaKey) {
+            if (cell.classList.contains('step-active')) {
+                if (isInSelection(cell)) { removeFromSelection(cell); } else { addToSelection(cell); }
+            }
+            return;
+        }
         var pad = parseInt(cell.dataset.pad);
         var step = parseInt(cell.dataset.step);
         var bar = parseInt(cell.dataset.bar) || 1;
@@ -621,12 +774,21 @@ const SequenceEditor = (function() {
         if (e.button !== 0) return;
         var cell = e.target.closest('#seq-step-grid .step-cell');
         if (!cell || !cell.classList.contains('step-active')) return;
+
+        if (e.ctrlKey || e.metaKey) {
+            if (isInSelection(cell)) { removeFromSelection(cell); } else { addToSelection(cell); }
+            return;
+        }
+
         e.preventDefault();
+        var isMulti = selectedCells.size > 1 && isInSelection(cell);
 
         drag = {
             pad: parseInt(cell.dataset.pad),
             step: parseInt(cell.dataset.step),
             bar: parseInt(cell.dataset.bar) || 1,
+            globalStep: getGlobalStep(cell),
+            isMulti: isMulti,
             el: cell
         };
         cell.classList.add('step-dragging');
@@ -663,6 +825,8 @@ const SequenceEditor = (function() {
         var fromPad = drag.pad;
         var fromStep = drag.step;
         var fromBar = drag.bar;
+        var fromGs = drag.globalStep;
+        var isMulti = drag.isMulti;
         var sourceEl = drag.el;
 
         // Remove ghost first so it cannot interfere with elementFromPoint below.
@@ -683,37 +847,71 @@ const SequenceEditor = (function() {
         drag = null;
 
         if (target) {
-            var toPad = parseInt(target.dataset.pad);
-            var toStep = parseInt(target.dataset.step);
-            var toBar = parseInt(target.dataset.bar) || 1;
-            postEdit({
-                action: 'move',
-                from_pad: fromPad, from_step: fromStep, from_bar: fromBar,
-                to_pad: toPad, to_step: toStep, to_bar: toBar
-            });
+            if (isMulti) {
+                var toGs = getGlobalStep(target);
+                var toMultiPad = parseInt(target.dataset.pad);
+                var stepDelta = toGs - fromGs;
+                var padDelta = toMultiPad - fromPad;
+                var events = getSelectedEvents().map(function(ev) {
+                    return {
+                        pad: ev.pad,
+                        global_step: ev.global_step,
+                        to_pad: Math.max(0, Math.min(63, ev.pad + padDelta)),
+                        to_global_step: Math.max(0, ev.global_step + stepDelta)
+                    };
+                });
+                postEdit({ action: 'multi_move', events: JSON.stringify(events) });
+            } else {
+                var toPad = parseInt(target.dataset.pad);
+                var toStep = parseInt(target.dataset.step);
+                var toBar = parseInt(target.dataset.bar) || 1;
+                postEdit({
+                    action: 'move',
+                    from_pad: fromPad, from_step: fromStep, from_bar: fromBar,
+                    to_pad: toPad, to_step: toStep, to_bar: toBar
+                });
+            }
         }
     });
 
-    // ---- ctrl/cmd+click or right-click: event detail popover ----
+    // ---- right-click: event detail popover (single or multi) ----
 
     document.addEventListener('contextmenu', function(e) {
         var cell = e.target.closest('#seq-step-grid .step-cell');
         if (!cell || !cell.classList.contains('step-active')) return;
         e.preventDefault();
-        detailPad = parseInt(cell.dataset.pad);
-        detailStep = parseInt(cell.dataset.step);
-        detailBar = parseInt(cell.dataset.bar) || 1;
-        var vel = parseInt(cell.dataset.vel) || 100;
-        var dur = parseInt(cell.dataset.dur) || 23;
-        openDetail(e.clientX, e.clientY, vel, dur);
+
+        if (selectedCells.size > 0 && !isInSelection(cell)) {
+            // Switch selection to just this cell
+            clearSelection();
+            addToSelection(cell);
+        }
+
+        if (selectedCells.size > 1 && isInSelection(cell)) {
+            // Bulk edit
+            detailPad = -1; detailStep = -1; detailBar = -1;
+            openDetail(e.clientX, e.clientY, 100, 23, true);
+        } else {
+            detailPad = parseInt(cell.dataset.pad);
+            detailStep = parseInt(cell.dataset.step);
+            detailBar = parseInt(cell.dataset.bar) || 1;
+            var vel = parseInt(cell.dataset.vel) || 100;
+            var dur = parseInt(cell.dataset.dur) || 23;
+            openDetail(e.clientX, e.clientY, vel, dur, false);
+        }
     });
 
-    function openDetail(x, y, vel, dur) {
+    function openDetail(x, y, vel, dur, multi) {
         var panel = document.getElementById('seq-event-detail');
         if (!panel) return;
+        detailIsMulti = !!multi;
         document.getElementById('seq-detail-vel').value = vel;
         document.getElementById('seq-detail-vel-display').textContent = vel;
         document.getElementById('seq-detail-dur').value = dur;
+        var title = panel.querySelector('.seq-event-detail-title');
+        if (title) {
+            title.textContent = multi ? 'Bulk Edit (' + selectedCells.size + ' events)' : 'Event Details';
+        }
 
         // Position near click, but keep on screen.
         var panelW = 240, panelH = 130;
@@ -726,14 +924,26 @@ const SequenceEditor = (function() {
     }
 
     function saveDetail() {
-        if (detailPad < 0 || detailStep < 0 || detailBar < 0) return;
         var vel = parseInt(document.getElementById('seq-detail-vel').value);
         var dur = parseInt(document.getElementById('seq-detail-dur').value);
+        if (detailIsMulti) {
+            var evs = getSelectedEvents();
+            if (evs.length > 0) postEdit({ action: 'multi_update', events: JSON.stringify(evs), velocity: vel, duration: dur });
+            closeDetail();
+            return;
+        }
+        if (detailPad < 0 || detailStep < 0 || detailBar < 0) return;
         postEdit({ action: 'update', pad: detailPad, step: detailStep, bar: detailBar, velocity: vel, duration: dur });
         closeDetail();
     }
 
     function deleteDetail() {
+        if (detailIsMulti) {
+            var evs = getSelectedEvents();
+            if (evs.length > 0) postEdit({ action: 'multi_delete', events: JSON.stringify(evs) });
+            closeDetail();
+            return;
+        }
         if (detailPad < 0 || detailStep < 0 || detailBar < 0) return;
         postEdit({ action: 'delete', pad: detailPad, step: detailStep, bar: detailBar });
         closeDetail();
@@ -745,19 +955,34 @@ const SequenceEditor = (function() {
         detailPad = -1;
         detailStep = -1;
         detailBar = -1;
+        detailIsMulti = false;
     }
 
-    // Close detail on click outside.
+    // Close detail on click outside; clear selection on click outside the grid.
     document.addEventListener('mousedown', function(e) {
         var panel = document.getElementById('seq-event-detail');
         if (panel && panel.style.display !== 'none' && !panel.contains(e.target)) {
             closeDetail();
         }
+        if (!e.target.closest('#seq-step-grid') && !e.target.closest('#seq-event-detail')) {
+            clearSelection();
+        }
     });
 
-    // Close detail on Escape.
+    // Close detail on Escape; Delete selected events on Delete key.
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closeDetail();
+        if (e.key === 'Escape') { closeDetail(); return; }
+        if (e.key === 'Delete') {
+            var panel = document.getElementById('seq-event-detail');
+            if (panel && panel.style.display !== 'none') return; // let the panel handle it
+            var tag = document.activeElement && document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            if (selectedCells.size > 0) {
+                e.preventDefault();
+                var evs = getSelectedEvents();
+                if (evs.length > 0) postEdit({ action: 'multi_delete', events: JSON.stringify(evs) });
+            }
+        }
     });
 
     // ---- pad / step preview ----
@@ -785,22 +1010,29 @@ const SequenceEditor = (function() {
         });
     }
 
-    // View mode: click active step to preview all events at that step.
+    // View mode: click to preview; ctrl+click to select.
     document.addEventListener('click', function(e) {
         if (mode !== 'view') return;
         var cell = e.target.closest('#seq-step-grid .step-cell');
-        if (!cell || !cell.classList.contains('step-active')) return;
-        var globalStep = null;
-        cell.classList.forEach(function(cls) {
-            var m = cls.match(/^step-col-(\d+)$/);
-            if (m) globalStep = parseInt(m[1]);
-        });
-        if (globalStep !== null) previewStep(globalStep);
+        if (!cell) return;
+
+        if (e.ctrlKey || e.metaKey) {
+            if (cell.classList.contains('step-active')) {
+                if (isInSelection(cell)) { removeFromSelection(cell); } else { addToSelection(cell); }
+            }
+            return;
+        }
+
+        clearSelection();
+        if (!cell.classList.contains('step-active')) return;
+        var globalStep = getGlobalStep(cell);
+        if (globalStep >= 0) previewStep(globalStep);
     });
 
     return {
         setMode: setMode,
         restoreModeButtons: restoreModeButtons,
+        clearSelection: clearSelection,
         saveDetail: saveDetail,
         deleteDetail: deleteDetail,
         closeDetail: closeDetail,

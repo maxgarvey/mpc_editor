@@ -33,7 +33,7 @@
     <div class="seq-controls">
         <button class="btn-sm btn-set" onclick="SequencePlayer.play('{{.Path}}', 0)">Play</button>
         <button class="btn-sm" onclick="SequencePlayer.stop()">Stop</button>
-        <button class="btn-sm" id="seq-loop-btn" onclick="SequencePlayer.toggleLoop(this)">Loop</button>
+        <button class="btn-sm{{if .Loop}} active{{end}}" id="seq-loop-btn" onclick="SequencePlayer.toggleLoop()">Loop</button>
         <span class="seq-mode-sep">|</span>
         <span class="seq-mode-label">Mode:</span>
         <button class="btn-sm seq-mode-btn seq-mode-btn--view" onclick="SequenceEditor.setMode('view', this)">View</button>
@@ -95,7 +95,8 @@
            data-seq-path="{{.Path}}"
            data-seq-pgm="{{.PGMPath}}"
            data-seq-tsig="{{.TSig}}"
-           data-seq-division="{{.Division}}">
+           data-seq-division="{{.Division}}"
+           data-seq-loop="{{.Loop}}">
         <thead>
             <tr>
                 <th class="track-name-cell">Pad</th>

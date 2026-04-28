@@ -258,6 +258,104 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 			}
 		}
 
+	case "multi_delete":
+		var targets []struct {
+			Pad        int `json:"pad"`
+			GlobalStep int `json:"global_step"`
+		}
+		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		type delKey struct {
+			tick uint32
+			pad  int
+		}
+		toDelete := make(map[delKey]int, len(targets))
+		for _, t := range targets {
+			toDelete[delKey{uint32(t.GlobalStep * gp.TicksPerStep), t.Pad}]++
+		}
+		staying := make([]seq.Event, 0, len(sequence.Events))
+		for _, ev := range sequence.Events {
+			k := delKey{ev.Tick, padForNote(ev.Note)}
+			if toDelete[k] > 0 {
+				toDelete[k]--
+				continue
+			}
+			staying = append(staying, ev)
+		}
+		sequence.Events = staying
+
+	case "multi_move":
+		var targets []struct {
+			Pad          int `json:"pad"`
+			GlobalStep   int `json:"global_step"`
+			ToPad        int `json:"to_pad"`
+			ToGlobalStep int `json:"to_global_step"`
+		}
+		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		type mvKey struct {
+			tick uint32
+			pad  int
+		}
+		type mvDest struct {
+			toTick uint32
+			toNote byte
+		}
+		moveMap := make(map[mvKey]mvDest, len(targets))
+		destSet := make(map[mvKey]bool, len(targets))
+		for _, t := range targets {
+			fromTick := uint32(t.GlobalStep * gp.TicksPerStep)
+			toTick := uint32(t.ToGlobalStep * gp.TicksPerStep)
+			moveMap[mvKey{fromTick, t.Pad}] = mvDest{toTick, s.padToNote(t.ToPad, pgmRelPath)}
+			destSet[mvKey{toTick, t.ToPad}] = true
+		}
+		newEvents := make([]seq.Event, 0, len(sequence.Events))
+		for _, ev := range sequence.Events {
+			k := mvKey{ev.Tick, padForNote(ev.Note)}
+			if dest, ok := moveMap[k]; ok {
+				ev.Tick = dest.toTick
+				ev.Note = dest.toNote
+				delete(moveMap, k)
+				newEvents = append(newEvents, ev)
+			} else if destSet[k] {
+				// discard existing event at a destination that isn't in our source set
+				continue
+			} else {
+				newEvents = append(newEvents, ev)
+			}
+		}
+		sequence.Events = newEvents
+
+	case "multi_update":
+		var targets []struct {
+			Pad        int `json:"pad"`
+			GlobalStep int `json:"global_step"`
+		}
+		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		velocity := parseIntParam(r, "velocity", 100)
+		duration := parseIntParam(r, "duration", 23)
+		type updKey struct {
+			tick uint32
+			pad  int
+		}
+		toUpdate := make(map[updKey]bool, len(targets))
+		for _, t := range targets {
+			toUpdate[updKey{uint32(t.GlobalStep * gp.TicksPerStep), t.Pad}] = true
+		}
+		for i, ev := range sequence.Events {
+			if toUpdate[updKey{ev.Tick, padForNote(ev.Note)}] {
+				sequence.Events[i].Velocity = byte(velocity)
+				sequence.Events[i].Duration = uint16(duration)
+			}
+		}
+
 	default:
 		http.Error(w, "unknown action: "+action, http.StatusBadRequest)
 		return
@@ -294,6 +392,7 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		FileName: filepath.Base(seqPath),
 		BPM:      sequence.BPM,
 		Bars:     sequence.Bars,
+		Loop:     sequence.Loop,
 		Version:  sequence.Version,
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
@@ -324,6 +423,7 @@ type SequenceViewData struct {
 	Error    string
 	BPM      float64
 	Bars     int
+	Loop     bool
 	Version  string
 	Grid     *seq.StepGrid
 	FileID   int64
@@ -393,6 +493,7 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 		FileName: filepath.Base(path),
 		BPM:      sequence.BPM,
 		Bars:     sequence.Bars,
+		Loop:     sequence.Loop,
 		Version:  sequence.Version,
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
@@ -608,6 +709,7 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 		FileName: filepath.Base(path),
 		BPM:      sequence.BPM,
 		Bars:     sequence.Bars,
+		Loop:     sequence.Loop,
 		Version:  sequence.Version,
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
@@ -616,6 +718,34 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 		Division: division,
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
+}
+
+func (s *Server) handleSequenceToggleLoop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	path := s.resolvePath(r.FormValue("path"))
+	if path == "" {
+		http.Error(w, "path required", http.StatusBadRequest)
+		return
+	}
+	sequence, err := seq.Open(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	newLoop := !sequence.Loop
+	if err := seq.PatchLoop(path, newLoop); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if newLoop {
+		fmt.Fprint(w, `{"loop":true}`)
+	} else {
+		fmt.Fprint(w, `{"loop":false}`)
+	}
 }
 
 func (s *Server) handleSequenceNew(w http.ResponseWriter, r *http.Request) {

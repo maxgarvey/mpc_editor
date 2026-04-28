@@ -26,6 +26,7 @@ func Parse(data []byte) (*Sequence, error) {
 
 	// Header
 	s.Version = strings.TrimRight(string(data[versionOffset:versionOffset+versionLen]), "\x00")
+	s.Loop = data[loopOffset] != 0
 	s.Bars = int(binary.LittleEndian.Uint16(data[barsOffset:]))
 	bpmRaw := binary.LittleEndian.Uint16(data[bpmOffset:])
 	s.BPM = float64(bpmRaw) / 10.0
