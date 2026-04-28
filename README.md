@@ -68,6 +68,17 @@ PORT=9090 make run
 | [`docs/seq-format.md`](docs/seq-format.md) | Byte-level `.SEQ` format spec (derived from hex analysis of real files) |
 | [`docs/references.md`](docs/references.md) | External format references, open-source MPC projects, community resources |
 
+## Other Directories
+
+| Directory | Description |
+|-----------|-------------|
+| [`cmd/`](cmd/README.md) | Entry-point binaries: `mpc_editor` (server) and `genseq` (test fixture generator) |
+| [`electron/`](electron/README.md) | Electron desktop wrapper — packages the Go binary into a native app |
+| [`e2e/`](e2e/README.md) | Playwright end-to-end tests |
+| [`testdata/`](testdata/README.md) | Static test fixtures (`.pgm`, `.seq`, `.wav`) used by unit and e2e tests |
+| [`internal/`](internal/README.md) | All application logic (see package dependency graph) |
+| [`.github/workflows/`](.github/workflows/README.md) | GitHub Actions CI configuration |
+
 ## Development
 
 ```
