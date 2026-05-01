@@ -182,6 +182,10 @@ function buildMenu() {
 // App lifecycle
 // ---------------------------------------------------------------------------
 
+// Skip the GPU process entirely. This app renders plain HTML/CSS — hardware
+// acceleration buys nothing and causes Chromium to spam EGL init errors on macOS.
+app.disableHardwareAcceleration();
+
 app.whenReady().then(async () => {
     try {
         const url = await startGoServer();

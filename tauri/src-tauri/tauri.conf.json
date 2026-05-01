@@ -1,0 +1,18 @@
+{
+  "productName": "MPC Editor",
+  "version": "0.1.0",
+  "identifier": "com.maxgarvey.mpceditor",
+  "build": {
+    "frontendDist": "../"
+  },
+  "app": {
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": ["../../mpc_editor"]
+  }
+}

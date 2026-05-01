@@ -4,7 +4,7 @@ GOFLAGS   := -trimpath
 LDFLAGS   := -s -w
 LINT_VER  := v2.11.4
 
-.PHONY: all build run test lint vet fmt check clean install dev generate help test-e2e test-e2e-headed test-e2e-ui electron electron-dist
+.PHONY: all build run test lint vet fmt check clean install dev generate help test-e2e test-e2e-headed test-e2e-ui electron electron-dist tauri tauri-dist
 
 ## —— Primary targets ——
 
@@ -82,6 +82,18 @@ electron: build  ## Build Go binary then launch Electron app (requires npm)
 
 electron-dist: build  ## Build Go binary then package Electron distributable
 	cd electron && npm install --silent && npm run dist:mac
+
+## —— Tauri desktop app ——
+
+tauri: build  ## Build Go binary then launch Tauri app (requires Rust + tauri-cli)
+	@command -v cargo >/dev/null 2>&1 || { echo "Install Rust: https://rustup.rs"; exit 1; }
+	@cargo tauri --version >/dev/null 2>&1 || { echo "Installing tauri-cli..."; cargo install tauri-cli --version "^2"; }
+	cd tauri && cargo tauri dev
+
+tauri-dist: build  ## Build Go binary then package Tauri distributable
+	@command -v cargo >/dev/null 2>&1 || { echo "Install Rust: https://rustup.rs"; exit 1; }
+	@cargo tauri --version >/dev/null 2>&1 || { echo "Installing tauri-cli..."; cargo install tauri-cli --version "^2"; }
+	cd tauri && cargo tauri build
 
 clean:  ## Remove build artifacts
 	rm -f $(BINARY) coverage.out

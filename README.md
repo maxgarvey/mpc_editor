@@ -41,6 +41,32 @@ On macOS, the browser opens automatically. Set `PORT` to change the default port
 PORT=9090 make run
 ```
 
+## Desktop App
+
+Both wrappers follow the same pattern: find a free port, spawn the Go binary with `PORT=<port> NO_BROWSER=1`, wait for it to accept connections, open a window at that URL, and kill the binary on quit. The packaged app bundles the Go binary so no Go toolchain is needed to run it.
+
+### Electron
+
+Uses a bundled Chromium renderer. Requires [Node.js](https://nodejs.org).
+
+```
+make electron       # build Go binary + launch Electron app (requires npm)
+make electron-dist  # build Go binary + package .dmg (macOS)
+```
+
+`make electron` handles `npm install` automatically. See [`electron/README.md`](electron/README.md) for Windows/Linux packaging and more detail.
+
+### Tauri
+
+Uses the platform's native WebView (WKWebView on macOS). Lighter binary, lower memory, no GPU/EGL noise. Requires [Rust](https://rustup.rs).
+
+```
+make tauri          # build Go binary + launch Tauri app (auto-installs tauri-cli)
+make tauri-dist     # build Go binary + package distributable
+```
+
+See [`tauri/README.md`](tauri/README.md) for cross-platform packaging targets and more detail.
+
 ## Architecture
 
 | Package | Description |
@@ -74,6 +100,7 @@ PORT=9090 make run
 |-----------|-------------|
 | [`cmd/`](cmd/README.md) | Entry-point binaries: `mpc_editor` (server) and `genseq` (test fixture generator) |
 | [`electron/`](electron/README.md) | Electron desktop wrapper — packages the Go binary into a native app |
+| [`tauri/`](tauri/README.md) | Tauri desktop wrapper — uses the platform's native WebView instead of Chromium |
 | [`e2e/`](e2e/README.md) | Playwright end-to-end tests |
 | [`testdata/`](testdata/README.md) | Static test fixtures (`.pgm`, `.seq`, `.wav`) used by unit and e2e tests |
 | [`internal/`](internal/README.md) | All application logic (see package dependency graph) |

@@ -37,3 +37,7 @@ e2e/playwright-report/
 # Electron
 electron/node_modules/
 dist-electron/
+
+# Tauri
+tauri/src-tauri/target/
+dist-tauri/
