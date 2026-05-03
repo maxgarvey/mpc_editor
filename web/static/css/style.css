@@ -1919,9 +1919,7 @@ tr.pad-row:not(.has-events) .track-label {
 /* Grid ruler — placed inside seq-grid-scroll, above the table */
 .seq-grid-ruler-wrap {
     display: flex;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    min-width: max-content;
     background: #1e1e1e;
     border-bottom: 1px solid #444;
 }

@@ -446,6 +446,7 @@ const SequencePlayer = (function() {
         seqViewMode = m;
         restoreViewLayout();
         if (m === 'continuous') loadContinuousView();
+        if (m === 'grid') renderGridRuler();
         // Re-init playhead for the active view.
         if (playing) initPlayhead();
         SequenceEditor.restoreSnapBtn();
