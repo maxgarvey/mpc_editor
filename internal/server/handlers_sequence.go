@@ -42,6 +42,38 @@ func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
 	return m
 }
 
+// allPadSampleNames returns the first non-empty layer sample name for all 64 pads
+// from the explicitly selected program (pgmRelPath) or the session program as a fallback.
+func (s *Server) allPadSampleNames(pgmRelPath string) []string {
+	var prog *pgm.Program
+	if pgmRelPath != "" {
+		if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
+			prog = p
+		}
+	}
+	if prog == nil {
+		prog = s.session.Program
+	}
+	names := make([]string, 64)
+	if prog == nil {
+		return names
+	}
+	n := prog.PadCount()
+	if n > 64 {
+		n = 64
+	}
+	for i := 0; i < n; i++ {
+		pad := prog.Pad(i)
+		for j := 0; j < 4; j++ {
+			if name := pad.Layer(j).GetSampleName(); name != "" {
+				names[i] = name
+				break
+			}
+		}
+	}
+	return names
+}
+
 // padSampleNames returns the first non-empty layer sample name for each of the 16 Bank A pads
 // from the explicitly selected program (pgmRelPath) or the session program as a fallback.
 func (s *Server) padSampleNames(pgmRelPath string) [16]string {
@@ -174,6 +206,9 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		velocity := parseIntParam(r, "velocity", 100)
 		duration := parseIntParam(r, "duration", 23)
 		targetTick := tickForBarStep(bar, step)
+		if rawTick := parseIntParam(r, "tick", -1); rawTick >= 0 {
+			targetTick = uint32(rawTick)
+		}
 
 		existing := false
 		newEvents := make([]seq.Event, 0, len(sequence.Events))
@@ -206,6 +241,12 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		toStep := parseIntParam(r, "to_step", 0)
 		fromTick := tickForBarStep(fromBar, fromStep)
 		toTick := tickForBarStep(toBar, toStep)
+		if rawFrom := parseIntParam(r, "from_tick", -1); rawFrom >= 0 {
+			fromTick = uint32(rawFrom)
+		}
+		if rawTo := parseIntParam(r, "to_tick", -1); rawTo >= 0 {
+			toTick = uint32(rawTo)
+		}
 		toNote := s.padToNote(toPad, pgmRelPath)
 
 		newEvents := make([]seq.Event, 0, len(sequence.Events))
@@ -288,10 +329,12 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 
 	case "multi_move":
 		var targets []struct {
-			Pad          int `json:"pad"`
-			GlobalStep   int `json:"global_step"`
-			ToPad        int `json:"to_pad"`
-			ToGlobalStep int `json:"to_global_step"`
+			Pad          int  `json:"pad"`
+			GlobalStep   int  `json:"global_step"`
+			ToPad        int  `json:"to_pad"`
+			ToGlobalStep int  `json:"to_global_step"`
+			FromTick     *int `json:"from_tick,omitempty"`
+			ToTick       *int `json:"to_tick,omitempty"`
 		}
 		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
 			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
@@ -309,7 +352,13 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		destSet := make(map[mvKey]bool, len(targets))
 		for _, t := range targets {
 			fromTick := uint32(t.GlobalStep * gp.TicksPerStep)
+			if t.FromTick != nil {
+				fromTick = uint32(*t.FromTick)
+			}
 			toTick := uint32(t.ToGlobalStep * gp.TicksPerStep)
+			if t.ToTick != nil {
+				toTick = uint32(*t.ToTick)
+			}
 			moveMap[mvKey{fromTick, t.Pad}] = mvDest{toTick, s.padToNote(t.ToPad, pgmRelPath)}
 			destSet[mvKey{toTick, t.ToPad}] = true
 		}
@@ -574,14 +623,15 @@ type sequenceEventJSON struct {
 
 // sequenceEventsResponse is the JSON payload for /sequence/events.
 type sequenceEventsResponse struct {
-	BPM          float64             `json:"bpm"`
-	StepsPerBar  int                 `json:"stepsPerBar"`
-	TicksPerStep int                 `json:"ticksPerStep"`
-	BeatsPerBar  int                 `json:"beatsPerBar"`
-	Bars         int                 `json:"bars"`
-	CurrentBar   int                 `json:"currentBar"`
-	TotalTicks   int                 `json:"totalTicks"`
-	Events       []sequenceEventJSON `json:"events"`
+	BPM            float64             `json:"bpm"`
+	StepsPerBar    int                 `json:"stepsPerBar"`
+	TicksPerStep   int                 `json:"ticksPerStep"`
+	BeatsPerBar    int                 `json:"beatsPerBar"`
+	Bars           int                 `json:"bars"`
+	CurrentBar     int                 `json:"currentBar"`
+	TotalTicks     int                 `json:"totalTicks"`
+	Events         []sequenceEventJSON `json:"events"`
+	PadSampleNames []string            `json:"padSampleNames,omitempty"`
 }
 
 func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
@@ -661,14 +711,15 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := sequenceEventsResponse{
-		BPM:          sequence.BPM,
-		StepsPerBar:  gp.StepsPerBar,
-		TicksPerStep: gp.TicksPerStep,
-		BeatsPerBar:  gp.BeatsPerBar,
-		Bars:         displayBars,
-		CurrentBar:   bar,
-		TotalTicks:   int(tickEnd - tickStart),
-		Events:       events,
+		BPM:            sequence.BPM,
+		StepsPerBar:    gp.StepsPerBar,
+		TicksPerStep:   gp.TicksPerStep,
+		BeatsPerBar:    gp.BeatsPerBar,
+		Bars:           displayBars,
+		CurrentBar:     bar,
+		TotalTicks:     int(tickEnd - tickStart),
+		Events:         events,
+		PadSampleNames: s.allPadSampleNames(r.FormValue("pgm")),
 	}
 
 	w.Header().Set("Content-Type", "application/json")

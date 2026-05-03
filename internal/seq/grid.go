@@ -56,9 +56,10 @@ type StepCell struct {
 	NoteName   string
 	Velocity   byte
 	Duration   uint16
-	Bar        int // 1-indexed bar this cell belongs to
-	StepInBar  int // 0-indexed step within the bar (0–15)
-	GlobalStep int // = (Bar-1)*StepsPerBar + StepInBar
+	Tick       uint32 // raw event tick (may be off-grid); zero for inactive cells
+	Bar        int    // 1-indexed bar this cell belongs to
+	StepInBar  int    // 0-indexed step within the bar (0–15)
+	GlobalStep int    // = (Bar-1)*StepsPerBar + StepInBar
 }
 
 // PadRow is one pad's activity across all bars.
@@ -135,6 +136,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 		note     byte
 		velocity byte
 		duration uint16
+		tick     uint32
 	}
 
 	// padGlobalSteps: padIndex → globalStep → loudest cell
@@ -168,7 +170,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 		padIdx := padForNote(ev.Note)
 		if padIdx >= 0 && padIdx < 64 {
 			if padGlobalSteps[padIdx][gs] == nil || ev.Velocity > padGlobalSteps[padIdx][gs].velocity {
-				padGlobalSteps[padIdx][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration}
+				padGlobalSteps[padIdx][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick}
 			}
 		}
 
@@ -176,7 +178,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 			trackGlobalSteps[ev.Track] = make(map[int]*cell)
 		}
 		if trackGlobalSteps[ev.Track][gs] == nil || ev.Velocity > trackGlobalSteps[ev.Track][gs].velocity {
-			trackGlobalSteps[ev.Track][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration}
+			trackGlobalSteps[ev.Track][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick}
 		}
 
 		if trackNoteGlobalSteps[ev.Track] == nil {
@@ -187,7 +189,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 		}
 		ns := trackNoteGlobalSteps[ev.Track][ev.Note]
 		if ns[gs] == nil || ev.Velocity > ns[gs].velocity {
-			ns[gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration}
+			ns[gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick}
 		}
 	}
 
@@ -204,6 +206,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 				steps[gs].NoteName = NoteName(c.note)
 				steps[gs].Velocity = c.velocity
 				steps[gs].Duration = c.duration
+				steps[gs].Tick = c.tick
 			}
 		}
 		return steps

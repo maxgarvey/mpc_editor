@@ -43,6 +43,8 @@
         <span class="seq-mode-label">Layout:</span>
         <button class="btn-sm seq-view-btn seq-view-btn--grid active" onclick="SequencePlayer.setViewMode('grid')">Grid</button>
         <button class="btn-sm seq-view-btn seq-view-btn--continuous" onclick="SequencePlayer.setViewMode('continuous')">Piano Roll</button>
+        <span class="seq-mode-sep" id="seq-snap-sep">|</span>
+        <button class="btn-sm seq-snap-btn active" id="seq-snap-btn" onclick="SequenceEditor.toggleSnap(this)" title="Snap to grid division (Piano Roll). Hold Shift to temporarily toggle.">Snap</button>
     </div>
 
     <div class="pgm-picker">
@@ -129,6 +131,7 @@
                     {{if $step.Active}}
                     data-vel="{{$step.Velocity}}"
                     data-dur="{{$step.Duration}}"
+                    data-tick="{{$step.Tick}}"
                     title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"
                     {{end}}>
                     {{if $step.Active}}<span class="step-dot"></span>{{end}}
@@ -159,6 +162,7 @@
                     {{if $step.Active}}
                     data-vel="{{$step.Velocity}}"
                     data-dur="{{$step.Duration}}"
+                    data-tick="{{$step.Tick}}"
                     title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"
                     {{end}}>
                     {{if $step.Active}}<span class="step-dot"></span>{{end}}

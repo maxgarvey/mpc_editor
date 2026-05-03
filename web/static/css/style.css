@@ -1844,6 +1844,17 @@ tr.pad-row:not(.has-events) .track-label {
 
 /* ---- Continuous (piano-roll) view ---- */
 
+.seq-snap-btn {
+    opacity: 0.5;
+}
+
+.seq-snap-btn.active {
+    background: #1a3a00;
+    color: #a0c840;
+    border-color: #a0c840;
+    opacity: 1;
+}
+
 .seq-view-btn.active {
     background: #1a3a00;
     color: #a0c840;
@@ -1950,15 +1961,70 @@ tr.pad-row:not(.has-events) .track-label {
     min-width: 140px;
     flex-shrink: 0;
     display: flex;
-    align-items: center;
-    padding: 0 8px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2px 4px 2px 6px;
     font-size: 11px;
-    color: #aaa;
+    color: #a0c840;
     background: #1e1e1e;
     position: sticky;
     left: 0;
     z-index: 5;
     border-right: 1px solid #333;
+    overflow: hidden;
+}
+
+.seq-cont-track-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 1px;
+}
+
+.seq-cont-track-sample-name {
+    font-size: 9px;
+    color: #667;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 128px;
+}
+
+.seq-cont-event-selected {
+    outline: 2px solid #44cc44;
+    outline-offset: -2px;
+}
+
+.seq-cont-event-dragging {
+    opacity: 0.4;
+}
+
+.seq-cont-event-drag-preview {
+    opacity: 0.45;
+    pointer-events: none;
+    outline: 1px dashed rgba(255, 255, 255, 0.6);
+    outline-offset: -1px;
+}
+
+.seq-cont-event-insert-preview {
+    opacity: 0.5;
+    pointer-events: none;
+    outline: 1px dashed rgba(255, 255, 255, 0.7);
+    outline-offset: -1px;
+}
+
+.seq-cont-track.seq-cont-track-drop-target {
+    background: rgba(255, 220, 50, 0.08);
+    outline: 1px solid rgba(255, 220, 50, 0.4);
+    outline-offset: -1px;
+}
+
+.seq-cont-track.track-muted .seq-cont-event {
+    opacity: 0.15 !important;
+}
+
+.seq-cont-track.track-muted .track-label {
+    opacity: 0.5;
 }
 
 .seq-cont-track-body {

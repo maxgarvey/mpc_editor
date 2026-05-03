@@ -114,19 +114,31 @@ const SequencePlayer = (function() {
         var stepsPerBeat = Math.round(stepsPerBar / beatsPerBar);
         seqTotalTicks = data.totalTicks || (bars * ticksPerBar);
         seqTicksPerStep = ticksPerStep;
+        var sampleNames = data.padSampleNames || [];
+
+        // Store timing params for drag calculations (read back by SequenceEditor).
+        container.dataset.ticksPerStep = ticksPerStep;
+        container.dataset.ticksPerBar = ticksPerBar;
+        container.dataset.stepsPerBar = stepsPerBar;
+        container.dataset.pxPerTick = PX_PER_TICK;
 
         var pxpt = PX_PER_TICK;
         var timelineW = Math.ceil(seqTotalTicks * pxpt);
         var TRACK_H = 32;
         var HEADER_H = 28;
 
-        // Group events by padIndex, sorted by padIndex.
+        // Group events by padIndex.
         var padEvents = {};
         events.forEach(function(e) {
             if (!padEvents[e.padIndex]) padEvents[e.padIndex] = [];
             padEvents[e.padIndex].push(e);
         });
-        var padIndices = Object.keys(padEvents).map(Number).sort(function(a, b) { return a - b; });
+        // Show all pads with a sample name OR events (sorted by index).
+        var padSet = new Set(Object.keys(padEvents).map(Number));
+        for (var pi = 0; pi < 64; pi++) {
+            if (sampleNames[pi]) padSet.add(pi);
+        }
+        var padIndices = Array.from(padSet).sort(function(a, b) { return a - b; });
 
         // Build inner container.
         var inner = document.createElement('div');
@@ -238,10 +250,54 @@ const SequencePlayer = (function() {
             var row = document.createElement('div');
             row.className = 'seq-cont-track';
             row.style.height = TRACK_H + 'px';
+            row.setAttribute('data-pad', padIdx);
+            if (mutedPads.has(padIdx) || (soloPads.size > 0 && !soloPads.has(padIdx))) {
+                row.classList.add('track-muted');
+            }
 
             var nameCell = document.createElement('div');
             nameCell.className = 'seq-cont-track-name';
-            nameCell.textContent = padLabel(padIdx);
+
+            var controls = document.createElement('div');
+            controls.className = 'seq-cont-track-controls';
+
+            var prevBtn = document.createElement('button');
+            prevBtn.className = 'track-preview-btn';
+            prevBtn.innerHTML = '&#9654;';
+            prevBtn.title = 'Preview pad';
+            prevBtn.onclick = (function(idx) { return function(ev) { ev.stopPropagation(); SequenceEditor.previewPad(idx); }; })(padIdx);
+            controls.appendChild(prevBtn);
+
+            var muteBtn = document.createElement('button');
+            muteBtn.className = 'track-mute-btn' + (mutedPads.has(padIdx) ? ' active' : '');
+            muteBtn.textContent = 'M';
+            muteBtn.title = 'Mute';
+            muteBtn.onclick = (function(idx, btn) { return function(ev) { ev.stopPropagation(); SequencePlayer.toggleMutePad(idx, btn); }; })(padIdx, muteBtn);
+            controls.appendChild(muteBtn);
+
+            var soloBtn = document.createElement('button');
+            soloBtn.className = 'track-solo-btn' + (soloPads.has(padIdx) ? ' active' : '');
+            soloBtn.textContent = 'S';
+            soloBtn.title = 'Solo';
+            soloBtn.onclick = (function(idx, btn) { return function(ev) { ev.stopPropagation(); SequencePlayer.toggleSoloPad(idx, btn); }; })(padIdx, soloBtn);
+            controls.appendChild(soloBtn);
+
+            var labelSpan = document.createElement('span');
+            labelSpan.className = 'track-label';
+            labelSpan.textContent = padLabel(padIdx);
+            controls.appendChild(labelSpan);
+
+            nameCell.appendChild(controls);
+
+            var sn = sampleNames[padIdx] || '';
+            if (sn) {
+                var snSpan = document.createElement('div');
+                snSpan.className = 'seq-cont-track-sample-name';
+                snSpan.title = sn;
+                snSpan.textContent = sn;
+                nameCell.appendChild(snSpan);
+            }
+
             row.appendChild(nameCell);
 
             var body = document.createElement('div');
@@ -272,14 +328,23 @@ const SequencePlayer = (function() {
             }
 
             // Event blocks.
-            padEvents[padIdx].forEach(function(e) {
+            (padEvents[padIdx] || []).forEach(function(e) {
                 var evDiv = document.createElement('div');
+                var evGs = Math.floor(e.tick / ticksPerStep);
                 evDiv.className = 'seq-cont-event';
+                evDiv.dataset.pad = padIdx;
+                evDiv.dataset.tick = e.tick;
+                evDiv.dataset.dur = e.durationTicks;
+                evDiv.dataset.vel = e.velocity;
+                evDiv.dataset.gs = evGs;
                 evDiv.style.left = Math.round(e.tick * pxpt) + 'px';
                 evDiv.style.width = Math.max(3, Math.round(e.durationTicks * pxpt)) + 'px';
                 evDiv.style.backgroundColor = velocityToColor(e.velocity);
                 evDiv.style.opacity = 0.5 + e.velocity / 127 * 0.5;
                 evDiv.title = padLabel(padIdx) + ' vel:' + e.velocity;
+                if (SequenceEditor.isContInSelection(padIdx, evGs)) {
+                    evDiv.classList.add('seq-cont-event-selected');
+                }
                 body.appendChild(evDiv);
             });
 
@@ -287,11 +352,11 @@ const SequencePlayer = (function() {
             tracksDiv.appendChild(row);
         });
 
-        // Show empty state if no events.
+        // Show empty state if no pads at all (no program loaded, no events).
         if (padIndices.length === 0) {
             var empty = document.createElement('div');
             empty.className = 'seq-cont-empty';
-            empty.textContent = 'No events in this sequence.';
+            empty.textContent = 'No pads in this sequence.';
             tracksDiv.appendChild(empty);
         }
 
@@ -347,6 +412,7 @@ const SequencePlayer = (function() {
         if (m === 'continuous') loadContinuousView();
         // Re-init playhead for the active view.
         if (playing) initPlayhead();
+        SequenceEditor.restoreSnapBtn();
     }
 
     const mutedPads = new Set();
@@ -376,6 +442,7 @@ const SequencePlayer = (function() {
         SequenceEditor.clearSelection();
         syncLoopFromDOM();
         SequenceEditor.restoreModeButtons();
+        SequenceEditor.restoreSnapBtn();
         restoreBankState();
         restoreViewLayout();
         refreshEvents();
@@ -388,6 +455,7 @@ const SequencePlayer = (function() {
         }
         restoreBankState();
         syncLoopFromDOM();
+        SequenceEditor.restoreSnapBtn();
     });
 
     function saveBankState() {
@@ -559,14 +627,15 @@ const SequencePlayer = (function() {
     }
 
     function toggleMutePad(padIndex, btn) {
+        var row = btn.closest('tr') || btn.closest('.seq-cont-track');
         if (mutedPads.has(padIndex)) {
             mutedPads.delete(padIndex);
             btn.classList.remove('active');
-            btn.closest('tr').classList.remove('track-muted');
+            if (row) row.classList.remove('track-muted');
         } else {
             mutedPads.add(padIndex);
             btn.classList.add('active');
-            btn.closest('tr').classList.add('track-muted');
+            if (row) row.classList.add('track-muted');
         }
     }
 
@@ -586,6 +655,14 @@ const SequencePlayer = (function() {
                 row.classList.remove('track-muted');
             }
         });
+        document.querySelectorAll('.seq-cont-track[data-pad]').forEach(function(row) {
+            var idx = parseInt(row.getAttribute('data-pad'));
+            if (soloPads.size > 0 && !soloPads.has(idx)) {
+                row.classList.add('track-muted');
+            } else if (!mutedPads.has(idx)) {
+                row.classList.remove('track-muted');
+            }
+        });
     }
 
     return {
@@ -598,6 +675,7 @@ const SequencePlayer = (function() {
         restoreBankState: restoreBankState,
         refreshEvents: refreshEvents,
         setViewMode: setViewMode,
+        getViewMode: function() { return seqViewMode; },
         restoreViewLayout: restoreViewLayout,
         syncLoop: syncLoopFromDOM,
         toggleLoop: function() {
@@ -629,9 +707,30 @@ const SequenceEditor = (function() {
     var dragGhost = null;
     var dragOverCell = null;
 
+    // --- grid insert drag state ---
+    var gridInsert = null; // { pad, step, bar, fromActive, el, moved }
+    var gridInsertOverCell = null;
+    var gridInsertHandled = false; // suppresses click after mouseup
+
+    // --- piano roll drag state ---
+    var contDrag = null; // { pad, gs, tick, el, startX, ticksPerStep, ticksPerBar, isMulti }
+    var contDragOverRow = null;
+    var contDragPreview = null; // semi-opaque preview block shown at destination during drag
+
+    // --- piano roll insert state ---
+    var contInsert = null; // { pad, tick, el, body } — pending insert while mouse held in insert mode
+
     // --- multi-select state ---
     var selectedCells = new Set(); // "pad:globalStep" keys
     var detailIsMulti = false;
+    var detailFromCont = false; // true when detail was opened from piano roll
+
+    // --- piano roll selection state ---
+    var contSelectedKeys = new Set(); // "pad:gs"
+    var contEventDataByKey = {}; // "pad:gs" → {pad, tick, gs, vel, dur}
+
+    // --- piano roll snap state ---
+    var contSnapEnabled = true;
 
     // --- detail popover state ---
     var detailPad = -1;
@@ -676,6 +775,73 @@ const SequenceEditor = (function() {
         document.querySelectorAll('#seq-step-grid .step-selected').forEach(function(el) {
             el.classList.remove('step-selected');
         });
+        clearContSelection();
+    }
+
+    function contKey(pad, gs) { return pad + ':' + gs; }
+
+    function isContInSelection(pad, gs) {
+        return contSelectedKeys.has(contKey(pad, gs));
+    }
+
+    function addContToSelection(el, pad, gs, tick, vel, dur) {
+        var k = contKey(pad, gs);
+        contSelectedKeys.add(k);
+        contEventDataByKey[k] = { pad: pad, tick: tick, gs: gs, vel: vel, dur: dur };
+        el.classList.add('seq-cont-event-selected');
+    }
+
+    function removeContFromSelection(el, pad, gs) {
+        var k = contKey(pad, gs);
+        contSelectedKeys.delete(k);
+        delete contEventDataByKey[k];
+        el.classList.remove('seq-cont-event-selected');
+    }
+
+    function clearContSelection() {
+        contSelectedKeys.clear();
+        contEventDataByKey = {};
+        document.querySelectorAll('.seq-cont-event-selected').forEach(function(el) {
+            el.classList.remove('seq-cont-event-selected');
+        });
+    }
+
+    function removeContDragPreview() {
+        if (contDragPreview) { contDragPreview.remove(); contDragPreview = null; }
+    }
+
+    function getContSelectedEvents() {
+        return Object.keys(contEventDataByKey).map(function(k) {
+            var d = contEventDataByKey[k];
+            return { pad: d.pad, global_step: d.gs };
+        });
+    }
+
+    function contUseSnap(shiftKey) {
+        // Shift temporarily inverts the snap toggle state.
+        return shiftKey ? !contSnapEnabled : contSnapEnabled;
+    }
+
+    function toggleSnap(btn) {
+        contSnapEnabled = !contSnapEnabled;
+        var b = btn || document.getElementById('seq-snap-btn');
+        if (b) b.classList.toggle('active', contSnapEnabled);
+    }
+
+    function restoreSnapBtn() {
+        var b = document.getElementById('seq-snap-btn');
+        var sep = document.getElementById('seq-snap-sep');
+        if (!b) return;
+        var inGrid = (SequencePlayer.getViewMode() === 'grid');
+        b.style.display = inGrid ? 'none' : '';
+        if (sep) sep.style.display = inGrid ? 'none' : '';
+        b.classList.toggle('active', inGrid ? true : contSnapEnabled);
+    }
+
+    function snapTick(rawTick, ticksPerStep, useSnap) {
+        return useSnap
+            ? Math.round(rawTick / ticksPerStep) * ticksPerStep
+            : Math.round(rawTick);
     }
 
     function getSelectedEvents() {
@@ -720,6 +886,7 @@ const SequenceEditor = (function() {
                     if (window.htmx) htmx.process(grid);
                     clearSelection();
                     SequenceEditor.restoreModeButtons();
+                    restoreSnapBtn();
                     SequencePlayer.restoreBankState();
                     SequencePlayer.restoreViewLayout();
                     SequencePlayer.syncLoop();
@@ -754,7 +921,8 @@ const SequenceEditor = (function() {
         if (mode !== 'insert') return;
         var cell = e.target.closest('#seq-step-grid .step-cell');
         if (!cell) return;
-        if (drag) return; // ignore clicks that follow a drag
+        if (drag) return; // ignore clicks that follow an edit-mode drag
+        if (gridInsertHandled) { gridInsertHandled = false; return; } // handled by mousedown/mouseup drag
         if (e.ctrlKey || e.metaKey) {
             if (cell.classList.contains('step-active')) {
                 if (isInSelection(cell)) { removeFromSelection(cell); } else { addToSelection(cell); }
@@ -764,7 +932,38 @@ const SequenceEditor = (function() {
         var pad = parseInt(cell.dataset.pad);
         var step = parseInt(cell.dataset.step);
         var bar = parseInt(cell.dataset.bar) || 1;
-        postEdit({ action: 'toggle', pad: pad, step: step, bar: bar, velocity: 100, duration: 23 });
+        var params = { action: 'toggle', pad: pad, step: step, bar: bar, velocity: 100, duration: 23 };
+        // If the event sits off-grid, pass its raw tick so the backend can locate it.
+        if (cell.classList.contains('step-active') && cell.dataset.tick) {
+            params.tick = parseInt(cell.dataset.tick);
+        }
+        postEdit(params);
+    });
+
+    // ---- insert mode: mousedown → drag to position, mouseup to commit ----
+
+    document.addEventListener('mousedown', function(e) {
+        if (mode === 'insert' && e.button === 0) {
+            var insertCell = e.target.closest('#seq-step-grid .step-cell');
+            if (insertCell) {
+                e.preventDefault();
+                gridInsertHandled = false;
+                gridInsert = {
+                    pad: parseInt(insertCell.dataset.pad),
+                    step: parseInt(insertCell.dataset.step),
+                    bar: parseInt(insertCell.dataset.bar) || 1,
+                    fromActive: insertCell.classList.contains('step-active'),
+                    el: insertCell,
+                    moved: false
+                };
+                dragGhost = document.createElement('div');
+                dragGhost.className = 'step-drag-ghost';
+                dragGhost.style.left = (e.clientX + 14) + 'px';
+                dragGhost.style.top = (e.clientY - 14) + 'px';
+                document.body.appendChild(dragGhost);
+                return;
+            }
+        }
     });
 
     // ---- edit mode: mouse-drag to move ----
@@ -803,14 +1002,89 @@ const SequenceEditor = (function() {
     });
 
     document.addEventListener('mousemove', function(e) {
-        if (!drag) return;
-        // Move ghost with the same offset so it tracks the cursor.
-        dragGhost.style.left = (e.clientX + 14) + 'px';
-        dragGhost.style.top = (e.clientY - 14) + 'px';
+        if (!drag && !contDrag && !contInsert && !gridInsert) return;
 
+        if (dragGhost) {
+            dragGhost.style.left = (e.clientX + 14) + 'px';
+            dragGhost.style.top = (e.clientY - 14) + 'px';
+        }
+
+        if (gridInsert) {
+            var elgi = document.elementFromPoint(e.clientX, e.clientY);
+            var nextCell = elgi && elgi.closest('#seq-step-grid .step-cell');
+            var different = nextCell && nextCell !== gridInsert.el;
+            if (different) gridInsert.moved = true;
+            var target = different ? nextCell : null;
+            if (target !== gridInsertOverCell) {
+                if (gridInsertOverCell) gridInsertOverCell.classList.remove('step-drop-target');
+                gridInsertOverCell = target;
+                if (gridInsertOverCell) gridInsertOverCell.classList.add('step-drop-target');
+            }
+        }
+
+        if (contDrag) {
+            // Track which row the cursor is over.
+            var el = document.elementFromPoint(e.clientX, e.clientY);
+            var row = el && el.closest('.seq-cont-track');
+            var sourceRow = contDrag.el.closest('.seq-cont-track');
+            var nextRow = (row && row !== sourceRow) ? row : null;
+            if (nextRow !== contDragOverRow) {
+                if (contDragOverRow) contDragOverRow.classList.remove('seq-cont-track-drop-target');
+                contDragOverRow = nextRow;
+                if (contDragOverRow) contDragOverRow.classList.add('seq-cont-track-drop-target');
+            }
+
+            // Compute where the event will land and show a preview block there.
+            var contContainer = document.getElementById('seq-continuous-view');
+            var pxPerTick = contContainer ? (parseFloat(contContainer.dataset.pxPerTick) || 1.5) : 1.5;
+            var rawDelta = (e.clientX - contDrag.startX) / pxPerTick;
+            var useSnap = contUseSnap(e.shiftKey);
+            var deltaTicks = useSnap
+                ? Math.round(rawDelta / contDrag.ticksPerStep) * contDrag.ticksPerStep
+                : Math.round(rawDelta);
+            var previewTick = Math.max(0, contDrag.tick + deltaTicks);
+            var targetTrack = contDragOverRow || sourceRow;
+            var targetBody = targetTrack ? targetTrack.querySelector('.seq-cont-track-body') : null;
+            if (targetBody) {
+                if (!contDragPreview) {
+                    contDragPreview = document.createElement('div');
+                    contDragPreview.className = 'seq-cont-event seq-cont-event-drag-preview';
+                    contDragPreview.style.width = contDrag.el.style.width;
+                    contDragPreview.style.backgroundColor = contDrag.el.style.backgroundColor;
+                }
+                if (contDragPreview.parentNode !== targetBody) {
+                    targetBody.appendChild(contDragPreview);
+                }
+                contDragPreview.style.left = Math.round(previewTick * pxPerTick) + 'px';
+            } else {
+                removeContDragPreview();
+            }
+        }
+
+        if (contInsert) {
+            var contContainer2 = document.getElementById('seq-continuous-view');
+            var pxPerTick2 = contContainer2 ? (parseFloat(contContainer2.dataset.pxPerTick) || 1.5) : 1.5;
+            var tps2 = contContainer2 ? (parseInt(contContainer2.dataset.ticksPerStep) || 24) : 24;
+            // Follow cursor to a different pad row if needed.
+            var elHover = document.elementFromPoint(e.clientX, e.clientY);
+            var hoverTrack = elHover && elHover.closest('.seq-cont-track');
+            var hoverBody = hoverTrack ? hoverTrack.querySelector('.seq-cont-track-body') : null;
+            if (hoverBody && hoverBody !== contInsert.body) {
+                hoverBody.appendChild(contInsert.el);
+                contInsert.body = hoverBody;
+                contInsert.pad = parseInt(hoverTrack.dataset.pad) || contInsert.pad;
+            }
+            var bodyRect2 = contInsert.body.getBoundingClientRect();
+            var rawTick2 = Math.max(0, (e.clientX - bodyRect2.left) / pxPerTick2);
+            var tick2 = snapTick(rawTick2, tps2, contUseSnap(e.shiftKey));
+            contInsert.tick = tick2;
+            contInsert.el.style.left = Math.round(tick2 * pxPerTick2) + 'px';
+        }
+
+        if (!drag) return;
         // Cursor is never under the ghost, so elementFromPoint is reliable here.
-        var el = document.elementFromPoint(e.clientX, e.clientY);
-        var cell = el && el.closest('#seq-step-grid .step-cell');
+        var el2 = document.elementFromPoint(e.clientX, e.clientY);
+        var cell = el2 && el2.closest('#seq-step-grid .step-cell');
         var next = (cell && cell !== drag.el) ? cell : null;
         if (next !== dragOverCell) {
             if (dragOverCell) dragOverCell.classList.remove('step-drop-target');
@@ -820,6 +1094,106 @@ const SequenceEditor = (function() {
     });
 
     document.addEventListener('mouseup', function(e) {
+        // Piano roll drag
+        if (contDrag) {
+            var contContainer = document.getElementById('seq-continuous-view');
+            var pxPerTick = contContainer ? (parseFloat(contContainer.dataset.pxPerTick) || 1.5) : 1.5;
+            var dx = e.clientX - contDrag.startX;
+            var useSnap = contUseSnap(e.shiftKey);
+            var rawDelta = dx / pxPerTick;
+            var deltaTicks = useSnap
+                ? Math.round(rawDelta / contDrag.ticksPerStep) * contDrag.ticksPerStep
+                : Math.round(rawDelta);
+            var fromTick = contDrag.tick;
+            var newTick = Math.max(0, fromTick + deltaTicks);
+
+            // Resolve target pad from the row under the cursor.
+            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+            var targetEl = document.elementFromPoint(e.clientX, e.clientY);
+            var targetRow = targetEl ? targetEl.closest('.seq-cont-track') : null;
+            var toPad = targetRow ? parseInt(targetRow.dataset.pad) : contDrag.pad;
+            if (isNaN(toPad)) toPad = contDrag.pad;
+
+            contDrag.el.classList.remove('seq-cont-event-dragging');
+            if (contDragOverRow) { contDragOverRow.classList.remove('seq-cont-track-drop-target'); contDragOverRow = null; }
+            removeContDragPreview();
+            var savedContDrag = contDrag;
+            contDrag = null;
+
+            if (deltaTicks !== 0 || toPad !== savedContDrag.pad) {
+                if (savedContDrag.isMulti) {
+                    var padDelta = toPad - savedContDrag.pad;
+                    var cevs = Object.keys(contEventDataByKey).map(function(k) {
+                        var d = contEventDataByKey[k];
+                        var dNewTick = Math.max(0, d.tick + deltaTicks);
+                        return {
+                            pad: d.pad,
+                            global_step: d.gs,
+                            to_pad: Math.max(0, Math.min(63, d.pad + padDelta)),
+                            to_global_step: Math.max(0, d.gs + Math.round(deltaTicks / savedContDrag.ticksPerStep)),
+                            from_tick: d.tick,
+                            to_tick: dNewTick
+                        };
+                    });
+                    postEdit({ action: 'multi_move', events: JSON.stringify(cevs) });
+                } else {
+                    var fromBar = Math.floor(fromTick / savedContDrag.ticksPerBar) + 1;
+                    var fromStep = Math.floor((fromTick % savedContDrag.ticksPerBar) / savedContDrag.ticksPerStep);
+                    var toBar = Math.floor(newTick / savedContDrag.ticksPerBar) + 1;
+                    var toStep = Math.floor((newTick % savedContDrag.ticksPerBar) / savedContDrag.ticksPerStep);
+                    postEdit({
+                        action: 'move',
+                        from_pad: savedContDrag.pad, from_step: fromStep, from_bar: fromBar,
+                        from_tick: fromTick,
+                        to_pad: toPad, to_step: toStep, to_bar: toBar,
+                        to_tick: newTick
+                    });
+                }
+            }
+            return;
+        }
+
+        // Piano roll insert commit
+        if (contInsert) {
+            var insertTick = contInsert.tick;
+            var insertPad = contInsert.pad;
+            contInsert.el.remove();
+            contInsert = null;
+            postEdit({ action: 'toggle', pad: insertPad, tick: insertTick, step: 0, bar: 1, velocity: 100, duration: 23 });
+            return;
+        }
+
+        // Grid insert drag commit
+        if (gridInsert) {
+            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+            if (gridInsertOverCell) { gridInsertOverCell.classList.remove('step-drop-target'); }
+            var destCell = (gridInsert.moved && gridInsertOverCell) ? gridInsertOverCell : null;
+            var savedGI = gridInsert;
+            gridInsert = null;
+            gridInsertOverCell = null;
+            gridInsertHandled = true;
+
+            if (destCell) {
+                var giToPad = parseInt(destCell.dataset.pad);
+                var giToStep = parseInt(destCell.dataset.step);
+                var giToBar = parseInt(destCell.dataset.bar) || 1;
+                if (savedGI.fromActive) {
+                    var giMoveParams = {
+                        action: 'move',
+                        from_pad: savedGI.pad, from_step: savedGI.step, from_bar: savedGI.bar,
+                        to_pad: giToPad, to_step: giToStep, to_bar: giToBar
+                    };
+                    if (savedGI.el.dataset.tick) giMoveParams.from_tick = parseInt(savedGI.el.dataset.tick);
+                    postEdit(giMoveParams);
+                } else {
+                    postEdit({ action: 'toggle', pad: giToPad, step: giToStep, bar: giToBar, velocity: 100, duration: 23 });
+                }
+            } else {
+                postEdit({ action: 'toggle', pad: savedGI.pad, step: savedGI.step, bar: savedGI.bar, velocity: 100, duration: 23 });
+            }
+            return;
+        }
+
         if (!drag) return;
 
         var fromPad = drag.pad;
@@ -865,11 +1239,14 @@ const SequenceEditor = (function() {
                 var toPad = parseInt(target.dataset.pad);
                 var toStep = parseInt(target.dataset.step);
                 var toBar = parseInt(target.dataset.bar) || 1;
-                postEdit({
+                var moveParams = {
                     action: 'move',
                     from_pad: fromPad, from_step: fromStep, from_bar: fromBar,
                     to_pad: toPad, to_step: toStep, to_bar: toBar
-                });
+                };
+                // Pass the raw source tick so the backend can find off-grid events.
+                if (sourceEl.dataset.tick) moveParams.from_tick = parseInt(sourceEl.dataset.tick);
+                postEdit(moveParams);
             }
         }
     });
@@ -890,18 +1267,56 @@ const SequenceEditor = (function() {
         if (selectedCells.size > 1 && isInSelection(cell)) {
             // Bulk edit
             detailPad = -1; detailStep = -1; detailBar = -1;
+            detailFromCont = false;
             openDetail(e.clientX, e.clientY, 100, 23, true);
         } else {
             detailPad = parseInt(cell.dataset.pad);
             detailStep = parseInt(cell.dataset.step);
             detailBar = parseInt(cell.dataset.bar) || 1;
+            detailFromCont = false;
             var vel = parseInt(cell.dataset.vel) || 100;
             var dur = parseInt(cell.dataset.dur) || 23;
             openDetail(e.clientX, e.clientY, vel, dur, false);
         }
     });
 
-    function openDetail(x, y, vel, dur, multi) {
+    // ---- piano roll right-click: event detail popover ----
+
+    document.addEventListener('contextmenu', function(e) {
+        var evDiv = e.target.closest('.seq-cont-event');
+        if (!evDiv) return;
+        e.preventDefault();
+
+        var pad = parseInt(evDiv.dataset.pad);
+        var gs = parseInt(evDiv.dataset.gs);
+        var tick = parseInt(evDiv.dataset.tick);
+        var vel = parseInt(evDiv.dataset.vel) || 100;
+        var dur = parseInt(evDiv.dataset.dur) || 23;
+
+        if (contSelectedKeys.size > 0 && !isContInSelection(pad, gs)) {
+            clearContSelection();
+            addContToSelection(evDiv, pad, gs, tick, vel, dur);
+        } else if (contSelectedKeys.size === 0) {
+            addContToSelection(evDiv, pad, gs, tick, vel, dur);
+        }
+
+        if (contSelectedKeys.size > 1) {
+            detailPad = -1; detailStep = -1; detailBar = -1;
+            detailFromCont = true;
+            openDetail(e.clientX, e.clientY, 100, 23, true, contSelectedKeys.size);
+        } else {
+            var container = document.getElementById('seq-continuous-view');
+            var tps = container ? (parseInt(container.dataset.ticksPerStep) || 24) : 24;
+            var tpb = container ? (parseInt(container.dataset.ticksPerBar) || tps * 16) : tps * 16;
+            detailPad = pad;
+            detailStep = Math.floor(tick % tpb / tps);
+            detailBar = Math.floor(tick / tpb) + 1;
+            detailFromCont = false;
+            openDetail(e.clientX, e.clientY, vel, dur, false);
+        }
+    });
+
+    function openDetail(x, y, vel, dur, multi, count) {
         var panel = document.getElementById('seq-event-detail');
         if (!panel) return;
         detailIsMulti = !!multi;
@@ -909,8 +1324,9 @@ const SequenceEditor = (function() {
         document.getElementById('seq-detail-vel-display').textContent = vel;
         document.getElementById('seq-detail-dur').value = dur;
         var title = panel.querySelector('.seq-event-detail-title');
+        var cnt = (count !== undefined) ? count : selectedCells.size;
         if (title) {
-            title.textContent = multi ? 'Bulk Edit (' + selectedCells.size + ' events)' : 'Event Details';
+            title.textContent = multi ? 'Bulk Edit (' + cnt + ' events)' : 'Event Details';
         }
 
         // Position near click, but keep on screen.
@@ -927,7 +1343,7 @@ const SequenceEditor = (function() {
         var vel = parseInt(document.getElementById('seq-detail-vel').value);
         var dur = parseInt(document.getElementById('seq-detail-dur').value);
         if (detailIsMulti) {
-            var evs = getSelectedEvents();
+            var evs = detailFromCont ? getContSelectedEvents() : getSelectedEvents();
             if (evs.length > 0) postEdit({ action: 'multi_update', events: JSON.stringify(evs), velocity: vel, duration: dur });
             closeDetail();
             return;
@@ -939,7 +1355,7 @@ const SequenceEditor = (function() {
 
     function deleteDetail() {
         if (detailIsMulti) {
-            var evs = getSelectedEvents();
+            var evs = detailFromCont ? getContSelectedEvents() : getSelectedEvents();
             if (evs.length > 0) postEdit({ action: 'multi_delete', events: JSON.stringify(evs) });
             closeDetail();
             return;
@@ -953,7 +1369,7 @@ const SequenceEditor = (function() {
         var qEl = document.getElementById('seq-detail-quantize');
         var qTicks = qEl ? (parseInt(qEl.value) || 24) : 24;
         if (detailIsMulti) {
-            var evs = getSelectedEvents();
+            var evs = detailFromCont ? getContSelectedEvents() : getSelectedEvents();
             if (evs.length > 0) postEdit({ action: 'multi_quantize', events: JSON.stringify(evs), quantize_ticks: qTicks });
             closeDetail();
             return;
@@ -970,15 +1386,16 @@ const SequenceEditor = (function() {
         detailStep = -1;
         detailBar = -1;
         detailIsMulti = false;
+        detailFromCont = false;
     }
 
-    // Close detail on click outside; clear selection on click outside the grid.
+    // Close detail on click outside; clear selection on click outside grid/piano-roll.
     document.addEventListener('mousedown', function(e) {
         var panel = document.getElementById('seq-event-detail');
         if (panel && panel.style.display !== 'none' && !panel.contains(e.target)) {
             closeDetail();
         }
-        if (!e.target.closest('#seq-step-grid') && !e.target.closest('#seq-event-detail')) {
+        if (!e.target.closest('#seq-step-grid') && !e.target.closest('#seq-event-detail') && !e.target.closest('.seq-cont-event')) {
             clearSelection();
         }
     });
@@ -995,8 +1412,107 @@ const SequenceEditor = (function() {
                 e.preventDefault();
                 var evs = getSelectedEvents();
                 if (evs.length > 0) postEdit({ action: 'multi_delete', events: JSON.stringify(evs) });
+            } else if (contSelectedKeys.size > 0) {
+                e.preventDefault();
+                var cevs = getContSelectedEvents();
+                if (cevs.length > 0) postEdit({ action: 'multi_delete', events: JSON.stringify(cevs) });
             }
         }
+    });
+
+    // ---- piano roll: click (ctrl+click selection / view-mode preview) ----
+
+    document.addEventListener('click', function(e) {
+        var evDiv = e.target.closest('.seq-cont-event');
+        if (!evDiv) return;
+        var pad = parseInt(evDiv.dataset.pad);
+        var gs = parseInt(evDiv.dataset.gs);
+        var tick = parseInt(evDiv.dataset.tick);
+        var vel = parseInt(evDiv.dataset.vel);
+        var dur = parseInt(evDiv.dataset.dur);
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            if (isContInSelection(pad, gs)) {
+                removeContFromSelection(evDiv, pad, gs);
+            } else {
+                addContToSelection(evDiv, pad, gs, tick, vel, dur);
+            }
+            return;
+        }
+        if (mode === 'view') {
+            clearContSelection();
+            previewPad(pad);
+        } else if (mode === 'insert') {
+            // Clicking an existing event in insert mode removes it.
+            postEdit({ action: 'toggle', pad: pad, tick: tick, step: 0, bar: 1, velocity: vel, duration: dur });
+        }
+    });
+
+    // ---- piano roll: insert-mode mousedown on empty track body starts a pending insert ----
+
+    document.addEventListener('mousedown', function(e) {
+        if (mode !== 'insert') return;
+        if (e.button !== 0) return;
+        if (e.target.closest('.seq-cont-event')) return; // handled by click handler (toggle existing)
+        var body = e.target.closest('.seq-cont-track-body');
+        if (!body) return;
+        var track = body.closest('.seq-cont-track');
+        if (!track) return;
+        var pad = parseInt(track.dataset.pad);
+        if (isNaN(pad)) return;
+        e.preventDefault();
+        var contContainer = document.getElementById('seq-continuous-view');
+        var pxPerTick = contContainer ? (parseFloat(contContainer.dataset.pxPerTick) || 1.5) : 1.5;
+        var tps = contContainer ? (parseInt(contContainer.dataset.ticksPerStep) || 24) : 24;
+        var rect = body.getBoundingClientRect();
+        var rawTick = Math.max(0, (e.clientX - rect.left) / pxPerTick);
+        var tick = snapTick(rawTick, tps, contUseSnap(e.shiftKey));
+        var preview = document.createElement('div');
+        preview.className = 'seq-cont-event seq-cont-event-insert-preview';
+        preview.style.left = Math.round(tick * pxPerTick) + 'px';
+        preview.style.width = Math.max(3, Math.round(23 * pxPerTick)) + 'px';
+        preview.style.backgroundColor = '#44aa44'; // default vel 100 = green
+        body.appendChild(preview);
+        contInsert = { pad: pad, tick: tick, el: preview, body: body };
+    });
+
+    // ---- piano roll: edit-mode mousedown for drag ----
+
+    document.addEventListener('mousedown', function(e) {
+        if (mode !== 'edit') return;
+        if (e.button !== 0) return;
+        var evDiv = e.target.closest('.seq-cont-event');
+        if (!evDiv) return;
+        var pad = parseInt(evDiv.dataset.pad);
+        var gs = parseInt(evDiv.dataset.gs);
+        var tick = parseInt(evDiv.dataset.tick);
+        var vel = parseInt(evDiv.dataset.vel);
+        var dur = parseInt(evDiv.dataset.dur);
+        if (e.ctrlKey || e.metaKey) {
+            if (isContInSelection(pad, gs)) {
+                removeContFromSelection(evDiv, pad, gs);
+            } else {
+                addContToSelection(evDiv, pad, gs, tick, vel, dur);
+            }
+            return;
+        }
+        e.preventDefault();
+        var container = document.getElementById('seq-continuous-view');
+        var tps = container ? (parseInt(container.dataset.ticksPerStep) || 24) : 24;
+        var tpb = container ? (parseInt(container.dataset.ticksPerBar) || tps * 16) : tps * 16;
+        var isMulti = contSelectedKeys.size > 1 && isContInSelection(pad, gs);
+        contDrag = {
+            pad: pad, gs: gs, tick: tick, vel: vel, dur: dur,
+            el: evDiv, startX: e.clientX,
+            ticksPerStep: tps, ticksPerBar: tpb,
+            isMulti: isMulti
+        };
+        evDiv.classList.add('seq-cont-event-dragging');
+        dragGhost = document.createElement('div');
+        dragGhost.className = 'step-drag-ghost';
+        dragGhost.style.left = (e.clientX + 14) + 'px';
+        dragGhost.style.top = (e.clientY - 14) + 'px';
+        document.body.appendChild(dragGhost);
     });
 
     // ---- pad / step preview ----
@@ -1052,6 +1568,9 @@ const SequenceEditor = (function() {
         quantizeDetail: quantizeDetail,
         closeDetail: closeDetail,
         previewPad: previewPad,
-        previewStep: previewStep
+        previewStep: previewStep,
+        isContInSelection: isContInSelection,
+        toggleSnap: toggleSnap,
+        restoreSnapBtn: restoreSnapBtn
     };
 })();
