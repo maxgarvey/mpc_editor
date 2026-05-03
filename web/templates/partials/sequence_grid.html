@@ -102,16 +102,6 @@
            data-seq-loop="{{.Loop}}"
            data-seq-bpm="{{.BPM}}"
            data-seq-bars="{{.Bars}}">
-        <thead>
-            <tr>
-                <th class="track-name-cell">Pad</th>
-                {{range (index .Grid.BankAPadRows 0).Steps}}
-                <th class="step-header {{if eq .StepInBar 0}}bar-start{{else if eq (mod .StepInBar $spb) 0}}beat-start{{end}}">
-                    {{if eq .StepInBar 0}}<span class="bar-num">B{{.Bar}}</span>{{else}}{{add .StepInBar 1}}{{end}}
-                </th>
-                {{end}}
-            </tr>
-        </thead>
         <tbody>
             {{range .Grid.BankAPadRows}}
             {{$padIdx := .PadIndex}}

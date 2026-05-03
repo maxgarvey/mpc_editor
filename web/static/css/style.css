@@ -1930,6 +1930,7 @@ tr.pad-row:not(.has-events) .track-label {
     width: 140px;
     min-width: 140px;
     flex-shrink: 0;
+    box-sizing: border-box;
     background: #1e1e1e;
     position: sticky;
     left: 0;
