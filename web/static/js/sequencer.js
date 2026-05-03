@@ -493,6 +493,7 @@ const SequencePlayer = (function() {
         }
         restoreBankState();
         syncLoopFromDOM();
+        renderGridRuler();
         SequenceEditor.restoreSnapBtn();
     });
 
