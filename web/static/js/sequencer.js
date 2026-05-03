@@ -362,13 +362,6 @@ const SequencePlayer = (function() {
             }
             // Final bar end line.
             addGridline(body, timelineW, 'seq-cont-gridline-bar');
-            // Second-aligned gridlines (subtle blue tint, distinct from beat/bar).
-            var nSecLines = Math.ceil(seqTotalTicks / tksPerSec) + 1;
-            for (var scl = 0; scl <= nSecLines; scl++) {
-                var sclPx = Math.round(scl * tksPerSec * pxpt);
-                if (sclPx > timelineW) break;
-                addGridline(body, sclPx, 'seq-cont-gridline-sec');
-            }
 
             // Event blocks.
             (padEvents[padIdx] || []).forEach(function(e) {
