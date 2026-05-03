@@ -43,8 +43,8 @@
         <span class="seq-mode-label">Layout:</span>
         <button class="btn-sm seq-view-btn seq-view-btn--grid active" onclick="SequencePlayer.setViewMode('grid')">Grid</button>
         <button class="btn-sm seq-view-btn seq-view-btn--continuous" onclick="SequencePlayer.setViewMode('continuous')">Piano Roll</button>
-        <span class="seq-mode-sep" id="seq-snap-sep">|</span>
-        <button class="btn-sm seq-snap-btn active" id="seq-snap-btn" onclick="SequenceEditor.toggleSnap(this)" title="Snap to grid division (Piano Roll). Hold Shift to temporarily toggle.">Snap</button>
+        <span class="seq-mode-sep" id="seq-snap-sep" style="display:none">|</span>
+        <button class="btn-sm seq-snap-btn" id="seq-snap-btn" style="display:none" onclick="SequenceEditor.toggleSnap(this)" title="Snap to grid division (Piano Roll). Hold Shift to temporarily toggle.">Snap</button>
     </div>
 
     <div class="pgm-picker">
@@ -93,12 +93,15 @@
     {{$spb := .Grid.Params.StepsPerBeat}}
     <div class="seq-grid-scroll" id="seq-grid-scroll">
     <div id="seq-playhead" class="seq-playhead"></div>
+    <div id="seq-grid-ruler" class="seq-grid-ruler-wrap"></div>
     <table class="step-grid" id="seq-step-grid"
            data-seq-path="{{.Path}}"
            data-seq-pgm="{{.PGMPath}}"
            data-seq-tsig="{{.TSig}}"
            data-seq-division="{{.Division}}"
-           data-seq-loop="{{.Loop}}">
+           data-seq-loop="{{.Loop}}"
+           data-seq-bpm="{{.BPM}}"
+           data-seq-bars="{{.Bars}}">
         <thead>
             <tr>
                 <th class="track-name-cell">Pad</th>

@@ -1590,8 +1590,8 @@ tr.track-muted .track-label {
 }
 
 .step-cell {
-    width: 26px;
-    min-width: 26px;
+    width: 36px;
+    min-width: 36px;
     height: 28px;
     background: #222;
     border: 1px solid #333;
@@ -1914,6 +1914,156 @@ tr.pad-row:not(.has-events) .track-label {
     height: 20px;
     background: #161818;
     overflow: visible;
+}
+
+/* Grid ruler — placed inside seq-grid-scroll, above the table */
+.seq-grid-ruler-wrap {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #1e1e1e;
+    border-bottom: 1px solid #444;
+}
+
+.seq-grid-ruler-name {
+    width: 140px;
+    min-width: 140px;
+    flex-shrink: 0;
+    background: #1e1e1e;
+    position: sticky;
+    left: 0;
+    z-index: 11;
+    border-right: 1px solid #333;
+}
+
+.seq-grid-ruler-timeline {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Shared three-row ruler (grid + piano roll) */
+.seq-ruler-beats-row {
+    position: relative;
+    height: 22px;
+    border-bottom: 1px solid #2a2a2a;
+    overflow: visible;
+}
+
+.seq-ruler-div-row {
+    position: relative;
+    height: 12px;
+    background: #181a18;
+    border-bottom: 1px solid #2a2a2a;
+    overflow: visible;
+}
+
+.seq-ruler-sec-row {
+    position: relative;
+    height: 20px;
+    background: #161818;
+    overflow: visible;
+}
+
+.seq-ruler-mark-bar,
+.seq-ruler-mark-beat {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.seq-ruler-mark-bar {
+    font-size: 10px;
+    font-weight: bold;
+    color: #bbb;
+    padding-top: 3px;
+    padding-left: 3px;
+}
+
+.seq-ruler-mark-bar::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    height: 12px;
+    background: rgba(255,255,255,0.5);
+}
+
+.seq-ruler-mark-beat {
+    font-size: 9px;
+    color: #777;
+    padding-top: 4px;
+    padding-left: 2px;
+}
+
+.seq-ruler-mark-beat::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    height: 7px;
+    background: rgba(255,255,255,0.25);
+}
+
+.seq-ruler-div-mark {
+    position: absolute;
+    top: 3px;
+    width: 1px;
+    height: 4px;
+    background: rgba(255,255,255,0.12);
+    pointer-events: none;
+}
+
+.seq-ruler-div-mark.beat {
+    top: 1px;
+    height: 8px;
+    background: rgba(255,255,255,0.28);
+}
+
+.seq-ruler-div-mark.bar {
+    top: 0;
+    height: 12px;
+    background: rgba(255,255,255,0.45);
+}
+
+.seq-ruler-sec-minor {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    height: 4px;
+    background: rgba(90,160,220,0.3);
+    pointer-events: none;
+}
+
+.seq-ruler-sec-major {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.seq-ruler-sec-major::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 7px;
+    background: rgba(90,160,220,0.6);
+}
+
+.seq-ruler-sec-label {
+    position: absolute;
+    top: 8px;
+    left: 2px;
+    font-size: 9px;
+    color: #5a9fd4;
+    white-space: nowrap;
+    line-height: 1;
 }
 
 /* Legacy classes kept for compatibility */

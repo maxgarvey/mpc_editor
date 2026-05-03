@@ -22,7 +22,8 @@ const SequencePlayer = (function() {
     var seqViewMode = 'grid';
     var seqTicksPerStep = 24;
     var seqTotalTicks = 0;
-    var PX_PER_TICK = 1.5;
+    var STEP_PX = 36;      // pixels per step — constant in both views; piano roll derives PX_PER_TICK from this
+    var PX_PER_TICK = 1.5; // updated per render: STEP_PX / ticksPerStep
     var TRACK_NAME_W = 140;
 
     // Smooth playhead line (grid view)
@@ -100,6 +101,124 @@ const SequencePlayer = (function() {
         parent.appendChild(el);
     }
 
+    // Builds the three shared ruler rows (beats, divisions, seconds) into a wrapper div.
+    // p: { bars, beatsPerBar, stepsPerBar, pxPerStep, bpm }
+    // Returns { el: wrapper div, totalPx: number }
+    function buildRulerContent(p) {
+        var stepsPerBeat = p.stepsPerBar / p.beatsPerBar;
+        var totalSteps = p.bars * p.stepsPerBar;
+        var totalPx = Math.ceil(totalSteps * p.pxPerStep);
+
+        var wrapper = document.createElement('div');
+
+        // Row 1: bars and beats
+        var beatsRow = document.createElement('div');
+        beatsRow.className = 'seq-ruler-beats-row';
+        for (var bi = 0; bi < p.bars; bi++) {
+            var barPx = Math.round(bi * p.stepsPerBar * p.pxPerStep);
+            var barMark = document.createElement('div');
+            barMark.className = 'seq-ruler-mark-bar';
+            barMark.style.left = barPx + 'px';
+            barMark.textContent = 'B' + (bi + 1);
+            beatsRow.appendChild(barMark);
+            for (var beat = 1; beat < p.beatsPerBar; beat++) {
+                var beatPx = Math.round((bi * p.stepsPerBar + beat * stepsPerBeat) * p.pxPerStep);
+                var beatMark = document.createElement('div');
+                beatMark.className = 'seq-ruler-mark-beat';
+                beatMark.style.left = beatPx + 'px';
+                beatMark.textContent = beat + 1;
+                beatsRow.appendChild(beatMark);
+            }
+        }
+        wrapper.appendChild(beatsRow);
+
+        // Row 2: step divisions
+        var divsRow = document.createElement('div');
+        divsRow.className = 'seq-ruler-div-row';
+        for (var si = 0; si <= totalSteps; si++) {
+            var sPx = Math.round(si * p.pxPerStep);
+            var isBar = (si % p.stepsPerBar === 0);
+            var isBeat = !isBar && stepsPerBeat > 0 && (si % stepsPerBeat === 0);
+            var divMark = document.createElement('div');
+            divMark.className = 'seq-ruler-div-mark' + (isBar ? ' bar' : isBeat ? ' beat' : '');
+            divMark.style.left = sPx + 'px';
+            divsRow.appendChild(divMark);
+        }
+        wrapper.appendChild(divsRow);
+
+        // Row 3: seconds
+        var totalSec = p.bars * p.beatsPerBar * 60 / p.bpm;
+        var pxPerSec = totalPx / totalSec;
+        var majSec = 1, minSec = 0.5;
+        if (pxPerSec < 40)  { majSec = 10; minSec = 5; }
+        else if (pxPerSec < 80)  { majSec = 5;  minSec = 1; }
+        else if (pxPerSec < 160) { majSec = 2;  minSec = 0.5; }
+
+        var secRow = document.createElement('div');
+        secRow.className = 'seq-ruler-sec-row';
+
+        if (minSec * pxPerSec >= 18) {
+            var nMinor = Math.ceil(totalSec / minSec) + 1;
+            for (var mni = 1; mni <= nMinor; mni++) {
+                var mnt = mni * minSec;
+                if (mnt % majSec < 0.001 || mnt % majSec > majSec - 0.001) continue;
+                var mnPx = Math.round(mnt * pxPerSec);
+                if (mnPx > totalPx) break;
+                var mnEl = document.createElement('div');
+                mnEl.className = 'seq-ruler-sec-minor';
+                mnEl.style.left = mnPx + 'px';
+                secRow.appendChild(mnEl);
+            }
+        }
+        var nMaj = Math.ceil(totalSec / majSec) + 1;
+        for (var mji = 0; mji <= nMaj; mji++) {
+            var mjt = mji * majSec;
+            var mjPx = Math.round(mjt * pxPerSec);
+            if (mjPx > totalPx + 2) break;
+            var mjEl = document.createElement('div');
+            mjEl.className = 'seq-ruler-sec-major';
+            mjEl.style.left = mjPx + 'px';
+            var mjLbl = document.createElement('span');
+            mjLbl.className = 'seq-ruler-sec-label';
+            mjLbl.textContent = mjt === 0 ? '0s' : (majSec >= 1 ? Math.round(mjt) + 's' : mjt.toFixed(1) + 's');
+            mjEl.appendChild(mjLbl);
+            secRow.appendChild(mjEl);
+        }
+        wrapper.appendChild(secRow);
+
+        return { el: wrapper, totalPx: totalPx };
+    }
+
+    // Renders the three-row ruler above the grid table using data attributes stored on the table element.
+    function renderGridRuler() {
+        var grid = document.getElementById('seq-step-grid');
+        var rulerWrap = document.getElementById('seq-grid-ruler');
+        if (!grid || !rulerWrap) return;
+
+        var bpm = parseFloat(grid.dataset.seqBpm) || 120;
+        var bars = parseInt(grid.dataset.seqBars) || 1;
+        var tsig = grid.dataset.seqTsig || '4_4';
+        var ticksPerStep = parseInt(grid.dataset.seqDivision) || 24;
+
+        var tsParts = tsig.split('_');
+        var beatsPerBar = parseInt(tsParts[0]) || 4;
+        var beatDenom = parseInt(tsParts[1]) || 4;
+        var ticksPerBar = beatsPerBar * 96 * 4 / beatDenom;
+        var stepsPerBar = Math.round(ticksPerBar / ticksPerStep);
+
+        rulerWrap.innerHTML = '';
+        var nameDiv = document.createElement('div');
+        nameDiv.className = 'seq-grid-ruler-name';
+        rulerWrap.appendChild(nameDiv);
+
+        var timeline = document.createElement('div');
+        timeline.className = 'seq-grid-ruler-timeline';
+        var built = buildRulerContent({ bars: bars, beatsPerBar: beatsPerBar, stepsPerBar: stepsPerBar, pxPerStep: STEP_PX, bpm: bpm });
+        timeline.style.width = built.totalPx + 'px';
+        timeline.appendChild(built.el);
+        rulerWrap.appendChild(timeline);
+    }
+
     function renderContinuousView(data) {
         var container = document.getElementById('seq-continuous-view');
         if (!container) return;
@@ -116,13 +235,16 @@ const SequencePlayer = (function() {
         seqTicksPerStep = ticksPerStep;
         var sampleNames = data.padSampleNames || [];
 
+        // Keep step width constant across divisions; pxPerTick scales accordingly.
+        var pxpt = STEP_PX / ticksPerStep;
+        PX_PER_TICK = pxpt;
+
         // Store timing params for drag calculations (read back by SequenceEditor).
         container.dataset.ticksPerStep = ticksPerStep;
         container.dataset.ticksPerBar = ticksPerBar;
         container.dataset.stepsPerBar = stepsPerBar;
-        container.dataset.pxPerTick = PX_PER_TICK;
+        container.dataset.pxPerTick = pxpt;
 
-        var pxpt = PX_PER_TICK;
         var timelineW = Math.ceil(seqTotalTicks * pxpt);
         var TRACK_H = 32;
         var HEADER_H = 28;
@@ -145,7 +267,7 @@ const SequencePlayer = (function() {
         inner.className = 'seq-cont-inner';
         inner.style.width = (TRACK_NAME_W + timelineW) + 'px';
 
-        // ── Header: beats row + seconds row ───────────────────────────────────
+        // ── Header: three-row ruler (beats, divisions, seconds) ───────────────
         var header = document.createElement('div');
         header.className = 'seq-cont-header';
 
@@ -157,88 +279,9 @@ const SequencePlayer = (function() {
         rulers.className = 'seq-cont-rulers';
         rulers.style.width = timelineW + 'px';
 
-        // Row 1: beat/bar ruler — tick + label at every beat
-        var beatsRow = document.createElement('div');
-        beatsRow.className = 'seq-cont-beats-row';
-        for (var bi = 0; bi < bars; bi++) {
-            var biBarTk = bi * ticksPerBar;
-            var biBarPx = Math.round(biBarTk * pxpt);
-            var barMark = document.createElement('div');
-            barMark.style.cssText = 'position:absolute;top:0;bottom:0;left:' + biBarPx + 'px;pointer-events:none;';
-            var barTickEl = document.createElement('div');
-            barTickEl.style.cssText = 'position:absolute;bottom:0;left:0;width:1px;height:12px;background:rgba(255,255,255,0.5);';
-            barMark.appendChild(barTickEl);
-            var barLbl = document.createElement('span');
-            barLbl.style.cssText = 'position:absolute;top:3px;left:3px;font-size:10px;font-weight:bold;color:#bbb;white-space:nowrap;line-height:1;';
-            barLbl.textContent = 'B' + (bi + 1);
-            barMark.appendChild(barLbl);
-            beatsRow.appendChild(barMark);
-
-            for (var bii = 1; bii < beatsPerBar; bii++) {
-                var biiBeatTk = biBarTk + bii * ticksPerBeat;
-                var biiBeatPx = Math.round(biiBeatTk * pxpt);
-                var beatMark = document.createElement('div');
-                beatMark.style.cssText = 'position:absolute;top:0;bottom:0;left:' + biiBeatPx + 'px;pointer-events:none;';
-                var beatTickEl = document.createElement('div');
-                beatTickEl.style.cssText = 'position:absolute;bottom:0;left:0;width:1px;height:7px;background:rgba(255,255,255,0.25);';
-                beatMark.appendChild(beatTickEl);
-                var beatLbl = document.createElement('span');
-                beatLbl.style.cssText = 'position:absolute;top:4px;left:2px;font-size:9px;color:#777;white-space:nowrap;line-height:1;';
-                beatLbl.textContent = bii + 1;
-                beatMark.appendChild(beatLbl);
-                beatsRow.appendChild(beatMark);
-            }
-        }
-        rulers.appendChild(beatsRow);
-
-        // Row 2: seconds ruler — derived from BPM
         var bpmVal = data.bpm || 120;
-        var tksPerSec = bpmVal * 96 / 60;
-        var seqDurSec = seqTotalTicks / tksPerSec;
-        var pxPerSec = tksPerSec * pxpt;
-
-        var timeRow = document.createElement('div');
-        timeRow.className = 'seq-cont-time-row';
-
-        // Adaptive density: widen major interval when zoomed out
-        var majSec = 1, minSec = 0.5;
-        if (pxPerSec < 40) { majSec = 10; minSec = 5; }
-        else if (pxPerSec < 80) { majSec = 5; minSec = 1; }
-        else if (pxPerSec < 160) { majSec = 2; minSec = 0.5; }
-
-        // Minor ticks (no label)
-        if (minSec * pxPerSec >= 18) {
-            var nMinor = Math.ceil(seqDurSec / minSec) + 1;
-            for (var mni = 1; mni <= nMinor; mni++) {
-                var mnt = mni * minSec;
-                if (mnt % majSec < 0.001 || mnt % majSec > majSec - 0.001) continue;
-                var mnPx = Math.round(mnt * tksPerSec * pxpt);
-                if (mnPx > timelineW) break;
-                var mnMark = document.createElement('div');
-                mnMark.style.cssText = 'position:absolute;top:0;left:' + mnPx + 'px;width:1px;height:4px;background:rgba(90,160,220,0.3);pointer-events:none;';
-                timeRow.appendChild(mnMark);
-            }
-        }
-
-        // Major ticks + labels
-        var nMaj = Math.ceil(seqDurSec / majSec) + 1;
-        for (var mji = 0; mji <= nMaj; mji++) {
-            var mjt = mji * majSec;
-            var mjPx = Math.round(mjt * tksPerSec * pxpt);
-            if (mjPx > timelineW + 2) break;
-            var mjMark = document.createElement('div');
-            mjMark.style.cssText = 'position:absolute;top:0;bottom:0;left:' + mjPx + 'px;pointer-events:none;';
-            var mjTick = document.createElement('div');
-            mjTick.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:7px;background:rgba(90,160,220,0.6);';
-            mjMark.appendChild(mjTick);
-            var mjLbl = document.createElement('span');
-            mjLbl.style.cssText = 'position:absolute;top:8px;left:2px;font-size:9px;color:#5a9fd4;white-space:nowrap;line-height:1;';
-            mjLbl.textContent = mjt === 0 ? '0s' : (majSec >= 1 ? Math.round(mjt) + 's' : mjt.toFixed(1) + 's');
-            mjMark.appendChild(mjLbl);
-            timeRow.appendChild(mjMark);
-        }
-
-        rulers.appendChild(timeRow);
+        var rulerBuilt = buildRulerContent({ bars: bars, beatsPerBar: beatsPerBar, stepsPerBar: stepsPerBar, pxPerStep: STEP_PX, bpm: bpmVal });
+        rulers.appendChild(rulerBuilt.el);
         header.appendChild(rulers);
         inner.appendChild(header);
 
@@ -445,6 +488,7 @@ const SequencePlayer = (function() {
         SequenceEditor.restoreSnapBtn();
         restoreBankState();
         restoreViewLayout();
+        renderGridRuler();
         refreshEvents();
     });
 
@@ -1039,10 +1083,11 @@ const SequenceEditor = (function() {
             var pxPerTick = contContainer ? (parseFloat(contContainer.dataset.pxPerTick) || 1.5) : 1.5;
             var rawDelta = (e.clientX - contDrag.startX) / pxPerTick;
             var useSnap = contUseSnap(e.shiftKey);
-            var deltaTicks = useSnap
-                ? Math.round(rawDelta / contDrag.ticksPerStep) * contDrag.ticksPerStep
-                : Math.round(rawDelta);
-            var previewTick = Math.max(0, contDrag.tick + deltaTicks);
+            // Snap the absolute destination tick, not the delta, so off-grid sources land on the grid.
+            var rawNewTick = contDrag.tick + rawDelta;
+            var previewTick = useSnap
+                ? Math.max(0, Math.round(rawNewTick / contDrag.ticksPerStep) * contDrag.ticksPerStep)
+                : Math.max(0, Math.round(rawNewTick));
             var targetTrack = contDragOverRow || sourceRow;
             var targetBody = targetTrack ? targetTrack.querySelector('.seq-cont-track-body') : null;
             if (targetBody) {
@@ -1101,11 +1146,13 @@ const SequenceEditor = (function() {
             var dx = e.clientX - contDrag.startX;
             var useSnap = contUseSnap(e.shiftKey);
             var rawDelta = dx / pxPerTick;
-            var deltaTicks = useSnap
-                ? Math.round(rawDelta / contDrag.ticksPerStep) * contDrag.ticksPerStep
-                : Math.round(rawDelta);
             var fromTick = contDrag.tick;
-            var newTick = Math.max(0, fromTick + deltaTicks);
+            // Snap the absolute destination so off-grid events land on a grid step.
+            var rawNewTick = fromTick + rawDelta;
+            var newTick = useSnap
+                ? Math.max(0, Math.round(rawNewTick / contDrag.ticksPerStep) * contDrag.ticksPerStep)
+                : Math.max(0, Math.round(rawNewTick));
+            var deltaTicks = newTick - fromTick;
 
             // Resolve target pad from the row under the cursor.
             if (dragGhost) { dragGhost.remove(); dragGhost = null; }
@@ -1125,12 +1172,15 @@ const SequenceEditor = (function() {
                     var padDelta = toPad - savedContDrag.pad;
                     var cevs = Object.keys(contEventDataByKey).map(function(k) {
                         var d = contEventDataByKey[k];
-                        var dNewTick = Math.max(0, d.tick + deltaTicks);
+                        var dRawNew = d.tick + rawDelta;
+                        var dNewTick = useSnap
+                            ? Math.max(0, Math.round(dRawNew / savedContDrag.ticksPerStep) * savedContDrag.ticksPerStep)
+                            : Math.max(0, Math.round(dRawNew));
                         return {
                             pad: d.pad,
                             global_step: d.gs,
                             to_pad: Math.max(0, Math.min(63, d.pad + padDelta)),
-                            to_global_step: Math.max(0, d.gs + Math.round(deltaTicks / savedContDrag.ticksPerStep)),
+                            to_global_step: Math.max(0, d.gs + Math.round((dNewTick - d.tick) / savedContDrag.ticksPerStep)),
                             from_tick: d.tick,
                             to_tick: dNewTick
                         };
