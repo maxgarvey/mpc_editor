@@ -1522,6 +1522,10 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #1e1e1e;
 }
 
 .track-label {
