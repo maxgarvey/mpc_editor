@@ -25,6 +25,8 @@ const SequencePlayer = (function() {
     var STEP_PX = 36;      // pixels per step — constant in both views; piano roll derives PX_PER_TICK from this
     var PX_PER_TICK = 1.5; // updated per render: STEP_PX / ticksPerStep
     var TRACK_NAME_W = 140;
+    var TRACK_H = 32;
+    var BANK_HEADER_H = 24;
 
     // Smooth playhead line (grid view)
     var playheadEl = null;
@@ -42,7 +44,7 @@ const SequencePlayer = (function() {
             return;
         }
         var scrollEl = document.getElementById('seq-grid-scroll');
-        var firstStep = document.querySelector('#seq-step-grid thead th:nth-child(2)');
+        var firstStep = document.querySelector('#seq-step-grid .step-col-0');
         playheadEl = document.getElementById('seq-playhead');
         if (!scrollEl || !firstStep || !playheadEl) { playheadEl = null; return; }
         var sr = scrollEl.getBoundingClientRect();
@@ -235,19 +237,15 @@ const SequencePlayer = (function() {
         seqTicksPerStep = ticksPerStep;
         var sampleNames = data.padSampleNames || [];
 
-        // Keep step width constant across divisions; pxPerTick scales accordingly.
         var pxpt = STEP_PX / ticksPerStep;
         PX_PER_TICK = pxpt;
 
-        // Store timing params for drag calculations (read back by SequenceEditor).
         container.dataset.ticksPerStep = ticksPerStep;
         container.dataset.ticksPerBar = ticksPerBar;
         container.dataset.stepsPerBar = stepsPerBar;
         container.dataset.pxPerTick = pxpt;
 
         var timelineW = Math.ceil(seqTotalTicks * pxpt);
-        var TRACK_H = 32;
-        var HEADER_H = 28;
 
         // Group events by padIndex.
         var padEvents = {};
@@ -255,30 +253,21 @@ const SequencePlayer = (function() {
             if (!padEvents[e.padIndex]) padEvents[e.padIndex] = [];
             padEvents[e.padIndex].push(e);
         });
-        // Show all pads with a sample name OR events (sorted by index).
-        var padSet = new Set(Object.keys(padEvents).map(Number));
-        for (var pi = 0; pi < 64; pi++) {
-            if (sampleNames[pi]) padSet.add(pi);
-        }
-        var padIndices = Array.from(padSet).sort(function(a, b) { return a - b; });
 
         // Build inner container.
         var inner = document.createElement('div');
         inner.className = 'seq-cont-inner';
         inner.style.width = (TRACK_NAME_W + timelineW) + 'px';
 
-        // ── Header: three-row ruler (beats, divisions, seconds) ───────────────
+        // Header: three-row ruler.
         var header = document.createElement('div');
         header.className = 'seq-cont-header';
-
         var headerName = document.createElement('div');
         headerName.className = 'seq-cont-header-name';
         header.appendChild(headerName);
-
         var rulers = document.createElement('div');
         rulers.className = 'seq-cont-rulers';
         rulers.style.width = timelineW + 'px';
-
         var bpmVal = data.bpm || 120;
         var rulerBuilt = buildRulerContent({ bars: bars, beatsPerBar: beatsPerBar, stepsPerBar: stepsPerBar, pxPerStep: STEP_PX, bpm: bpmVal });
         rulers.appendChild(rulerBuilt.el);
@@ -289,124 +278,152 @@ const SequencePlayer = (function() {
         var tracksDiv = document.createElement('div');
         tracksDiv.className = 'seq-cont-tracks';
 
-        padIndices.forEach(function(padIdx) {
-            var row = document.createElement('div');
-            row.className = 'seq-cont-track';
-            row.style.height = TRACK_H + 'px';
-            row.setAttribute('data-pad', padIdx);
-            if (mutedPads.has(padIdx) || (soloPads.size > 0 && !soloPads.has(padIdx))) {
-                row.classList.add('track-muted');
-            }
+        var bankLetters = ['a', 'b', 'c', 'd'];
+        var bankNames   = ['A', 'B', 'C', 'D'];
 
-            var nameCell = document.createElement('div');
-            nameCell.className = 'seq-cont-track-name';
+        bankLetters.forEach(function(bankLetter, bankIdx) {
+            var expanded = expandedBanks.has(bankLetter);
 
-            var controls = document.createElement('div');
-            controls.className = 'seq-cont-track-controls';
+            // Bank header bar.
+            var bankHeader = document.createElement('div');
+            bankHeader.className = 'seq-cont-bank-header seq-cont-bank-' + bankLetter + '-header';
+            var bhName = document.createElement('div');
+            bhName.className = 'seq-cont-bank-header-name';
+            bhName.textContent = 'Bank ' + bankNames[bankIdx] + ' ';
+            var arrow = document.createElement('span');
+            arrow.className = 'bank-sep-arrow';
+            arrow.textContent = expanded ? '▼' : '▶';
+            bhName.appendChild(arrow);
+            var bhBody = document.createElement('div');
+            bhBody.className = 'seq-cont-bank-header-body';
+            bankHeader.appendChild(bhName);
+            bankHeader.appendChild(bhBody);
+            bankHeader.onclick = (function(letter) { return function() { SequencePlayer.toggleBank(letter); }; })(bankLetter);
+            tracksDiv.appendChild(bankHeader);
 
-            var prevBtn = document.createElement('button');
-            prevBtn.className = 'track-preview-btn';
-            prevBtn.innerHTML = '&#9654;';
-            prevBtn.title = 'Preview pad';
-            prevBtn.onclick = (function(idx) { return function(ev) { ev.stopPropagation(); SequenceEditor.previewPad(idx); }; })(padIdx);
-            controls.appendChild(prevBtn);
+            // Bank group: 16 pad rows.
+            var bankGroup = document.createElement('div');
+            bankGroup.className = 'seq-cont-bank-group seq-cont-bank-' + bankLetter;
+            if (!expanded) bankGroup.style.display = 'none';
 
-            var muteBtn = document.createElement('button');
-            muteBtn.className = 'track-mute-btn' + (mutedPads.has(padIdx) ? ' active' : '');
-            muteBtn.textContent = 'M';
-            muteBtn.title = 'Mute';
-            muteBtn.onclick = (function(idx, btn) { return function(ev) { ev.stopPropagation(); SequencePlayer.toggleMutePad(idx, btn); }; })(padIdx, muteBtn);
-            controls.appendChild(muteBtn);
-
-            var soloBtn = document.createElement('button');
-            soloBtn.className = 'track-solo-btn' + (soloPads.has(padIdx) ? ' active' : '');
-            soloBtn.textContent = 'S';
-            soloBtn.title = 'Solo';
-            soloBtn.onclick = (function(idx, btn) { return function(ev) { ev.stopPropagation(); SequencePlayer.toggleSoloPad(idx, btn); }; })(padIdx, soloBtn);
-            controls.appendChild(soloBtn);
-
-            var labelSpan = document.createElement('span');
-            labelSpan.className = 'track-label';
-            labelSpan.textContent = padLabel(padIdx);
-            controls.appendChild(labelSpan);
-
-            nameCell.appendChild(controls);
-
-            var sn = sampleNames[padIdx] || '';
-            if (sn) {
-                var snSpan = document.createElement('div');
-                snSpan.className = 'seq-cont-track-sample-name';
-                snSpan.title = sn;
-                snSpan.textContent = sn;
-                nameCell.appendChild(snSpan);
-            }
-
-            row.appendChild(nameCell);
-
-            var body = document.createElement('div');
-            body.className = 'seq-cont-track-body';
-            body.style.width = timelineW + 'px';
-
-            // Gridlines: bars, beats, steps.
-            for (var b2 = 0; b2 < bars; b2++) {
-                var bt = b2 * ticksPerBar;
-                addGridline(body, Math.round(bt * pxpt), 'seq-cont-gridline-bar');
-                for (var beat2 = 1; beat2 < beatsPerBar; beat2++) {
-                    addGridline(body, Math.round((bt + beat2 * ticksPerBeat) * pxpt), 'seq-cont-gridline-beat');
+            for (var padOffset = 0; padOffset < 16; padOffset++) {
+                var padIdx = bankIdx * 16 + padOffset;
+                if (!sampleNames[padIdx] && !(padEvents[padIdx] && padEvents[padIdx].length)) continue;
+                var row = document.createElement('div');
+                row.className = 'seq-cont-track';
+                row.style.height = TRACK_H + 'px';
+                row.setAttribute('data-pad', padIdx);
+                if (mutedPads.has(padIdx) || (soloPads.size > 0 && !soloPads.has(padIdx))) {
+                    row.classList.add('track-muted');
                 }
-                for (var s = 1; s < stepsPerBar; s++) {
-                    if (s % stepsPerBeat !== 0) {
-                        addGridline(body, Math.round((bt + s * ticksPerStep) * pxpt), 'seq-cont-gridline-step');
+
+                var nameCell = document.createElement('div');
+                nameCell.className = 'seq-cont-track-name';
+
+                var controls = document.createElement('div');
+                controls.className = 'seq-cont-track-controls';
+
+                var prevBtn = document.createElement('button');
+                prevBtn.className = 'track-preview-btn';
+                prevBtn.innerHTML = '&#9654;';
+                prevBtn.title = 'Preview pad';
+                prevBtn.onclick = (function(idx) { return function(ev) { ev.stopPropagation(); SequenceEditor.previewPad(idx); }; })(padIdx);
+                controls.appendChild(prevBtn);
+
+                var muteBtn = document.createElement('button');
+                muteBtn.className = 'track-mute-btn' + (mutedPads.has(padIdx) ? ' active' : '');
+                muteBtn.textContent = 'M';
+                muteBtn.title = 'Mute';
+                muteBtn.onclick = (function(idx, btn) { return function(ev) { ev.stopPropagation(); SequencePlayer.toggleMutePad(idx, btn); }; })(padIdx, muteBtn);
+                controls.appendChild(muteBtn);
+
+                var soloBtn = document.createElement('button');
+                soloBtn.className = 'track-solo-btn' + (soloPads.has(padIdx) ? ' active' : '');
+                soloBtn.textContent = 'S';
+                soloBtn.title = 'Solo';
+                soloBtn.onclick = (function(idx, btn) { return function(ev) { ev.stopPropagation(); SequencePlayer.toggleSoloPad(idx, btn); }; })(padIdx, soloBtn);
+                controls.appendChild(soloBtn);
+
+                var labelSpan = document.createElement('span');
+                labelSpan.className = 'track-label';
+                labelSpan.textContent = padLabel(padIdx);
+                controls.appendChild(labelSpan);
+
+                nameCell.appendChild(controls);
+
+                var sn = sampleNames[padIdx] || '';
+                if (sn) {
+                    var snSpan = document.createElement('div');
+                    snSpan.className = 'seq-cont-track-sample-name';
+                    snSpan.title = sn;
+                    snSpan.textContent = sn;
+                    nameCell.appendChild(snSpan);
+                }
+
+                row.appendChild(nameCell);
+
+                var body = document.createElement('div');
+                body.className = 'seq-cont-track-body';
+                body.style.width = timelineW + 'px';
+
+                // Gridlines.
+                for (var b2 = 0; b2 < bars; b2++) {
+                    var bt = b2 * ticksPerBar;
+                    addGridline(body, Math.round(bt * pxpt), 'seq-cont-gridline-bar');
+                    for (var beat2 = 1; beat2 < beatsPerBar; beat2++) {
+                        addGridline(body, Math.round((bt + beat2 * ticksPerBeat) * pxpt), 'seq-cont-gridline-beat');
+                    }
+                    for (var s = 1; s < stepsPerBar; s++) {
+                        if (s % stepsPerBeat !== 0) {
+                            addGridline(body, Math.round((bt + s * ticksPerStep) * pxpt), 'seq-cont-gridline-step');
+                        }
                     }
                 }
+                addGridline(body, timelineW, 'seq-cont-gridline-bar');
+
+                // Event blocks.
+                (padEvents[padIdx] || []).forEach(function(e) {
+                    var evDiv = document.createElement('div');
+                    var evGs = Math.floor(e.tick / ticksPerStep);
+                    evDiv.className = 'seq-cont-event';
+                    evDiv.dataset.pad = padIdx;
+                    evDiv.dataset.tick = e.tick;
+                    evDiv.dataset.dur = e.durationTicks;
+                    evDiv.dataset.vel = e.velocity;
+                    evDiv.dataset.gs = evGs;
+                    evDiv.style.left = Math.round(e.tick * pxpt) + 'px';
+                    evDiv.style.width = Math.max(3, Math.round(e.durationTicks * pxpt)) + 'px';
+                    evDiv.style.backgroundColor = velocityToColor(e.velocity);
+                    evDiv.style.opacity = 0.5 + e.velocity / 127 * 0.5;
+                    evDiv.title = padLabel(padIdx) + ' vel:' + e.velocity;
+                    if (SequenceEditor.isContInSelection(padIdx, evGs)) {
+                        evDiv.classList.add('seq-cont-event-selected');
+                    }
+                    body.appendChild(evDiv);
+                });
+
+                row.appendChild(body);
+                bankGroup.appendChild(row);
             }
-            // Final bar end line.
-            addGridline(body, timelineW, 'seq-cont-gridline-bar');
 
-            // Event blocks.
-            (padEvents[padIdx] || []).forEach(function(e) {
-                var evDiv = document.createElement('div');
-                var evGs = Math.floor(e.tick / ticksPerStep);
-                evDiv.className = 'seq-cont-event';
-                evDiv.dataset.pad = padIdx;
-                evDiv.dataset.tick = e.tick;
-                evDiv.dataset.dur = e.durationTicks;
-                evDiv.dataset.vel = e.velocity;
-                evDiv.dataset.gs = evGs;
-                evDiv.style.left = Math.round(e.tick * pxpt) + 'px';
-                evDiv.style.width = Math.max(3, Math.round(e.durationTicks * pxpt)) + 'px';
-                evDiv.style.backgroundColor = velocityToColor(e.velocity);
-                evDiv.style.opacity = 0.5 + e.velocity / 127 * 0.5;
-                evDiv.title = padLabel(padIdx) + ' vel:' + e.velocity;
-                if (SequenceEditor.isContInSelection(padIdx, evGs)) {
-                    evDiv.classList.add('seq-cont-event-selected');
-                }
-                body.appendChild(evDiv);
-            });
-
-            row.appendChild(body);
-            tracksDiv.appendChild(row);
+            tracksDiv.appendChild(bankGroup);
         });
 
-        // Show empty state if no pads at all (no program loaded, no events).
-        if (padIndices.length === 0) {
-            var empty = document.createElement('div');
-            empty.className = 'seq-cont-empty';
-            empty.textContent = 'No pads in this sequence.';
-            tracksDiv.appendChild(empty);
-        }
-
-        // Playhead element.
+        // Playhead — height covers all visible bank rows + headers.
+        var totalContH = 4 * BANK_HEADER_H;
+        tracksDiv.querySelectorAll('.seq-cont-bank-group').forEach(function(grp) {
+            var bl = grp.className.replace(/.*seq-cont-bank-([a-d])$/, '$1');
+            if (expandedBanks.has(bl)) totalContH += grp.querySelectorAll('.seq-cont-track').length * TRACK_H;
+        });
         var ph = document.createElement('div');
         ph.id = 'seq-cont-playhead';
-        ph.style.height = Math.max(padIndices.length, 1) * TRACK_H + 'px';
+        ph.style.height = totalContH + 'px';
         ph.style.display = playing ? 'block' : 'none';
         tracksDiv.appendChild(ph);
 
         inner.appendChild(tracksDiv);
         container.innerHTML = '';
         container.appendChild(inner);
-
         contPlayheadEl = ph;
     }
 
@@ -456,10 +473,10 @@ const SequencePlayer = (function() {
     const soloPads = new Set();
 
     var ALL_BANKS = [
-        { letter: 'a', rowClass: '.bank-a-row' },
-        { letter: 'b', rowClass: '.bank-b-row' },
-        { letter: 'c', rowClass: '.bank-c-row' },
-        { letter: 'd', rowClass: '.bank-d-row' },
+        { letter: 'a', rowClass: '.bank-a-row', gridHeader: '.bank-a-header', contHeader: '.seq-cont-bank-a-header', contGroup: '.seq-cont-bank-a' },
+        { letter: 'b', rowClass: '.bank-b-row', gridHeader: '.bank-b-header', contHeader: '.seq-cont-bank-b-header', contGroup: '.seq-cont-bank-b' },
+        { letter: 'c', rowClass: '.bank-c-row', gridHeader: '.bank-c-header', contHeader: '.seq-cont-bank-c-header', contGroup: '.seq-cont-bank-c' },
+        { letter: 'd', rowClass: '.bank-d-row', gridHeader: '.bank-d-header', contHeader: '.seq-cont-bank-d-header', contGroup: '.seq-cont-bank-d' },
     ];
 
     // Set of bank letters currently expanded.
@@ -474,8 +491,7 @@ const SequencePlayer = (function() {
         if (btn) btn.classList.toggle('active', looping);
     }
 
-    document.addEventListener('htmx:afterSwap', function(evt) {
-        if (!evt.target || !evt.target.closest('#sequence-grid')) return;
+    function afterDetailSwap() {
         SequenceEditor.clearSelection();
         syncLoopFromDOM();
         SequenceEditor.restoreModeButtons();
@@ -484,6 +500,17 @@ const SequencePlayer = (function() {
         restoreViewLayout();
         renderGridRuler();
         refreshEvents();
+    }
+
+    document.addEventListener('htmx:afterSwap', function(evt) {
+        var swapTarget = (evt.detail && evt.detail.target) || evt.target;
+        var isSeqGrid = swapTarget && (
+            swapTarget.id === 'sequence-grid' ||
+            swapTarget.closest('#sequence-grid') ||
+            (swapTarget.querySelector && !!swapTarget.querySelector('#sequence-grid'))
+        );
+        if (!isSeqGrid) return;
+        afterDetailSwap();
     });
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -504,18 +531,41 @@ const SequencePlayer = (function() {
     function restoreBankState() {
         ALL_BANKS.forEach(function(bank) {
             var expanded = expandedBanks.has(bank.letter);
-            var rows = Array.from(document.querySelectorAll(bank.rowClass));
-            rows.forEach(function(el, idx) {
-                if (idx === 0) {
-                    // First row is always visible — it acts as the bank header.
-                    el.style.display = '';
-                    var arrow = el.querySelector('.bank-sep-arrow');
-                    if (arrow) arrow.textContent = expanded ? '▼' : '▶';
-                } else {
-                    el.style.display = expanded ? '' : 'none';
+
+            // Grid: update header arrow.
+            var gridHdr = document.querySelector(bank.gridHeader);
+            if (gridHdr) {
+                var arr = gridHdr.querySelector('.bank-sep-arrow');
+                if (arr) arr.textContent = expanded ? '▼' : '▶';
+            }
+            // Grid: show/hide all pad rows.
+            document.querySelectorAll(bank.rowClass).forEach(function(el) {
+                el.style.display = expanded ? '' : 'none';
+            });
+
+            // Piano roll: update header arrow.
+            var contHdr = document.querySelector(bank.contHeader);
+            if (contHdr) {
+                var arr2 = contHdr.querySelector('.bank-sep-arrow');
+                if (arr2) arr2.textContent = expanded ? '▼' : '▶';
+            }
+            // Piano roll: show/hide bank group.
+            var contGrp = document.querySelector(bank.contGroup);
+            if (contGrp) contGrp.style.display = expanded ? '' : 'none';
+        });
+
+        // Keep piano roll playhead height in sync.
+        var ph = document.getElementById('seq-cont-playhead');
+        if (ph) {
+            var totalH = 4 * BANK_HEADER_H;
+            ALL_BANKS.forEach(function(bank) {
+                if (expandedBanks.has(bank.letter)) {
+                    var grp = document.querySelector(bank.contGroup);
+                    if (grp) totalH += grp.querySelectorAll('.seq-cont-track').length * TRACK_H;
                 }
             });
-        });
+            ph.style.height = totalH + 'px';
+        }
     }
 
     function toggleBank(letter) {
@@ -716,6 +766,7 @@ const SequencePlayer = (function() {
         setViewMode: setViewMode,
         getViewMode: function() { return seqViewMode; },
         restoreViewLayout: restoreViewLayout,
+        afterDetailSwap: afterDetailSwap,
         syncLoop: syncLoopFromDOM,
         toggleLoop: function() {
             var grid = document.getElementById('seq-step-grid');

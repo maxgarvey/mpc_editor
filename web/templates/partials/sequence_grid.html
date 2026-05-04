@@ -54,7 +54,7 @@
                 hx-target="#sequence-grid"
                 hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select"
                 name="pgm">
-            <option value="">— session program —</option>
+            <option value="">— no program —</option>
             {{range .PGMFiles}}
             <option value="{{.}}" {{if eq . $.PGMPath}}selected{{end}}>{{.}}</option>
             {{end}}
@@ -103,18 +103,22 @@
            data-seq-bpm="{{.BPM}}"
            data-seq-bars="{{.Bars}}">
         <tbody>
+            <tr class="bank-header-row bank-a-header" onclick="SequencePlayer.toggleBank('a')">
+                <td class="bank-header-cell" colspan="999">Bank A <span class="bank-sep-arrow">▼</span></td>
+            </tr>
             {{range .Grid.BankAPadRows}}
             {{$padIdx := .PadIndex}}
             <tr class="pad-row bank-a-row" data-pad="{{$padIdx}}">
                 <td class="track-name-cell">
-                    <span class="track-controls">
-                        {{if eq $padIdx 0}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('a')" title="Toggle Bank A"><span class="bank-sep-arrow">▼</span></button>{{end}}
-                        <button class="track-preview-btn" onclick="SequenceEditor.previewPad({{$padIdx}})" title="Preview pad">&#9654;</button>
-                        <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
-                        <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
-                    </span>
-                    <span class="track-label">{{.PadLabel}}</span>
-                    {{if .SampleName}}<span class="track-sample-name" title="{{.SampleName}}">{{.SampleName}}</span>{{end}}
+                    <div class="track-name-inner">
+                        <span class="track-controls">
+                            <button class="track-preview-btn" onclick="SequenceEditor.previewPad({{$padIdx}})" title="Preview pad">&#9654;</button>
+                            <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
+                            <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
+                            <span class="track-label">{{.PadLabel}}</span>
+                        </span>
+                        {{if .SampleName}}<span class="track-sample-name" title="{{.SampleName}}">{{.SampleName}}</span>{{end}}
+                    </div>
                 </td>
                 {{range $i, $step := .Steps}}
                 <td class="step-cell step-col-{{$step.GlobalStep}} {{if eq $step.StepInBar 0}}bar-start{{else if eq (mod $step.StepInBar $spb) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"
@@ -134,18 +138,19 @@
             {{end}}
             {{range $i, $row := .Grid.ExtraBankPadRows}}
             {{$padIdx := $row.PadIndex}}
-            <tr class="pad-row {{if lt $i 16}}bank-b-row{{else if lt $i 32}}bank-c-row{{else}}bank-d-row{{end}}{{if or (eq $i 0) (eq $i 16) (eq $i 32)}} bank-first-row{{end}}" data-pad="{{$padIdx}}"{{if and (ne $i 0) (ne $i 16) (ne $i 32)}} style="display:none"{{end}}>
+            {{if eq $i 0}}<tr class="bank-header-row bank-b-header" onclick="SequencePlayer.toggleBank('b')"><td class="bank-header-cell" colspan="999">Bank B <span class="bank-sep-arrow">▶</span></td></tr>{{end}}
+            {{if eq $i 16}}<tr class="bank-header-row bank-c-header" onclick="SequencePlayer.toggleBank('c')"><td class="bank-header-cell" colspan="999">Bank C <span class="bank-sep-arrow">▶</span></td></tr>{{end}}
+            {{if eq $i 32}}<tr class="bank-header-row bank-d-header" onclick="SequencePlayer.toggleBank('d')"><td class="bank-header-cell" colspan="999">Bank D <span class="bank-sep-arrow">▶</span></td></tr>{{end}}
+            <tr class="pad-row {{if lt $i 16}}bank-b-row{{else if lt $i 32}}bank-c-row{{else}}bank-d-row{{end}}" data-pad="{{$padIdx}}" style="display:none">
                 <td class="track-name-cell">
-                    <span class="track-controls">
-                        {{if eq $i 0}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('b')" title="Toggle Bank B"><span class="bank-sep-arrow">▶</span></button>
-                        {{else if eq $i 16}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('c')" title="Toggle Bank C"><span class="bank-sep-arrow">▶</span></button>
-                        {{else if eq $i 32}}<button class="bank-toggle-btn" onclick="SequencePlayer.toggleBank('d')" title="Toggle Bank D"><span class="bank-sep-arrow">▶</span></button>
-                        {{end}}
-                        <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
-                        <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
-                    </span>
-                    <span class="track-label">{{$row.PadLabel}}</span>
-                    {{if $row.SampleName}}<span class="track-sample-name" title="{{$row.SampleName}}">{{$row.SampleName}}</span>{{end}}
+                    <div class="track-name-inner">
+                        <span class="track-controls">
+                            <button class="track-mute-btn" onclick="SequencePlayer.toggleMutePad({{$padIdx}}, this)" title="Mute">M</button>
+                            <button class="track-solo-btn" onclick="SequencePlayer.toggleSoloPad({{$padIdx}}, this)" title="Solo">S</button>
+                            <span class="track-label">{{$row.PadLabel}}</span>
+                        </span>
+                        {{if $row.SampleName}}<span class="track-sample-name" title="{{$row.SampleName}}">{{$row.SampleName}}</span>{{end}}
+                    </div>
                 </td>
                 {{range $i, $step := $row.Steps}}
                 <td class="step-cell step-col-{{$step.GlobalStep}} {{if eq $step.StepInBar 0}}bar-start{{else if eq (mod $step.StepInBar $spb) 0}}beat-start{{end}} {{if $step.Active}}step-active{{end}}"

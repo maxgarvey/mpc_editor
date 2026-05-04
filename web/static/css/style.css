@@ -1515,26 +1515,38 @@ body {
 .track-name-cell {
     width: 140px;
     min-width: 140px;
-    text-align: left !important;
-    color: #a0c840;
-    font-size: 12px;
-    padding: 4px 8px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     position: sticky;
     left: 0;
     z-index: 2;
     background: #1e1e1e;
+    border-right: 1px solid #333;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.track-name-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2px 4px 2px 6px;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .track-label {
-    display: inline;
+    font-size: 11px;
+    color: #a0c840;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .track-sample-name {
-    display: block;
-    font-size: 10px;
+    font-size: 9px;
     color: #667;
     white-space: nowrap;
     overflow: hidden;
@@ -1542,9 +1554,10 @@ body {
 }
 
 .track-controls {
-    float: right;
-    display: inline-flex;
+    display: flex;
+    align-items: center;
     gap: 2px;
+    margin-bottom: 1px;
 }
 
 .track-mute-btn,
@@ -1649,38 +1662,79 @@ tr.pad-row:not(.has-events) .step-cell {
     background: #1c1c1c;
 }
 
-tr.pad-row:not(.has-events) .track-label {
-    color: #555;
-}
-
 #seq-loop-btn.active {
     background: #1a4a00;
     color: #a0c840;
     border-color: #a0c840;
 }
 
-.bank-toggle-btn {
-    background: none;
-    border: none;
-    color: #666;
-    font-size: 9px;
-    cursor: pointer;
-    padding: 0 2px 0 0;
-    line-height: 1;
-    vertical-align: middle;
-    user-select: none;
-}
-
-.bank-toggle-btn:hover {
-    color: #aaa;
-}
-
 .bank-sep-arrow {
     display: inline-block;
 }
 
-.bank-first-row {
+/* Grid view bank header row */
+.bank-header-row {
+    cursor: pointer;
+    user-select: none;
+}
+
+.bank-header-row:hover .bank-header-cell {
+    background: #2a2a2a;
+    color: #aaa;
+}
+
+.bank-header-cell {
+    background: #232323;
+    color: #777;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 8px;
     border-top: 1px solid #333;
+    border-bottom: 1px solid #2a2a2a;
+    position: sticky;
+    left: 0;
+}
+
+/* Piano roll bank header bar */
+.seq-cont-bank-header {
+    display: flex;
+    align-items: stretch;
+    height: 24px;
+    cursor: pointer;
+    user-select: none;
+    border-top: 1px solid #333;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.seq-cont-bank-header:hover {
+    background: rgba(255,255,255,0.03);
+}
+
+.seq-cont-bank-header-name {
+    width: 140px;
+    min-width: 140px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #777;
+    background: #232323;
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    border-right: 1px solid #333;
+    box-sizing: border-box;
+}
+
+.seq-cont-bank-header-body {
+    flex: 1;
+    background: #1c1c1c;
 }
 
 .sequence-error {

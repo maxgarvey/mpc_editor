@@ -17,6 +17,18 @@ import (
 	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
+// sessionPgmRelPath returns the workspace-relative path of the currently loaded session program,
+// or "" if no program is loaded or the path cannot be made relative.
+func (s *Server) sessionPgmRelPath() string {
+	if s.session.FilePath == "" || s.session.Program == nil {
+		return ""
+	}
+	if rel, err := filepath.Rel(s.session.WorkspacePath, s.session.FilePath); err == nil {
+		return rel
+	}
+	return ""
+}
+
 // noteToPadMapFor builds a MIDI note → pad index map using the selected or session program.
 func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
 	var prog *pgm.Program
@@ -43,18 +55,16 @@ func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
 }
 
 // allPadSampleNames returns the first non-empty layer sample name for all 64 pads
-// from the explicitly selected program (pgmRelPath) or the session program as a fallback.
+// from the explicitly selected program only. Returns empty names if pgmRelPath is "".
 func (s *Server) allPadSampleNames(pgmRelPath string) []string {
-	var prog *pgm.Program
-	if pgmRelPath != "" {
-		if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
-			prog = p
-		}
-	}
-	if prog == nil {
-		prog = s.session.Program
-	}
 	names := make([]string, 64)
+	if pgmRelPath == "" {
+		return names
+	}
+	var prog *pgm.Program
+	if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
+		prog = p
+	}
 	if prog == nil {
 		return names
 	}
@@ -77,16 +87,14 @@ func (s *Server) allPadSampleNames(pgmRelPath string) []string {
 // padSampleNames returns the first non-empty layer sample name for each of the 16 Bank A pads
 // from the explicitly selected program (pgmRelPath) or the session program as a fallback.
 func (s *Server) padSampleNames(pgmRelPath string) [16]string {
-	var prog *pgm.Program
-	if pgmRelPath != "" {
-		if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
-			prog = p
-		}
-	}
-	if prog == nil {
-		prog = s.session.Program
-	}
 	var names [16]string
+	if pgmRelPath == "" {
+		return names
+	}
+	var prog *pgm.Program
+	if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
+		prog = p
+	}
 	if prog == nil {
 		return names
 	}

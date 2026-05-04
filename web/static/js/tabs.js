@@ -101,6 +101,9 @@ const TabManager = (function() {
                     oldScript.parentNode.replaceChild(newScript, oldScript);
                 });
                 highlightBrowser();
+                if (typeof SequencePlayer !== 'undefined' && typeof SequencePlayer.afterDetailSwap === 'function') {
+                    SequencePlayer.afterDetailSwap();
+                }
             })
             .catch(function(err) {
                 console.warn('Tab activate failed:', err);

@@ -178,9 +178,17 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		return
 	}
 
+	// Default to the session program on initial load so the dropdown pre-selects it.
 	pgmRelPath := r.FormValue("pgm")
+	if pgmRelPath == "" {
+		pgmRelPath = s.sessionPgmRelPath()
+	}
 	gp := parseGridParams(r)
 	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
+	names := s.padSampleNames(pgmRelPath)
+	for i := range grid.BankAPadRows {
+		grid.BankAPadRows[i].SampleName = names[i]
+	}
 	tsig := r.FormValue("tsig")
 	if tsig == "" {
 		tsig = "4_4"
@@ -194,6 +202,7 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		FileName: filepath.Base(path),
 		BPM:      sequence.BPM,
 		Bars:     sequence.Bars,
+		Loop:     sequence.Loop,
 		Version:  sequence.Version,
 		Grid:     grid,
 		PGMPath:  pgmRelPath,
