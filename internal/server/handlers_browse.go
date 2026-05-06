@@ -46,204 +46,116 @@ type BrowseEntry struct {
 	WavInfo        string // for .wav: e.g. "44100Hz 16bit stereo"
 }
 
+// resolveAbsDir converts a (possibly relative) dir string to a validated absolute path.
+func (s *Server) resolveAbsDir(workspace, dir string) (string, error) {
+	var absDir string
+	switch {
+	case dir == "":
+		absDir = workspace
+	case filepath.IsAbs(dir):
+		absDir = dir
+	default:
+		absDir = filepath.Join(workspace, dir)
+	}
+	absDir = filepath.Clean(absDir)
+	return absDir, s.validateWithinWorkspace(absDir)
+}
+
+// readDirEntries reads a directory and returns BrowseEntry values for non-hidden entries
+// whose extension passes filterAllows for the given context.
+func readDirEntries(absDir, filterCtx string) ([]BrowseEntry, error) {
+	raw, err := os.ReadDir(absDir)
+	if err != nil {
+		return nil, err
+	}
+	var out []BrowseEntry
+	for _, e := range raw {
+		name := e.Name()
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+		if e.IsDir() {
+			out = append(out, BrowseEntry{Name: name, Path: filepath.Join(absDir, name), IsDir: true})
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(name))
+		if !filterAllows(filterCtx, ext) {
+			continue
+		}
+		info, _ := e.Info()
+		var size int64
+		if info != nil {
+			size = info.Size()
+		}
+		out = append(out, BrowseEntry{Name: name, Path: filepath.Join(absDir, name), Ext: ext, Size: size})
+	}
+	return out, nil
+}
+
+// sortBrowseEntries sorts entries: directories first, then files; both alphabetical.
+func sortBrowseEntries(entries []BrowseEntry) {
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].IsDir != entries[j].IsDir {
+			return entries[i].IsDir
+		}
+		return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
+	})
+}
+
+// buildBreadcrumbs returns the workspace-relative dir string and breadcrumb items for absDir.
+func buildBreadcrumbs(workspace, absDir string) (relDir string, crumbs []BreadcrumbItem) {
+	relDir, _ = filepath.Rel(workspace, absDir)
+	if relDir == "." {
+		relDir = ""
+	}
+	crumbs = []BreadcrumbItem{{Name: filepath.Base(workspace), Path: ""}}
+	if relDir != "" {
+		parts := strings.Split(relDir, string(filepath.Separator))
+		for i, part := range parts {
+			crumbs = append(crumbs, BreadcrumbItem{Name: part, Path: filepath.Join(parts[:i+1]...)})
+		}
+	}
+	return relDir, crumbs
+}
+
 func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	workspace := s.session.WorkspacePath
 	if workspace == "" {
 		http.Error(w, "no workspace configured", http.StatusBadRequest)
 		return
 	}
-
 	ctx := r.FormValue("context")
 	if ctx == "" {
 		ctx = "open-pgm"
 	}
-
-	dir := r.FormValue("dir")
-	var absDir string
-	if dir == "" {
-		absDir = workspace
-	} else if filepath.IsAbs(dir) {
-		absDir = dir
-	} else {
-		absDir = filepath.Join(workspace, dir)
-	}
-	absDir = filepath.Clean(absDir)
-
-	if err := s.validateWithinWorkspace(absDir); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
-		return
-	}
-
-	entries, err := os.ReadDir(absDir)
+	data, err := s.buildBrowseData(r.FormValue("dir"), ctx, "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// Build filtered entry list.
-	var browseEntries []BrowseEntry
-	for _, e := range entries {
-		name := e.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
-
-		if e.IsDir() {
-			browseEntries = append(browseEntries, BrowseEntry{
-				Name:  name,
-				Path:  filepath.Join(absDir, name),
-				IsDir: true,
-			})
-			continue
-		}
-
-		ext := strings.ToLower(filepath.Ext(name))
-		if !filterAllows(ctx, ext) {
-			continue
-		}
-
-		info, _ := e.Info()
-		var size int64
-		if info != nil {
-			size = info.Size()
-		}
-		browseEntries = append(browseEntries, BrowseEntry{
-			Name: name,
-			Path: filepath.Join(absDir, name),
-			Ext:  ext,
-			Size: size,
-		})
-	}
-
-	// Sort: directories first, then files, both alphabetical.
-	sort.Slice(browseEntries, func(i, j int) bool {
-		if browseEntries[i].IsDir != browseEntries[j].IsDir {
-			return browseEntries[i].IsDir
-		}
-		return strings.ToLower(browseEntries[i].Name) < strings.ToLower(browseEntries[j].Name)
-	})
-
-	// Build relative path and breadcrumbs.
-	relDir, _ := filepath.Rel(workspace, absDir)
-	if relDir == "." {
-		relDir = ""
-	}
-
-	breadcrumbs := []BreadcrumbItem{{Name: filepath.Base(workspace), Path: ""}}
-	if relDir != "" {
-		parts := strings.Split(relDir, string(filepath.Separator))
-		for i, part := range parts {
-			breadcrumbs = append(breadcrumbs, BreadcrumbItem{
-				Name: part,
-				Path: filepath.Join(parts[:i+1]...),
-			})
-		}
-	}
-
-	// Enrich entries with catalog data.
-	s.enrichBrowseEntries(browseEntries, workspace)
-
-	data := BrowseData{
-		Context:     ctx,
-		CurrentDir:  absDir,
-		RelDir:      relDir,
-		Breadcrumbs: breadcrumbs,
-		Entries:     browseEntries,
-		Workspace:   workspace,
-	}
-
 	s.renderTemplate(w, "file_browser.html", data)
 }
 
-// buildBrowseData builds an unfiltered BrowseData for the persistent browser nav panel.
-func (s *Server) buildBrowseData(dir, selectedPath string) (BrowseData, error) {
+// buildBrowseData builds BrowseData for the given directory and filter context.
+func (s *Server) buildBrowseData(dir, filterCtx, selectedPath string) (BrowseData, error) {
 	workspace := s.session.WorkspacePath
-
-	var absDir string
-	if dir == "" {
-		absDir = workspace
-	} else if filepath.IsAbs(dir) {
-		absDir = dir
-	} else {
-		absDir = filepath.Join(workspace, dir)
-	}
-	absDir = filepath.Clean(absDir)
-
-	if err := s.validateWithinWorkspace(absDir); err != nil {
-		return BrowseData{}, err
-	}
-
-	entries, err := os.ReadDir(absDir)
+	absDir, err := s.resolveAbsDir(workspace, dir)
 	if err != nil {
 		return BrowseData{}, err
 	}
-
-	var browseEntries []BrowseEntry
-	for _, e := range entries {
-		name := e.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
-
-		if e.IsDir() {
-			browseEntries = append(browseEntries, BrowseEntry{
-				Name:  name,
-				Path:  filepath.Join(absDir, name),
-				IsDir: true,
-			})
-			continue
-		}
-
-		ext := strings.ToLower(filepath.Ext(name))
-		// No filtering — show all known MPC file types
-		if !filterAllows("browse", ext) {
-			continue
-		}
-
-		info, _ := e.Info()
-		var size int64
-		if info != nil {
-			size = info.Size()
-		}
-		browseEntries = append(browseEntries, BrowseEntry{
-			Name: name,
-			Path: filepath.Join(absDir, name),
-			Ext:  ext,
-			Size: size,
-		})
+	entries, err := readDirEntries(absDir, filterCtx)
+	if err != nil {
+		return BrowseData{}, err
 	}
-
-	sort.Slice(browseEntries, func(i, j int) bool {
-		if browseEntries[i].IsDir != browseEntries[j].IsDir {
-			return browseEntries[i].IsDir
-		}
-		return strings.ToLower(browseEntries[i].Name) < strings.ToLower(browseEntries[j].Name)
-	})
-
-	relDir, _ := filepath.Rel(workspace, absDir)
-	if relDir == "." {
-		relDir = ""
-	}
-
-	breadcrumbs := []BreadcrumbItem{{Name: filepath.Base(workspace), Path: ""}}
-	if relDir != "" {
-		parts := strings.Split(relDir, string(filepath.Separator))
-		for i, part := range parts {
-			breadcrumbs = append(breadcrumbs, BreadcrumbItem{
-				Name: part,
-				Path: filepath.Join(parts[:i+1]...),
-			})
-		}
-	}
-
-	s.enrichBrowseEntries(browseEntries, workspace)
-
+	sortBrowseEntries(entries)
+	relDir, breadcrumbs := buildBreadcrumbs(workspace, absDir)
+	s.enrichBrowseEntries(entries, workspace)
 	return BrowseData{
-		Context:      "browse",
+		Context:      filterCtx,
 		CurrentDir:   absDir,
 		RelDir:       relDir,
 		Breadcrumbs:  breadcrumbs,
-		Entries:      browseEntries,
+		Entries:      entries,
 		Workspace:    workspace,
 		SelectedPath: selectedPath,
 	}, nil
@@ -258,7 +170,7 @@ func (s *Server) handleBrowseNav(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dir := r.FormValue("dir")
-	data, err := s.buildBrowseData(dir, s.session.SelectedDetailPath)
+	data, err := s.buildBrowseData(dir, "browse", s.session.SelectedDetailPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -546,23 +458,13 @@ func (s *Server) handleWorkspaceDirs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dir := r.FormValue("dir")
-	var absDir string
-	if dir == "" {
-		absDir = workspace
-	} else if filepath.IsAbs(dir) {
-		absDir = dir
-	} else {
-		absDir = filepath.Join(workspace, dir)
-	}
-	absDir = filepath.Clean(absDir)
-
-	if err := s.validateWithinWorkspace(absDir); err != nil {
+	absDir, err := s.resolveAbsDir(workspace, r.FormValue("dir"))
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 
-	entries, err := os.ReadDir(absDir)
+	rawEntries, err := os.ReadDir(absDir)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -572,43 +474,23 @@ func (s *Server) handleWorkspaceDirs(w http.ResponseWriter, r *http.Request) {
 		Name string
 		Path string
 	}
-
 	var dirs []dirEntry
-	for _, e := range entries {
+	for _, e := range rawEntries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		dirs = append(dirs, dirEntry{
-			Name: e.Name(),
-			Path: filepath.Join(absDir, e.Name()),
-		})
+		dirs = append(dirs, dirEntry{Name: e.Name(), Path: filepath.Join(absDir, e.Name())})
 	}
-
 	sort.Slice(dirs, func(i, j int) bool {
 		return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name)
 	})
 
-	// Build breadcrumbs for the directory picker.
-	relDir, _ := filepath.Rel(workspace, absDir)
-	if relDir == "." {
-		relDir = ""
-	}
-
-	breadcrumbs := []BreadcrumbItem{{Name: filepath.Base(workspace), Path: ""}}
-	if relDir != "" {
-		parts := strings.Split(relDir, string(filepath.Separator))
-		for i, part := range parts {
-			breadcrumbs = append(breadcrumbs, BreadcrumbItem{
-				Name: part,
-				Path: filepath.Join(parts[:i+1]...),
-			})
-		}
-	}
-
+	relDir, breadcrumbs := buildBreadcrumbs(workspace, absDir)
 	s.renderTemplate(w, "move_dirs.html", map[string]any{
 		"Breadcrumbs": breadcrumbs,
 		"Dirs":        dirs,
 		"CurrentDir":  absDir,
+		"RelDir":      relDir,
 	})
 }
 
@@ -719,7 +601,7 @@ func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
 
 	q := strings.TrimSpace(r.FormValue("q"))
 	if q == "" {
-		data, err := s.buildBrowseData("", s.session.SelectedDetailPath)
+		data, err := s.buildBrowseData("", "browse", s.session.SelectedDetailPath)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

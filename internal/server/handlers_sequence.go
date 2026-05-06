@@ -57,10 +57,10 @@ func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
 	return m
 }
 
-// allPadSampleNames returns the first non-empty layer sample name for all 64 pads
-// from the explicitly selected program only. Returns empty names if pgmRelPath is "".
-func (s *Server) allPadSampleNames(pgmRelPath string) []string {
-	names := make([]string, 64)
+// padSampleNamesSlice returns the first non-empty layer sample name for the first n pads
+// of the program at pgmRelPath. Returns empty names if pgmRelPath is "" or unreadable.
+func (s *Server) padSampleNamesSlice(pgmRelPath string, n int) []string {
+	names := make([]string, n)
 	if pgmRelPath == "" {
 		return names
 	}
@@ -68,8 +68,7 @@ func (s *Server) allPadSampleNames(pgmRelPath string) []string {
 	if prog == nil {
 		return names
 	}
-	n := min(prog.PadCount(), 64)
-	for i := range n {
+	for i := range min(prog.PadCount(), n) {
 		pad := prog.Pad(i)
 		for j := range 4 {
 			if name := pad.Layer(j).GetSampleName(); name != "" {
@@ -81,27 +80,14 @@ func (s *Server) allPadSampleNames(pgmRelPath string) []string {
 	return names
 }
 
-// padSampleNames returns the first non-empty layer sample name for each of the 16 Bank A pads
-// from the explicitly selected program (pgmRelPath) or the session program as a fallback.
+func (s *Server) allPadSampleNames(pgmRelPath string) []string {
+	return s.padSampleNamesSlice(pgmRelPath, 64)
+}
+
 func (s *Server) padSampleNames(pgmRelPath string) [16]string {
-	var names [16]string
-	if pgmRelPath == "" {
-		return names
-	}
-	prog, _ := pgm.OpenProgram(s.resolvePath(pgmRelPath))
-	if prog == nil {
-		return names
-	}
-	for i := range 16 {
-		pad := prog.Pad(i)
-		for j := range 4 {
-			if name := pad.Layer(j).GetSampleName(); name != "" {
-				names[i] = name
-				break
-			}
-		}
-	}
-	return names
+	var arr [16]string
+	copy(arr[:], s.padSampleNamesSlice(pgmRelPath, 16))
+	return arr
 }
 
 // padToNote returns the MIDI note for a Bank A pad using the selected or session program,
