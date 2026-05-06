@@ -29,17 +29,20 @@ func (s *Server) sessionPgmRelPath() string {
 	return ""
 }
 
-// noteToPadMapFor builds a MIDI note → pad index map using the selected or session program.
-func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
-	var prog *pgm.Program
+// loadProgramFor loads the program at pgmRelPath (workspace-relative), falling back to the
+// session program when pgmRelPath is empty or the file cannot be opened.
+func (s *Server) loadProgramFor(pgmRelPath string) *pgm.Program {
 	if pgmRelPath != "" {
 		if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
-			prog = p
+			return p
 		}
 	}
-	if prog == nil {
-		prog = s.session.Program
-	}
+	return s.session.Program
+}
+
+// noteToPadMapFor builds a MIDI note → pad index map using the selected or session program.
+func (s *Server) noteToPadMapFor(pgmRelPath string) map[int]int {
+	prog := s.loadProgramFor(pgmRelPath)
 	if prog == nil {
 		return nil
 	}
@@ -61,20 +64,14 @@ func (s *Server) allPadSampleNames(pgmRelPath string) []string {
 	if pgmRelPath == "" {
 		return names
 	}
-	var prog *pgm.Program
-	if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
-		prog = p
-	}
+	prog, _ := pgm.OpenProgram(s.resolvePath(pgmRelPath))
 	if prog == nil {
 		return names
 	}
-	n := prog.PadCount()
-	if n > 64 {
-		n = 64
-	}
-	for i := 0; i < n; i++ {
+	n := min(prog.PadCount(), 64)
+	for i := range n {
 		pad := prog.Pad(i)
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			if name := pad.Layer(j).GetSampleName(); name != "" {
 				names[i] = name
 				break
@@ -91,16 +88,13 @@ func (s *Server) padSampleNames(pgmRelPath string) [16]string {
 	if pgmRelPath == "" {
 		return names
 	}
-	var prog *pgm.Program
-	if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
-		prog = p
-	}
+	prog, _ := pgm.OpenProgram(s.resolvePath(pgmRelPath))
 	if prog == nil {
 		return names
 	}
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		pad := prog.Pad(i)
-		for j := 0; j < 4; j++ {
+		for j := range 4 {
 			if name := pad.Layer(j).GetSampleName(); name != "" {
 				names[i] = name
 				break
@@ -113,15 +107,7 @@ func (s *Server) padSampleNames(pgmRelPath string) [16]string {
 // padToNote returns the MIDI note for a Bank A pad using the selected or session program,
 // falling back to the chromatic default (padIndex + 35).
 func (s *Server) padToNote(padIndex int, pgmRelPath string) byte {
-	var prog *pgm.Program
-	if pgmRelPath != "" {
-		if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
-			prog = p
-		}
-	}
-	if prog == nil {
-		prog = s.session.Program
-	}
+	prog := s.loadProgramFor(pgmRelPath)
 	if prog != nil && padIndex < prog.PadCount() {
 		if note := prog.Pad(padIndex).GetMIDINote(); note != 0 {
 			return byte(note)
@@ -133,15 +119,7 @@ func (s *Server) padToNote(padIndex int, pgmRelPath string) byte {
 // padForNoteFunc returns a closure mapping MIDI note → Bank A pad index (0-15)
 // using the selected or session program, with chromatic fallback.
 func (s *Server) padForNoteFunc(pgmRelPath string) func(note byte) int {
-	var prog *pgm.Program
-	if pgmRelPath != "" {
-		if p, err := pgm.OpenProgram(s.resolvePath(pgmRelPath)); err == nil {
-			prog = p
-		}
-	}
-	if prog == nil {
-		prog = s.session.Program
-	}
+	prog := s.loadProgramFor(pgmRelPath)
 	if prog != nil {
 		m := make(map[byte]int, 16)
 		for i := 0; i < prog.PadCount() && i < 16; i++ {
@@ -702,10 +680,7 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		// When playing all bars, step is the global step index across the whole sequence.
 		// When playing a single bar, step is the 0-indexed step within that bar.
 		step := int(ev.Tick-tickStart) / gp.TicksPerStep
-		durSteps := int(ev.Duration) / gp.TicksPerStep
-		if durSteps < 1 {
-			durSteps = 1
-		}
+		durSteps := max(int(ev.Duration)/gp.TicksPerStep, 1)
 		events = append(events, sequenceEventJSON{
 			Step:          step,
 			Track:         ev.Track,
