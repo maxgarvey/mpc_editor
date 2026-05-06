@@ -164,11 +164,11 @@ func TestHandleSampleReport_WithCatalogWAV(t *testing.T) {
 	// Seed the sample WAV in the catalog with metadata and tags
 	ctx := context.Background()
 	wavID := seedFile(t, srv, sampleName+".wav", "wav")
-	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck
+	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck // test setup
 		FileID: wavID, SampleRate: 44100, Channels: 1, BitsPerSample: 16, FrameCount: 44100,
 		Source: "from sample pack",
 	})
-	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck
+	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck // test setup
 		FileID: wavID, TagKey: "", TagValue: "kick", Auto: 0,
 	})
 

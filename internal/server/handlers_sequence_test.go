@@ -146,7 +146,7 @@ func TestHandleSequenceEvents_SpecificBar(t *testing.T) {
 		t.Fatalf("status = %d", w.Code)
 	}
 	var resp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &resp) //nolint:errcheck
+	json.Unmarshal(w.Body.Bytes(), &resp) //nolint:errcheck // test setup
 	if resp["currentBar"] != float64(1) {
 		t.Errorf("currentBar = %v, want 1", resp["currentBar"])
 	}
@@ -322,9 +322,9 @@ func TestHandleSequenceNew_InvalidName(t *testing.T) {
 
 func TestQuantizeTick(t *testing.T) {
 	tests := []struct {
-		tick   uint32
-		q      int
-		want   uint32
+		tick uint32
+		q    int
+		want uint32
 	}{
 		{0, 24, 0},
 		{12, 24, 24},
@@ -570,7 +570,7 @@ func TestHandleSequenceEvents_WithPGM(t *testing.T) {
 		t.Fatalf("status = %d", w.Code)
 	}
 	var resp map[string]any
-	json.Unmarshal(w.Body.Bytes(), &resp) //nolint:errcheck
+	json.Unmarshal(w.Body.Bytes(), &resp) //nolint:errcheck // test setup
 	if _, ok := resp["padSampleNames"]; !ok {
 		t.Error("response missing padSampleNames")
 	}

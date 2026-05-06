@@ -38,7 +38,7 @@ func TestHandleAPISamples_WithEntries(t *testing.T) {
 
 	// Seed a WAV file into the catalog
 	ctx := context.Background()
-	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck
+	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck // test setup
 		Path: "samples/kick.wav", FileType: "wav", Size: 8000, ModTime: 1,
 	})
 
@@ -50,7 +50,7 @@ func TestHandleAPISamples_WithEntries(t *testing.T) {
 		t.Fatalf("status = %d", w.Code)
 	}
 	var samples []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &samples) //nolint:errcheck
+	json.Unmarshal(w.Body.Bytes(), &samples) //nolint:errcheck // test setup
 	if len(samples) != 1 {
 		t.Errorf("samples = %d, want 1", len(samples))
 	}
@@ -75,7 +75,7 @@ func TestHandleAPIPrograms_WithEntries(t *testing.T) {
 	srv := testServer(t)
 
 	ctx := context.Background()
-	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck
+	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck // test setup
 		Path: "beats/drum_kit.pgm", FileType: "pgm", Size: 10756, ModTime: 1,
 	})
 
@@ -87,7 +87,7 @@ func TestHandleAPIPrograms_WithEntries(t *testing.T) {
 		t.Fatalf("status = %d", w.Code)
 	}
 	var programs []map[string]any
-	json.Unmarshal(w.Body.Bytes(), &programs) //nolint:errcheck
+	json.Unmarshal(w.Body.Bytes(), &programs) //nolint:errcheck // test setup
 	if len(programs) != 1 {
 		t.Errorf("programs = %d, want 1", len(programs))
 	}
@@ -163,8 +163,8 @@ func TestHandleImportDirScan(t *testing.T) {
 	srv := testServer(t)
 
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "kick.wav"), []byte("RIFF"), 0o644) //nolint:errcheck
-	os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("hi"), 0o644)  //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "kick.wav"), []byte("RIFF"), 0o644) //nolint:errcheck // test setup
+	os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("hi"), 0o644)  //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/workspace/import/scan?dir="+url.QueryEscape(dir), http.NoBody)
 	w := httptest.NewRecorder()

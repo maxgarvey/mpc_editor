@@ -117,12 +117,12 @@ func copyFile(t *testing.T, src, dst string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer in.Close()
+	defer in.Close() //nolint:errcheck // test cleanup
 	out, err := os.Create(dst)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer out.Close()
+	defer out.Close() //nolint:errcheck // test cleanup
 	if _, err := io.Copy(out, in); err != nil {
 		t.Fatal(err)
 	}

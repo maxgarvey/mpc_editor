@@ -371,7 +371,7 @@ func TestAudioPad_WithCatalogPGM(t *testing.T) {
 	// Seed a WAV sample in catalog and link it to the pgm
 	wavID := seedFile(t, srv, "kick.wav", "wav")
 	ctx := context.Background()
-	srv.queries.InsertPgmSample(ctx, db.InsertPgmSampleParams{ //nolint:errcheck
+	srv.queries.InsertPgmSample(ctx, db.InsertPgmSampleParams{ //nolint:errcheck // test setup
 		PgmFileID:    pgmID,
 		Pad:          0,
 		Layer:        0,
@@ -381,7 +381,7 @@ func TestAudioPad_WithCatalogPGM(t *testing.T) {
 
 	// Copy a real WAV to serve as kick.wav
 	wavData, _ := os.ReadFile(testdataPath("chh.wav"))
-	os.WriteFile(filepath.Join(srv.session.WorkspacePath, "kick.wav"), wavData, 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(srv.session.WorkspacePath, "kick.wav"), wavData, 0o644) //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/audio/pad/0/0?pgm=test.pgm", http.NoBody)
 	w := httptest.NewRecorder()
@@ -974,7 +974,7 @@ func TestHandleAssign_Multisample(t *testing.T) {
 	body.WriteString("--" + boundary + "\r\n")
 	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"chh.wav\"\r\n")
 	body.WriteString("Content-Type: audio/wav\r\n\r\n")
-	body.Write(wavData) //nolint:errcheck
+	body.Write(wavData) //nolint:errcheck // test setup
 	body.WriteString("\r\n--" + boundary + "--\r\n")
 
 	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))
@@ -1025,7 +1025,7 @@ func TestHandleAssign_WithFile(t *testing.T) {
 	body.WriteString("--" + boundary + "\r\n")
 	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"chh.wav\"\r\n")
 	body.WriteString("Content-Type: audio/wav\r\n\r\n")
-	body.Write(wavData) //nolint:errcheck
+	body.Write(wavData) //nolint:errcheck // test setup
 	body.WriteString("\r\n--" + boundary + "--\r\n")
 
 	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))
@@ -1081,7 +1081,7 @@ func TestHandleAssign_MP3Transcode(t *testing.T) {
 	body.WriteString("--" + boundary + "\r\n")
 	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"test_audio.mp3\"\r\n")
 	body.WriteString("Content-Type: audio/mpeg\r\n\r\n")
-	body.Write(mp3Data) //nolint:errcheck
+	body.Write(mp3Data) //nolint:errcheck // test setup
 	body.WriteString("\r\n--" + boundary + "--\r\n")
 
 	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))
@@ -1147,7 +1147,7 @@ func TestHandleAssign_WithProgramOpen(t *testing.T) {
 	body.WriteString("--" + boundary + "\r\n")
 	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"chh.wav\"\r\n")
 	body.WriteString("Content-Type: audio/wav\r\n\r\n")
-	body.Write(wavData) //nolint:errcheck
+	body.Write(wavData) //nolint:errcheck // test setup
 	body.WriteString("\r\n--" + boundary + "--\r\n")
 
 	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))

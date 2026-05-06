@@ -112,7 +112,7 @@ func TestWithTx(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback() //nolint:errcheck // test setup
 
 	txQ := q.WithTx(tx)
 	if txQ == nil {
@@ -196,7 +196,7 @@ func TestDeleteFileByPath(t *testing.T) {
 	_, q := openTestDB(t)
 	ctx := context.Background()
 
-	q.UpsertFile(ctx, UpsertFileParams{Path: "bypath.wav", FileType: "wav", Size: 1}) //nolint:errcheck
+	q.UpsertFile(ctx, UpsertFileParams{Path: "bypath.wav", FileType: "wav", Size: 1}) //nolint:errcheck // test setup
 	if err := q.DeleteFileByPath(ctx, "bypath.wav"); err != nil {
 		t.Fatalf("DeleteFileByPath: %v", err)
 	}
@@ -210,9 +210,9 @@ func TestListAllFilesAndByType(t *testing.T) {
 	_, q := openTestDB(t)
 	ctx := context.Background()
 
-	q.UpsertFile(ctx, UpsertFileParams{Path: "a.pgm", FileType: "pgm", Size: 1}) //nolint:errcheck
-	q.UpsertFile(ctx, UpsertFileParams{Path: "b.wav", FileType: "wav", Size: 2}) //nolint:errcheck
-	q.UpsertFile(ctx, UpsertFileParams{Path: "c.wav", FileType: "wav", Size: 3}) //nolint:errcheck
+	q.UpsertFile(ctx, UpsertFileParams{Path: "a.pgm", FileType: "pgm", Size: 1}) //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "b.wav", FileType: "wav", Size: 2}) //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "c.wav", FileType: "wav", Size: 3}) //nolint:errcheck // test setup
 
 	all, err := q.ListAllFiles(ctx)
 	if err != nil {
@@ -568,7 +568,7 @@ func TestResolveUnlinkedSamples(t *testing.T) {
 	wavID, _ := q.UpsertFile(ctx, UpsertFileParams{Path: "sounds/kick.wav", FileType: "wav", Size: 1})
 
 	// Insert a sample with no file_id but a name matching the wav file.
-	q.InsertPgmSample(ctx, InsertPgmSampleParams{ //nolint:errcheck
+	q.InsertPgmSample(ctx, InsertPgmSampleParams{ //nolint:errcheck // test setup
 		PgmFileID: pgmID, Pad: 0, Layer: 0, SampleName: "kick",
 	})
 
@@ -595,7 +595,7 @@ func TestOpen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer sqlDB.Close()
+	defer sqlDB.Close() //nolint:errcheck // test cleanup
 	if q == nil {
 		t.Error("Open returned nil Queries")
 	}

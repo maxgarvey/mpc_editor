@@ -74,7 +74,7 @@ func TestUniqueName(t *testing.T) {
 		t.Errorf("no conflict: got %q, want kick", got)
 	}
 	// Create the file to force a conflict
-	os.WriteFile(filepath.Join(dir, "kick.wav"), []byte{}, 0o644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "kick.wav"), []byte{}, 0o644) //nolint:errcheck // test setup
 	if got := uniqueBaseName(dir, "kick", ".wav"); got != "kick_2" {
 		t.Errorf("with conflict: got %q, want kick_2", got)
 	}
@@ -195,7 +195,7 @@ func TestHandleWorkspaceImport_OutsideWorkspace(t *testing.T) {
 	body.WriteString("--" + boundary + "\r\n")
 	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"chh.wav\"\r\n")
 	body.WriteString("Content-Type: audio/wav\r\n\r\n")
-	body.Write(wavData) //nolint:errcheck
+	body.Write(wavData) //nolint:errcheck // test setup
 	body.WriteString("\r\n")
 	body.WriteString("--" + boundary + "\r\n")
 	body.WriteString("Content-Disposition: form-data; name=\"dest\"\r\n\r\n")
@@ -232,7 +232,7 @@ func TestHandleWorkspaceImport_WithWAV(t *testing.T) {
 	if err := mw.WriteField("dest", srv.session.WorkspacePath); err != nil {
 		t.Fatal(err)
 	}
-	mw.Close() //nolint:errcheck
+	mw.Close() //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("POST", "/workspace/import", &body)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", mw.Boundary()))
@@ -255,10 +255,10 @@ func TestHandleWorkspaceImport_WithSource(t *testing.T) {
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 	part, _ := mw.CreateFormFile("files", "snare.wav")
-	part.Write(wavData) //nolint:errcheck
-	mw.WriteField("dest", srv.session.WorkspacePath)    //nolint:errcheck
-	mw.WriteField("source", "from vinyl")               //nolint:errcheck
-	mw.Close()                                          //nolint:errcheck
+	part.Write(wavData)                              //nolint:errcheck // test setup
+	mw.WriteField("dest", srv.session.WorkspacePath) //nolint:errcheck // test setup
+	mw.WriteField("source", "from vinyl")            //nolint:errcheck // test setup
+	mw.Close()                                       //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("POST", "/workspace/import", &body)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", mw.Boundary()))

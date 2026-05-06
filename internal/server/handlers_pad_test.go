@@ -21,14 +21,14 @@ func TestHandlePadParams_Post(t *testing.T) {
 	openTestProgram(t, srv)
 
 	form := url.Values{
-		"attack":       {"10"},
-		"decay":        {"50"},
-		"decay_mode":   {"1"},
-		"mixer_level":  {"100"},
-		"mixer_pan":    {"64"},
+		"attack":        {"10"},
+		"decay":         {"50"},
+		"decay_mode":    {"1"},
+		"mixer_level":   {"100"},
+		"mixer_pan":     {"64"},
 		"voice_overlap": {"1"},
-		"mute_group":   {"0"},
-		"midi_note":    {"60"},
+		"mute_group":    {"0"},
+		"midi_note":     {"60"},
 	}
 	req := httptest.NewRequest("POST", "/pad/params", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

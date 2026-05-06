@@ -149,7 +149,7 @@ func TestHandleBrowseSearch_NoWorkspace(t *testing.T) {
 func TestHandleWorkspaceMkdir(t *testing.T) {
 	srv := testServer(t)
 
-	form := url.Values{"name": {"new_folder"}, "parent": {""},  "context": {"open-pgm"}}
+	form := url.Values{"name": {"new_folder"}, "parent": {""}, "context": {"open-pgm"}}
 	req := httptest.NewRequest("POST", "/workspace/mkdir", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
@@ -501,7 +501,7 @@ func TestHandleBrowseNav_RootDir(t *testing.T) {
 func TestHandleBrowseNav_Subdir(t *testing.T) {
 	srv := testServer(t)
 	subdir := filepath.Join(srv.session.WorkspacePath, "drums")
-	os.MkdirAll(subdir, 0o755) //nolint:errcheck
+	os.MkdirAll(subdir, 0o755) //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/browse/nav?dir="+url.QueryEscape(subdir), http.NoBody)
 	w := httptest.NewRecorder()
@@ -514,7 +514,7 @@ func TestHandleBrowseNav_Subdir(t *testing.T) {
 
 func TestHandleWorkspaceDirs_WithSubdirs(t *testing.T) {
 	srv := testServer(t)
-	os.MkdirAll(filepath.Join(srv.session.WorkspacePath, "beats"), 0o755) //nolint:errcheck
+	os.MkdirAll(filepath.Join(srv.session.WorkspacePath, "beats"), 0o755) //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/workspace/dirs", http.NoBody)
 	w := httptest.NewRecorder()
@@ -528,7 +528,7 @@ func TestHandleWorkspaceDirs_WithSubdirs(t *testing.T) {
 func TestHandleWorkspaceDirs_Subdir(t *testing.T) {
 	srv := testServer(t)
 	subdir := filepath.Join(srv.session.WorkspacePath, "kits")
-	os.MkdirAll(subdir, 0o755) //nolint:errcheck
+	os.MkdirAll(subdir, 0o755) //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/workspace/dirs?dir="+url.QueryEscape(subdir), http.NoBody)
 	w := httptest.NewRecorder()
@@ -616,7 +616,7 @@ func TestUpdateCatalogPath_OnMove(t *testing.T) {
 
 	src := filepath.Join(workspace, "old.wav")
 	destDir := filepath.Join(workspace, "moved")
-	os.MkdirAll(destDir, 0o755) //nolint:errcheck
+	os.MkdirAll(destDir, 0o755) //nolint:errcheck // test setup
 
 	form := url.Values{"path": {src}, "dest": {destDir}}
 	req := httptest.NewRequest("POST", "/workspace/move", strings.NewReader(form.Encode()))
@@ -657,7 +657,7 @@ func TestEnrichBrowseEntries_WithCatalog(t *testing.T) {
 	_ = seedFile(t, srv, "kit.pgm", "pgm")
 
 	ctx := context.Background()
-	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck
+	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck // test setup
 		FileID: wavID, SampleRate: 44100, Channels: 2, BitsPerSample: 16, FrameCount: 44100,
 	})
 
@@ -792,5 +792,3 @@ func writeTestFile(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
-
-

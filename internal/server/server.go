@@ -17,14 +17,14 @@ import (
 
 // Server is the HTTP server for the MPC Editor web application.
 type Server struct {
-	session          *Session
-	queries          *db.Queries
-	scanner          *scanner.Scanner
-	detector         *device.Detector
-	templates        *template.Template
-	startupScanDone  chan struct{}
-	mux       *http.ServeMux
-	staticFS  fs.FS
+	session         *Session
+	queries         *db.Queries
+	scanner         *scanner.Scanner
+	detector        *device.Detector
+	templates       *template.Template
+	startupScanDone chan struct{}
+	mux             *http.ServeMux
+	staticFS        fs.FS
 }
 
 // New creates a new Server with the given embedded filesystem for templates and static assets.

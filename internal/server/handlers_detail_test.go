@@ -90,8 +90,8 @@ func TestHandleDetail_TXT(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("hello world") //nolint:errcheck
-	f.Close()
+	f.WriteString("hello world") //nolint:errcheck // test setup
+	f.Close()                    //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/detail?path="+url.QueryEscape(f.Name()), http.NoBody)
 	w := httptest.NewRecorder()
@@ -120,8 +120,8 @@ func TestHandleDetail_TXTSampleReport(t *testing.T) {
   Status: NOT FOUND
 `
 	f, _ := os.CreateTemp(t.TempDir(), "*.txt")
-	f.WriteString(reportContent) //nolint:errcheck
-	f.Close()
+	f.WriteString(reportContent) //nolint:errcheck // test setup
+	f.Close()                    //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/detail?path="+url.QueryEscape(f.Name()), http.NoBody)
 	w := httptest.NewRecorder()
@@ -136,7 +136,7 @@ func TestHandleDetail_UnknownExtension(t *testing.T) {
 	srv := testServer(t)
 
 	f, _ := os.CreateTemp(t.TempDir(), "*.xyz")
-	f.Close()
+	f.Close() //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/detail?path="+url.QueryEscape(f.Name()), http.NoBody)
 	w := httptest.NewRecorder()
@@ -248,12 +248,12 @@ func TestRenderDetailWAV_WithCatalogEntry(t *testing.T) {
 
 	// Add a tag so loadTags gets exercised
 	ctx := context.Background()
-	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck
+	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck // test setup
 		FileID: id, TagKey: "", TagValue: "hihat", Auto: 0,
 	})
 
 	// Seed wav meta so WavMeta branch executes
-	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck
+	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck // test setup
 		FileID: id, SampleRate: 44100, Channels: 1, BitsPerSample: 16, FrameCount: 22050,
 	})
 
@@ -282,7 +282,7 @@ func TestRenderDetailSNG_WithCatalogEntry(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck
+	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck // test setup
 		Path: "test.sng", FileType: "sng", Size: int64(len(sngData)), ModTime: 1,
 	})
 
@@ -308,7 +308,7 @@ func TestRenderDetailFile_WithCatalogEntry(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck
+	srv.queries.UpsertFile(ctx, db.UpsertFileParams{ //nolint:errcheck // test setup
 		Path: "test.xyz", FileType: "xyz", Size: int64(len(content)), ModTime: 1,
 	})
 

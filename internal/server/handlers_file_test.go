@@ -97,7 +97,7 @@ func TestHandleFileDetail_WAV(t *testing.T) {
 	id := seedFile(t, srv, "samples/snare.wav", "wav")
 
 	ctx := context.Background()
-	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck
+	srv.queries.UpsertWavMeta(ctx, db.UpsertWavMetaParams{ //nolint:errcheck // test setup
 		FileID: id, SampleRate: 44100, Channels: 1, BitsPerSample: 16, FrameCount: 88200,
 	})
 
@@ -118,7 +118,7 @@ func TestHandleFileDetail_SEQ(t *testing.T) {
 	id := seedFile(t, srv, "beats/groove.seq", "seq")
 
 	ctx := context.Background()
-	srv.queries.UpsertSeqMeta(ctx, db.UpsertSeqMetaParams{ //nolint:errcheck
+	srv.queries.UpsertSeqMeta(ctx, db.UpsertSeqMetaParams{ //nolint:errcheck // test setup
 		FileID: id, Bpm: 120.0, Bars: 4, Version: "V1.00",
 	})
 
@@ -210,7 +210,7 @@ func TestHandleTagRemove(t *testing.T) {
 	id := seedFile(t, srv, "bass.wav", "wav")
 
 	ctx := context.Background()
-	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck
+	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck // test setup
 		FileID: id, TagKey: "", TagValue: "bass", Auto: 0,
 	})
 

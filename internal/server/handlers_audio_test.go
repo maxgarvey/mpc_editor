@@ -113,8 +113,8 @@ func TestHandleAudioWaveform_InvalidWAV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("not a wav file") //nolint:errcheck
-	f.Close()
+	f.WriteString("not a wav file") //nolint:errcheck // test setup
+	f.Close()                       //nolint:errcheck // test setup
 
 	req := httptest.NewRequest("GET", "/audio/waveform?path="+url.QueryEscape(f.Name()), http.NoBody)
 	w := httptest.NewRecorder()
