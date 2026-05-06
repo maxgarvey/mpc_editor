@@ -184,6 +184,8 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		return uint32((bar-1)*gp.TicksPerBar) + uint32(step*gp.TicksPerStep)
 	}
 
+	padToNoteFn := func(pad int) byte { return s.padToNote(pad, pgmRelPath) }
+
 	switch action {
 	case "toggle":
 		bar := parseIntParam(r, "bar", 1)
@@ -195,244 +197,71 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		if rawTick := parseIntParam(r, "tick", -1); rawTick >= 0 {
 			targetTick = uint32(rawTick)
 		}
-
-		existing := false
-		newEvents := make([]seq.Event, 0, len(sequence.Events))
-		for _, ev := range sequence.Events {
-			if ev.Tick == targetTick && padForNote(ev.Note) == padIndex {
-				existing = true
-				continue
-			}
-			newEvents = append(newEvents, ev)
-		}
-		if !existing {
-			note := s.padToNote(padIndex, pgmRelPath)
-			newEvents = append(newEvents, seq.Event{
-				Tick:     targetTick,
-				Track:    0,
-				Type:     seq.EventNoteOn,
-				Note:     note,
-				Velocity: byte(velocity),
-				Duration: uint16(duration),
-			})
-		}
-		sequence.Events = newEvents
+		sequence.Events = seqToggle(sequence.Events, targetTick, padIndex,
+			s.padToNote(padIndex, pgmRelPath), velocity, duration, padForNote)
 
 	case "move":
-		fromBar := parseIntParam(r, "from_bar", 1)
-		fromPad := parseIntParam(r, "from_pad", 0)
-		fromStep := parseIntParam(r, "from_step", 0)
-		toBar := parseIntParam(r, "to_bar", 1)
+		fromTick := tickForBarStep(parseIntParam(r, "from_bar", 1), parseIntParam(r, "from_step", 0))
+		toTick := tickForBarStep(parseIntParam(r, "to_bar", 1), parseIntParam(r, "to_step", 0))
+		if raw := parseIntParam(r, "from_tick", -1); raw >= 0 {
+			fromTick = uint32(raw)
+		}
+		if raw := parseIntParam(r, "to_tick", -1); raw >= 0 {
+			toTick = uint32(raw)
+		}
 		toPad := parseIntParam(r, "to_pad", 0)
-		toStep := parseIntParam(r, "to_step", 0)
-		fromTick := tickForBarStep(fromBar, fromStep)
-		toTick := tickForBarStep(toBar, toStep)
-		if rawFrom := parseIntParam(r, "from_tick", -1); rawFrom >= 0 {
-			fromTick = uint32(rawFrom)
-		}
-		if rawTo := parseIntParam(r, "to_tick", -1); rawTo >= 0 {
-			toTick = uint32(rawTo)
-		}
-		toNote := s.padToNote(toPad, pgmRelPath)
-
-		newEvents := make([]seq.Event, 0, len(sequence.Events))
-		moved := false
-		for _, ev := range sequence.Events {
-			if ev.Tick == fromTick && padForNote(ev.Note) == fromPad && !moved {
-				ev.Tick = toTick
-				ev.Note = toNote
-				moved = true
-				newEvents = append(newEvents, ev)
-			} else if ev.Tick == toTick && padForNote(ev.Note) == toPad {
-				// Discard any existing event at the destination.
-				continue
-			} else {
-				newEvents = append(newEvents, ev)
-			}
-		}
-		sequence.Events = newEvents
+		sequence.Events = seqMove(sequence.Events,
+			fromTick, parseIntParam(r, "from_pad", 0),
+			toTick, toPad, s.padToNote(toPad, pgmRelPath),
+			padForNote)
 
 	case "delete":
-		bar := parseIntParam(r, "bar", 1)
-		padIndex := parseIntParam(r, "pad", 0)
-		step := parseIntParam(r, "step", 0)
-		targetTick := tickForBarStep(bar, step)
-
-		newEvents := make([]seq.Event, 0, len(sequence.Events))
-		removed := false
-		for _, ev := range sequence.Events {
-			if ev.Tick == targetTick && padForNote(ev.Note) == padIndex && !removed {
-				removed = true
-				continue
-			}
-			newEvents = append(newEvents, ev)
-		}
-		sequence.Events = newEvents
+		targetTick := tickForBarStep(parseIntParam(r, "bar", 1), parseIntParam(r, "step", 0))
+		sequence.Events = seqDelete(sequence.Events, targetTick, parseIntParam(r, "pad", 0), padForNote)
 
 	case "update":
-		bar := parseIntParam(r, "bar", 1)
-		padIndex := parseIntParam(r, "pad", 0)
-		step := parseIntParam(r, "step", 0)
-		velocity := parseIntParam(r, "velocity", 100)
-		duration := parseIntParam(r, "duration", 23)
-		targetTick := tickForBarStep(bar, step)
-
-		for i, ev := range sequence.Events {
-			if ev.Tick == targetTick && padForNote(ev.Note) == padIndex {
-				sequence.Events[i].Velocity = byte(velocity)
-				sequence.Events[i].Duration = uint16(duration)
-				break
-			}
-		}
+		targetTick := tickForBarStep(parseIntParam(r, "bar", 1), parseIntParam(r, "step", 0))
+		sequence.Events = seqUpdate(sequence.Events, targetTick, parseIntParam(r, "pad", 0),
+			parseIntParam(r, "velocity", 100), parseIntParam(r, "duration", 23), padForNote)
 
 	case "multi_delete":
-		var targets []struct {
-			Pad        int `json:"pad"`
-			GlobalStep int `json:"global_step"`
-		}
-		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+		targets, err := parseMultiTargets(r)
+		if err != nil {
 			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		type delKey struct {
-			tick uint32
-			pad  int
-		}
-		toDelete := make(map[delKey]int, len(targets))
-		for _, t := range targets {
-			toDelete[delKey{uint32(t.GlobalStep * gp.TicksPerStep), t.Pad}]++
-		}
-		staying := make([]seq.Event, 0, len(sequence.Events))
-		for _, ev := range sequence.Events {
-			k := delKey{ev.Tick, padForNote(ev.Note)}
-			if toDelete[k] > 0 {
-				toDelete[k]--
-				continue
-			}
-			staying = append(staying, ev)
-		}
-		sequence.Events = staying
+		sequence.Events = seqMultiDelete(sequence.Events, targets, gp.TicksPerStep, padForNote)
 
 	case "multi_move":
-		var targets []struct {
-			Pad          int  `json:"pad"`
-			GlobalStep   int  `json:"global_step"`
-			ToPad        int  `json:"to_pad"`
-			ToGlobalStep int  `json:"to_global_step"`
-			FromTick     *int `json:"from_tick,omitempty"`
-			ToTick       *int `json:"to_tick,omitempty"`
-		}
-		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+		targets, err := parseMultiMoveTargets(r)
+		if err != nil {
 			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		type mvKey struct {
-			tick uint32
-			pad  int
-		}
-		type mvDest struct {
-			toTick uint32
-			toNote byte
-		}
-		moveMap := make(map[mvKey]mvDest, len(targets))
-		destSet := make(map[mvKey]bool, len(targets))
-		for _, t := range targets {
-			fromTick := uint32(t.GlobalStep * gp.TicksPerStep)
-			if t.FromTick != nil {
-				fromTick = uint32(*t.FromTick)
-			}
-			toTick := uint32(t.ToGlobalStep * gp.TicksPerStep)
-			if t.ToTick != nil {
-				toTick = uint32(*t.ToTick)
-			}
-			moveMap[mvKey{fromTick, t.Pad}] = mvDest{toTick, s.padToNote(t.ToPad, pgmRelPath)}
-			destSet[mvKey{toTick, t.ToPad}] = true
-		}
-		newEvents := make([]seq.Event, 0, len(sequence.Events))
-		for _, ev := range sequence.Events {
-			k := mvKey{ev.Tick, padForNote(ev.Note)}
-			if dest, ok := moveMap[k]; ok {
-				ev.Tick = dest.toTick
-				ev.Note = dest.toNote
-				delete(moveMap, k)
-				newEvents = append(newEvents, ev)
-			} else if destSet[k] {
-				// discard existing event at a destination that isn't in our source set
-				continue
-			} else {
-				newEvents = append(newEvents, ev)
-			}
-		}
-		sequence.Events = newEvents
+		sequence.Events = seqMultiMove(sequence.Events, targets, gp.TicksPerStep, padForNote, padToNoteFn)
 
 	case "multi_update":
-		var targets []struct {
-			Pad        int `json:"pad"`
-			GlobalStep int `json:"global_step"`
-		}
-		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+		targets, err := parseMultiTargets(r)
+		if err != nil {
 			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		velocity := parseIntParam(r, "velocity", 100)
-		duration := parseIntParam(r, "duration", 23)
-		type updKey struct {
-			tick uint32
-			pad  int
-		}
-		toUpdate := make(map[updKey]bool, len(targets))
-		for _, t := range targets {
-			toUpdate[updKey{uint32(t.GlobalStep * gp.TicksPerStep), t.Pad}] = true
-		}
-		for i, ev := range sequence.Events {
-			if toUpdate[updKey{ev.Tick, padForNote(ev.Note)}] {
-				sequence.Events[i].Velocity = byte(velocity)
-				sequence.Events[i].Duration = uint16(duration)
-			}
-		}
+		sequence.Events = seqMultiUpdate(sequence.Events, targets, gp.TicksPerStep,
+			parseIntParam(r, "velocity", 100), parseIntParam(r, "duration", 23), padForNote)
 
 	case "quantize":
-		bar := parseIntParam(r, "bar", 1)
-		padIndex := parseIntParam(r, "pad", 0)
-		step := parseIntParam(r, "step", 0)
-		qTicks := parseIntParam(r, "quantize_ticks", seq.TicksPerStep)
-		if qTicks < 1 {
-			qTicks = seq.TicksPerStep
-		}
-		sourceTick := tickForBarStep(bar, step)
-		for i, ev := range sequence.Events {
-			if ev.Tick == sourceTick && padForNote(ev.Note) == padIndex {
-				sequence.Events[i].Tick = quantizeTick(ev.Tick, qTicks)
-				break
-			}
-		}
+		qTicks := max(parseIntParam(r, "quantize_ticks", seq.TicksPerStep), 1)
+		sourceTick := tickForBarStep(parseIntParam(r, "bar", 1), parseIntParam(r, "step", 0))
+		sequence.Events = seqQuantizeOne(sequence.Events, sourceTick, parseIntParam(r, "pad", 0), qTicks, padForNote)
 
 	case "multi_quantize":
-		var targets []struct {
-			Pad        int `json:"pad"`
-			GlobalStep int `json:"global_step"`
-		}
-		if err := json.Unmarshal([]byte(r.FormValue("events")), &targets); err != nil {
+		targets, err := parseMultiTargets(r)
+		if err != nil {
 			http.Error(w, "events: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		qTicks := parseIntParam(r, "quantize_ticks", seq.TicksPerStep)
-		if qTicks < 1 {
-			qTicks = seq.TicksPerStep
-		}
-		type qKey struct {
-			tick uint32
-			pad  int
-		}
-		toQuantize := make(map[qKey]bool, len(targets))
-		for _, t := range targets {
-			toQuantize[qKey{uint32(t.GlobalStep * gp.TicksPerStep), t.Pad}] = true
-		}
-		for i, ev := range sequence.Events {
-			if toQuantize[qKey{ev.Tick, padForNote(ev.Note)}] {
-				sequence.Events[i].Tick = quantizeTick(ev.Tick, qTicks)
-			}
-		}
+		qTicks := max(parseIntParam(r, "quantize_ticks", seq.TicksPerStep), 1)
+		sequence.Events = seqMultiQuantize(sequence.Events, targets, gp.TicksPerStep, qTicks, padForNote)
 
 	default:
 		http.Error(w, "unknown action: "+action, http.StatusBadRequest)
