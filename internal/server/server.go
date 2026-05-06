@@ -17,11 +17,12 @@ import (
 
 // Server is the HTTP server for the MPC Editor web application.
 type Server struct {
-	session   *Session
-	queries   *db.Queries
-	scanner   *scanner.Scanner
-	detector  *device.Detector
-	templates *template.Template
+	session          *Session
+	queries          *db.Queries
+	scanner          *scanner.Scanner
+	detector         *device.Detector
+	templates        *template.Template
+	startupScanDone  chan struct{}
 	mux       *http.ServeMux
 	staticFS  fs.FS
 }
@@ -29,12 +30,13 @@ type Server struct {
 // New creates a new Server with the given embedded filesystem for templates and static assets.
 func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server {
 	s := &Server{
-		session:  NewSession(queries),
-		queries:  queries,
-		scanner:  scanner.New(sqlDB, queries),
-		detector: device.New(),
-		mux:      http.NewServeMux(),
-		staticFS: staticFS,
+		session:         NewSession(queries),
+		queries:         queries,
+		scanner:         scanner.New(sqlDB, queries),
+		detector:        device.New(),
+		mux:             http.NewServeMux(),
+		staticFS:        staticFS,
+		startupScanDone: make(chan struct{}),
 	}
 
 	funcMap := template.FuncMap{
@@ -83,6 +85,7 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 
 	// Auto-scan workspace on startup (background, non-blocking).
 	go func() {
+		defer close(s.startupScanDone)
 		if s.session.WorkspacePath == "" {
 			return
 		}

@@ -435,12 +435,18 @@ const SequencePlayer = (function() {
         return '&tsig=' + encodeURIComponent(tsig) + '&division=' + encodeURIComponent(div);
     }
 
+    function currentPgm() {
+        var el = document.getElementById('seq-pgm-select');
+        return el ? el.value : selectedPgm;
+    }
+
     function loadContinuousView() {
         var grid = document.getElementById('seq-step-grid');
         if (!grid) return;
         var seqPath = grid.dataset.seqPath;
         if (!seqPath) return;
-        var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
+        var pgm = currentPgm();
+        var pgmParam = pgm ? '&pgm=' + encodeURIComponent(pgm) : '';
         fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam + getDisplayParams())
             .then(function(r) { return r.json(); })
             .then(function(data) { renderContinuousView(data); })
@@ -502,7 +508,7 @@ const SequencePlayer = (function() {
         refreshEvents();
     }
 
-    document.addEventListener('htmx:afterSwap', function(evt) {
+    document.addEventListener('htmx:afterSettle', function(evt) {
         var swapTarget = (evt.detail && evt.detail.target) || evt.target;
         var isSeqGrid = swapTarget && (
             swapTarget.id === 'sequence-grid' ||
@@ -702,7 +708,8 @@ const SequencePlayer = (function() {
         if (!grid) return;
         var seqPath = grid.dataset.seqPath;
         if (!seqPath) return;
-        var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
+        var pgm = currentPgm();
+        var pgmParam = pgm ? '&pgm=' + encodeURIComponent(pgm) : '';
         fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam + getDisplayParams())
             .then(function(r) { return r.json(); })
             .then(function(data) {

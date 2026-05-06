@@ -71,3 +71,16 @@ Background goroutine that indexes WAV/PGM/SEQ files from the workspace into the 
 ### MPC device detection (`internal/device/`)
 
 Polls for USB mass storage devices matching MPC vendor/product IDs. Runs as a background goroutine started in `server.New()`.
+
+## Rules
+
+### Tests
+- When adding or changing a function, add or update tests in the corresponding `*_test.go` file in the same package.
+- When adding a new HTTP handler, add tests for at least: the happy path, method-not-allowed (if the handler restricts methods), and missing/invalid required params.
+- Keep package coverage at or above 80%. Run `make test-cover` to check.
+- Do not use `seedFile` when the test needs a valid (parseable) file on disk — `seedFile` overwrites with a placeholder. Instead, copy the real file with `os.WriteFile` and seed the catalog separately with `srv.queries.UpsertFile(...)`.
+
+### Documentation
+- When adding a new package, create a `README.md` in that package directory following the style of existing package READMEs (one-paragraph summary, key types/functions, cross-links).
+- When changing a public API (exported type, function signature, or HTTP route), update the relevant `README.md` and the architecture section of this file if the change affects the overall design.
+- Do not create or update documentation for internal implementation details — only document the public interface and the "why" that isn't obvious from the code.

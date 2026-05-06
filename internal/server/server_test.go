@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,7 +33,8 @@ func testServer(t *testing.T) *Server {
 			last_pgm_path TEXT NOT NULL DEFAULT '',
 			last_wav_path TEXT NOT NULL DEFAULT '',
 			audition_mode TEXT NOT NULL DEFAULT 'layer0',
-			workspace_path TEXT NOT NULL DEFAULT ''
+			workspace_path TEXT NOT NULL DEFAULT '',
+			last_detail_path TEXT NOT NULL DEFAULT ''
 		)`,
 		`INSERT OR IGNORE INTO preferences (id) VALUES (1)`,
 		`CREATE TABLE IF NOT EXISTS files (
@@ -88,6 +91,14 @@ func testServer(t *testing.T) *Server {
 			tempo REAL NOT NULL DEFAULT 0,
 			UNIQUE(song_file_id, step)
 		)`,
+		`CREATE TABLE IF NOT EXISTS file_tags (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+			tag_key TEXT NOT NULL DEFAULT '',
+			tag_value TEXT NOT NULL,
+			auto INTEGER NOT NULL DEFAULT 0,
+			UNIQUE(file_id, tag_key, tag_value)
+		)`,
 	} {
 		if _, err := sqlDB.Exec(ddl); err != nil {
 			t.Fatal(err)
@@ -103,7 +114,11 @@ func testServer(t *testing.T) *Server {
 
 	queries := db.New(sqlDB)
 	templateFS, staticFS := web.FS()
-	return New(templateFS, staticFS, sqlDB, queries)
+	srv := New(templateFS, staticFS, sqlDB, queries)
+	// Wait for the startup scan to complete so tests can safely seed catalog entries
+	// without the background scan racing and pruning them.
+	<-srv.startupScanDone
+	return srv
 }
 
 func testdataPath(name string) string {
@@ -336,6 +351,44 @@ func TestAudioPad_WithSample(t *testing.T) {
 	}
 	if w.Body.Len() == 0 {
 		t.Error("empty response body")
+	}
+}
+
+func TestAudioPad_WithCatalogPGM(t *testing.T) {
+	srv := testServer(t)
+
+	// Copy test.pgm to workspace and seed it in catalog
+	pgmDest := filepath.Join(srv.session.WorkspacePath, "test.pgm")
+	pgmData, err := os.ReadFile(testdataPath("test.pgm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pgmDest, pgmData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pgmID := seedFile(t, srv, "test.pgm", "pgm")
+
+	// Seed a WAV sample in catalog and link it to the pgm
+	wavID := seedFile(t, srv, "kick.wav", "wav")
+	ctx := context.Background()
+	srv.queries.InsertPgmSample(ctx, db.InsertPgmSampleParams{ //nolint:errcheck
+		PgmFileID:    pgmID,
+		Pad:          0,
+		Layer:        0,
+		SampleName:   "kick",
+		SampleFileID: sql.NullInt64{Int64: wavID, Valid: true},
+	})
+
+	// Copy a real WAV to serve as kick.wav
+	wavData, _ := os.ReadFile(testdataPath("chh.wav"))
+	os.WriteFile(filepath.Join(srv.session.WorkspacePath, "kick.wav"), wavData, 0o644) //nolint:errcheck
+
+	req := httptest.NewRequest("GET", "/audio/pad/0/0?pgm=test.pgm", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
 	}
 }
 
@@ -718,5 +771,423 @@ func Test404(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", w.Code)
+	}
+}
+
+func TestNewSession_WithLastPGM(t *testing.T) {
+	// Create a DB with last_pgm_path pointing to a real PGM file
+	sqlDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	for _, ddl := range []string{
+		`CREATE TABLE IF NOT EXISTS preferences (
+			id INTEGER PRIMARY KEY CHECK (id = 1),
+			profile TEXT NOT NULL DEFAULT 'MPC1000',
+			last_pgm_path TEXT NOT NULL DEFAULT '',
+			last_wav_path TEXT NOT NULL DEFAULT '',
+			audition_mode TEXT NOT NULL DEFAULT 'layer0',
+			workspace_path TEXT NOT NULL DEFAULT '',
+			last_detail_path TEXT NOT NULL DEFAULT ''
+		)`,
+		`INSERT OR IGNORE INTO preferences (id) VALUES (1)`,
+		`CREATE TABLE IF NOT EXISTS files (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			path TEXT NOT NULL UNIQUE,
+			file_type TEXT NOT NULL,
+			size INTEGER NOT NULL DEFAULT 0,
+			mod_time INTEGER NOT NULL DEFAULT 0,
+			scanned INTEGER NOT NULL DEFAULT 0
+		)`,
+	} {
+		if _, err := sqlDB.Exec(ddl); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	pgmPath := testdataPath("test.pgm")
+	workspace := t.TempDir()
+	_, err = sqlDB.Exec(
+		`UPDATE preferences SET last_pgm_path = ?, workspace_path = ?, profile = 'MPC500' WHERE id = 1`,
+		pgmPath, workspace,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	queries := db.New(sqlDB)
+	sess := NewSession(queries)
+
+	if sess.Program == nil {
+		t.Error("expected program to be set after restoring last pgm")
+	}
+	if sess.FilePath != pgmPath {
+		t.Errorf("FilePath = %q, want %q", sess.FilePath, pgmPath)
+	}
+	if sess.Profile.Name != "MPC500" {
+		t.Errorf("profile = %q, want MPC500", sess.Profile.Name)
+	}
+}
+
+func TestColocateSamples(t *testing.T) {
+	srv := testServer(t)
+
+	srcDir := t.TempDir()
+	targetDir := t.TempDir()
+
+	// Write a valid WAV into srcDir
+	wavData, err := os.ReadFile(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcWav := filepath.Join(srcDir, "chh.wav")
+	if err := os.WriteFile(srcWav, wavData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	srv.session.Matrix.Set(0, 0, &pgm.SampleRef{
+		Name:     "chh",
+		FilePath: srcWav,
+		Status:   pgm.SampleOK,
+	})
+
+	copied := srv.colocateSamples(targetDir)
+	if copied != 1 {
+		t.Errorf("copied = %d, want 1", copied)
+	}
+
+	ref := srv.session.Matrix.Get(0, 0)
+	if ref == nil || filepath.Dir(ref.FilePath) != targetDir {
+		t.Errorf("ref path = %q, want in targetDir %q", ref.FilePath, targetDir)
+	}
+}
+
+func TestColocateSamples_AlreadyColocated(t *testing.T) {
+	srv := testServer(t)
+	targetDir := t.TempDir()
+
+	// WAV already in the target dir
+	wavData, err := os.ReadFile(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	existingWav := filepath.Join(targetDir, "chh.wav")
+	if err := os.WriteFile(existingWav, wavData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	srv.session.Matrix.Set(0, 0, &pgm.SampleRef{
+		Name:     "chh",
+		FilePath: existingWav,
+		Status:   pgm.SampleOK,
+	})
+
+	copied := srv.colocateSamples(targetDir)
+	if copied != 0 {
+		t.Errorf("copied = %d, want 0 (already in target dir)", copied)
+	}
+}
+
+func TestAssignPath_PerLayer(t *testing.T) {
+	srv := testServer(t)
+
+	wavPath := testdataPath("chh.wav")
+	form := url.Values{
+		"pad":   {"2"},
+		"mode":  {"per-layer"},
+		"paths": {wavPath},
+	}
+	req := httptest.NewRequest("POST", "/assign/path", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+}
+
+func TestAssignPath_Replace(t *testing.T) {
+	srv := testServer(t)
+
+	wavPath := testdataPath("chh.wav")
+	form := url.Values{
+		"pad":   {"3"},
+		"mode":  {"replace"},
+		"paths": {wavPath},
+	}
+	req := httptest.NewRequest("POST", "/assign/path", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+}
+
+func TestAssignPath_Multisample(t *testing.T) {
+	srv := testServer(t)
+
+	wavPath := testdataPath("chh.wav")
+	form := url.Values{
+		"mode":  {"multisample"},
+		"paths": {wavPath},
+	}
+	req := httptest.NewRequest("POST", "/assign/path", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+}
+
+func TestAssignPath_MethodNotAllowed(t *testing.T) {
+	srv := testServer(t)
+
+	req := httptest.NewRequest("GET", "/assign/path", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestHandleAssign_Multisample(t *testing.T) {
+	srv := testServer(t)
+
+	wavData, err := os.ReadFile(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var body strings.Builder
+	boundary := "multisampleboundary"
+	body.WriteString("--" + boundary + "\r\n")
+	body.WriteString("Content-Disposition: form-data; name=\"mode\"\r\n\r\n")
+	body.WriteString("multisample\r\n")
+	body.WriteString("--" + boundary + "\r\n")
+	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"chh.wav\"\r\n")
+	body.WriteString("Content-Type: audio/wav\r\n\r\n")
+	body.Write(wavData) //nolint:errcheck
+	body.WriteString("\r\n--" + boundary + "--\r\n")
+
+	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestHandleAssign_MethodNotAllowed(t *testing.T) {
+	srv := testServer(t)
+
+	req := httptest.NewRequest("GET", "/assign/upload", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestHandleAssign_NoFiles(t *testing.T) {
+	srv := testServer(t)
+
+	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(""))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=boundary")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 (no files)", w.Code)
+	}
+}
+
+func TestHandleAssign_WithFile(t *testing.T) {
+	srv := testServer(t)
+
+	wavData, err := os.ReadFile(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var body strings.Builder
+	boundary := "testboundary123"
+	body.WriteString("--" + boundary + "\r\n")
+	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"chh.wav\"\r\n")
+	body.WriteString("Content-Type: audio/wav\r\n\r\n")
+	body.Write(wavData) //nolint:errcheck
+	body.WriteString("\r\n--" + boundary + "--\r\n")
+
+	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	// Should succeed (200 with HX-Redirect) or redirect
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestCopySamplesToWorkspace_NoWorkspace(t *testing.T) {
+	srv := testServer(t)
+	srv.session.WorkspacePath = ""
+
+	origPath := testdataPath("chh.wav")
+	ref := &pgm.SampleRef{FilePath: origPath, Status: pgm.SampleOK, Name: "chh"}
+	srv.copySamplesToWorkspace([]*pgm.SampleRef{ref})
+
+	if ref.FilePath != origPath {
+		t.Error("FilePath should be unchanged with no workspace")
+	}
+}
+
+func TestCopySamplesToWorkspace_ValidFile(t *testing.T) {
+	srv := testServer(t)
+
+	origPath := testdataPath("chh.wav")
+	ref := &pgm.SampleRef{FilePath: origPath, Status: pgm.SampleOK, Name: "chh"}
+	srv.copySamplesToWorkspace([]*pgm.SampleRef{ref})
+
+	if ref.FilePath == origPath {
+		t.Error("FilePath should be updated to workspace copy")
+	}
+	if !strings.HasPrefix(ref.FilePath, srv.session.WorkspacePath) {
+		t.Errorf("FilePath %q should be in workspace %q", ref.FilePath, srv.session.WorkspacePath)
+	}
+}
+
+// TestHandleAssign_MP3Transcode exercises the IsTranscodable branch in handleAssign.
+func TestHandleAssign_MP3Transcode(t *testing.T) {
+	srv := testServer(t)
+
+	mp3Data, err := os.ReadFile(testdataPath("test_audio.mp3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var body strings.Builder
+	boundary := "mp3boundary"
+	body.WriteString("--" + boundary + "\r\n")
+	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"test_audio.mp3\"\r\n")
+	body.WriteString("Content-Type: audio/mpeg\r\n\r\n")
+	body.Write(mp3Data) //nolint:errcheck
+	body.WriteString("\r\n--" + boundary + "--\r\n")
+
+	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	// Either succeeds (200) or fails gracefully — just verify no panic
+	if w.Code == http.StatusInternalServerError {
+		t.Errorf("unexpected 500: %s", w.Body.String())
+	}
+}
+
+// TestAssignPath_MP3Transcode exercises the IsTranscodable branch in handleAssignPath.
+func TestAssignPath_MP3Transcode(t *testing.T) {
+	srv := testServer(t)
+
+	form := url.Values{
+		"pad":   {"0"},
+		"mode":  {"per-pad"},
+		"paths": {testdataPath("test_audio.mp3")},
+	}
+	req := httptest.NewRequest("POST", "/assign/path", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code == http.StatusInternalServerError {
+		t.Errorf("unexpected 500: %s", w.Body.String())
+	}
+}
+
+// TestHandleAssign_WithProgramOpen exercises the s.session.FilePath != "" branch in handleAssign,
+// which copies samples into the program's directory.
+func TestHandleAssign_WithProgramOpen(t *testing.T) {
+	srv := testServer(t)
+
+	// Open a program so s.session.FilePath is set
+	pgmDest := filepath.Join(srv.session.WorkspacePath, "test.pgm")
+	pgmData, err := os.ReadFile(testdataPath("test.pgm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pgmDest, pgmData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	openForm := url.Values{"path": {pgmDest}}
+	openReq := httptest.NewRequest("POST", "/program/open", strings.NewReader(openForm.Encode()))
+	openReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	srv.Handler().ServeHTTP(httptest.NewRecorder(), openReq)
+
+	if srv.session.FilePath != pgmDest {
+		t.Fatalf("program not opened: FilePath = %q", srv.session.FilePath)
+	}
+
+	wavData, err := os.ReadFile(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var body strings.Builder
+	boundary := "assignboundary"
+	body.WriteString("--" + boundary + "\r\n")
+	body.WriteString("Content-Disposition: form-data; name=\"files\"; filename=\"chh.wav\"\r\n")
+	body.WriteString("Content-Type: audio/wav\r\n\r\n")
+	body.Write(wavData) //nolint:errcheck
+	body.WriteString("\r\n--" + boundary + "--\r\n")
+
+	req := httptest.NewRequest("POST", "/assign/upload", strings.NewReader(body.String()))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestAssignPath_WithProgramOpen exercises the s.session.FilePath != "" branch in handleAssignPath.
+func TestAssignPath_WithProgramOpen(t *testing.T) {
+	srv := testServer(t)
+
+	pgmDest := filepath.Join(srv.session.WorkspacePath, "test.pgm")
+	pgmData, err := os.ReadFile(testdataPath("test.pgm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pgmDest, pgmData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	openForm := url.Values{"path": {pgmDest}}
+	openReq := httptest.NewRequest("POST", "/program/open", strings.NewReader(openForm.Encode()))
+	openReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	srv.Handler().ServeHTTP(httptest.NewRecorder(), openReq)
+
+	form := url.Values{
+		"pad":   {"0"},
+		"mode":  {"per-pad"},
+		"paths": {testdataPath("chh.wav")},
+	}
+	req := httptest.NewRequest("POST", "/assign/path", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
 	}
 }
