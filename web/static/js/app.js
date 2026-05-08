@@ -335,7 +335,7 @@ function openSaveConfirm() {
         '<div class="save-confirm-body">' +
             '<label class="save-confirm-label">Save to:</label>' +
             '<input type="text" id="save-confirm-path" class="path-input" value="' +
-                path.replace(/"/g, '&quot;') + '" style="width:100%">' +
+                escapeHtml(path) + '" style="width:100%">' +
         '</div>' +
         '<div class="save-confirm-actions">' +
             '<button class="btn-primary" onclick="confirmSave()">Confirm Save</button>' +
@@ -557,7 +557,7 @@ function openNewModal() {
             '</div>' +
             '<div id="import-files-tab" class="new-modal-tab-content" style="display:none">' +
                 '<div class="import-dest">' +
-                    'Import to: <input type="hidden" id="import-dest-path" value="' + destDir.replace(/"/g, '&quot;') + '">' +
+                    'Import to: <input type="hidden" id="import-dest-path" value="' + escapeHtml(destDir) + '">' +
                     '<span class="import-dest-path" onclick="changeImportDest()">' + (destDir || 'workspace root') + '</span>' +
                 '</div>' +
                 '<div class="import-drop-zone" id="import-drop-zone">' +
@@ -1407,12 +1407,6 @@ function closeSamplePicker() {
     var overlay = document.getElementById('sample-picker-overlay');
     if (overlay) overlay.remove();
     window._pickerLayerIndex = null;
-}
-
-function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
 }
 
 function escapeAttr(str) {

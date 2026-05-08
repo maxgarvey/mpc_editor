@@ -17,19 +17,27 @@ const AudioPlayer = (function() {
         return audioCtx;
     }
 
-    async function fetchAndDecode(url) {
+    function fetchAndDecode(url) {
         if (bufferCache.has(url)) {
             return bufferCache.get(url);
         }
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch ${url}: ${response.status}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        const ctx = getContext();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        bufferCache.set(url, audioBuffer);
-        return audioBuffer;
+        // Cache the Promise itself so concurrent calls for the same URL share one request.
+        const promise = fetch(url)
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch ' + url + ': ' + response.status);
+                }
+                return response.arrayBuffer();
+            })
+            .then(function(arrayBuffer) {
+                return getContext().decodeAudioData(arrayBuffer);
+            })
+            .catch(function(err) {
+                bufferCache.delete(url);
+                throw err;
+            });
+        bufferCache.set(url, promise);
+        return promise;
     }
 
     function stopAll() {
@@ -284,7 +292,9 @@ const AudioPlayer = (function() {
 
         playAllPadLayers: function(padIndex) {
             stopAll();
+            var gen = playGeneration;
             getParams(padIndex).then(function(params) {
+                if (playGeneration !== gen) return;
                 if (!params) {
                     for (var i = 0; i < 4; i++) {
                         playLayerSource('/audio/pad/' + padIndex + '/' + i);
