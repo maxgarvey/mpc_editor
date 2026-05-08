@@ -1,9 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +14,21 @@ import (
 
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
+
+// bufResponseWriter captures an HTTP handler's output into a buffer.
+type bufResponseWriter struct {
+	buf    bytes.Buffer
+	header http.Header
+	status int
+}
+
+func newBufResponseWriter() *bufResponseWriter {
+	return &bufResponseWriter{header: make(http.Header), status: http.StatusOK}
+}
+
+func (b *bufResponseWriter) Header() http.Header         { return b.header }
+func (b *bufResponseWriter) WriteHeader(code int)        { b.status = code }
+func (b *bufResponseWriter) Write(p []byte) (int, error) { return b.buf.Write(p) }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -30,10 +47,25 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	// the file browser (which also uses absolute paths), enabling tab deduplication.
 	lastDetailRelPath := s.session.SelectedDetailPath
 
+	// Pre-render the last detail view so the browser gets it in the initial HTML
+	// response, avoiding a client-side fetch on every page load.
+	var detailHTML template.HTML
+	if lastDetailRelPath != "" {
+		buf := newBufResponseWriter()
+		fakeReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "/detail", http.NoBody)
+		if err == nil {
+			fakeReq.Form = map[string][]string{"path": {lastDetailRelPath}}
+			s.handleDetail(buf, fakeReq)
+			if buf.status < 400 {
+				detailHTML = template.HTML(buf.buf.String()) //nolint:gosec // server-rendered HTML, not user input
+			}
+		}
+	}
+
 	data := map[string]any{
 		"Session":           s.session,
 		"BrowseData":        browseData,
-		"DetailHTML":        nil,
+		"DetailHTML":        detailHTML,
 		"LastDetailRelPath": lastDetailRelPath,
 		"Device":            s.detector.Current(),
 	}

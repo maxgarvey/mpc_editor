@@ -74,7 +74,7 @@
     <script src="/static/js/tabs.js"></script>
     <script src="/static/js/app.js"></script>
     {{if .LastDetailRelPath}}
-    <script>TabManager.openFile('{{.LastDetailRelPath}}');</script>
+    <script>TabManager.initFromDOM('{{.LastDetailRelPath}}');</script>
     {{end}}
 </body>
 </html>

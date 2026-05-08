@@ -64,10 +64,13 @@ type StepCell struct {
 
 // PadRow is one pad's activity across all bars.
 type PadRow struct {
-	PadIndex   int
-	PadLabel   string // e.g. "A1", "B3"
-	SampleName string // first non-empty layer sample name from the loaded program
-	Steps      []StepCell
+	PadIndex     int
+	PadLabel     string // e.g. "A1", "B3"
+	SampleName   string // first non-empty layer sample name from the loaded program
+	Steps        []StepCell
+	BankHeader   string // non-empty on the first row of each extra bank ("Bank B", "Bank C", "Bank D")
+	BankLetter   string // lowercase bank letter ("b", "c", "d") for CSS and onclick; non-empty with BankHeader
+	BankRowClass string // CSS row class for this pad ("bank-b-row", "bank-c-row", "bank-d-row")
 }
 
 // TrackRow is one row in the step grid (one track).
@@ -222,12 +225,25 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 	}
 
 	// Build Banks B/C/D pad rows (48 entries, padIndex 16-63).
+	extraBankMeta := [3]struct{ header, letter, rowClass string }{
+		{"Bank B", "b", "bank-b-row"},
+		{"Bank C", "c", "bank-c-row"},
+		{"Bank D", "d", "bank-d-row"},
+	}
 	for i := range 48 {
 		padIdx := i + 16
+		bankMeta := extraBankMeta[i/16]
+		header, letter := "", ""
+		if i%16 == 0 {
+			header, letter = bankMeta.header, bankMeta.letter
+		}
 		grid.ExtraBankPadRows[i] = PadRow{
-			PadIndex: padIdx,
-			PadLabel: PadLabel(padIdx),
-			Steps:    makeSteps(padGlobalSteps[padIdx]),
+			PadIndex:     padIdx,
+			PadLabel:     PadLabel(padIdx),
+			Steps:        makeSteps(padGlobalSteps[padIdx]),
+			BankHeader:   header,
+			BankLetter:   letter,
+			BankRowClass: bankMeta.rowClass,
 		}
 	}
 

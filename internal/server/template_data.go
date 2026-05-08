@@ -1,5 +1,7 @@
 package server
 
+import "encoding/json"
+
 // PadInfo holds display data for a single pad in the grid.
 type PadInfo struct {
 	Index      int
@@ -80,6 +82,36 @@ func (s *Server) padParamsData() map[string]any {
 		}
 	}
 
+	embedLayers := make([]map[string]any, len(layers))
+	for i, l := range layers {
+		embedLayers[i] = map[string]any{
+			"index":     l.Index,
+			"level":     l.Level,
+			"tuning":    l.Tuning,
+			"playMode":  l.PlayMode,
+			"hasSample": l.SampleName != "",
+		}
+	}
+	embedData := map[string]any{
+		"padIndex": idx,
+		"layers":   embedLayers,
+		"envelope": map[string]any{
+			"attack":    pad.Envelope().GetAttack(),
+			"decay":     pad.Envelope().GetDecay(),
+			"decayMode": pad.Envelope().GetDecayMode(),
+		},
+		"filter1": map[string]any{
+			"type":      pad.Filter1().GetType(),
+			"freq":      pad.Filter1().GetFrequency(),
+			"resonance": pad.Filter1().GetResonance(),
+		},
+		"mixer": map[string]any{
+			"level": pad.Mixer().GetLevel(),
+			"pan":   pad.Mixer().GetPan(),
+		},
+	}
+	padParamsJSON, _ := json.Marshal(embedData)
+
 	return map[string]any{
 		"PadIndex":        idx,
 		"PadDisplay":      (idx % 16) + 1,
@@ -101,5 +133,6 @@ func (s *Server) padParamsData() map[string]any {
 		"MixerLevel":      pad.Mixer().GetLevel(),
 		"MixerPan":        pad.Mixer().GetPan(),
 		"MixerOutput":     pad.Mixer().GetOutput(),
+		"PadParamsJSON":   string(padParamsJSON),
 	}
 }

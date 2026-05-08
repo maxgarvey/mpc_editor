@@ -217,7 +217,8 @@ const AudioPlayer = (function() {
     }
 
     function getParams(padIndex, pgmPath) {
-        var embedded = window.__padParams;
+        var padParamsEl = document.querySelector('.pad-params-panel');
+        var embedded = padParamsEl ? JSON.parse(padParamsEl.getAttribute('data-pad-params') || 'null') : null;
         if (!pgmPath && embedded && embedded.padIndex === padIndex) {
             return Promise.resolve(embedded);
         }

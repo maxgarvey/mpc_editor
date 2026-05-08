@@ -1,5 +1,5 @@
 {{define "pad_params.html"}}
-<div class="pad-params-panel">
+<div class="pad-params-panel" data-pad-params="{{.PadParamsJSON}}">
     <h2>Pad {{.BankLabel}}{{.PadDisplay}} {{if gt .LayerCountTotal 0}}<button type="button" class="btn-play" onclick="AudioPlayer.playAllPadLayers({{.PadIndex}})" title="Play all layers">&#9654;</button>{{end}}</h2>
 
     <div class="param-tabs">
@@ -148,15 +148,4 @@
         </form>
     </div>
 </div>
-<script>
-window.__padParams = {
-    padIndex: {{.PadIndex}},
-    layers: [{{range .Layers}}
-        {index:{{.Index}}, level:{{.Level}}, tuning:{{printf "%.2f" .Tuning}}, playMode:{{.PlayMode}}, hasSample:{{if .SampleName}}true{{else}}false{{end}}},{{end}}
-    ],
-    envelope: {attack:{{.Attack}}, decay:{{.Decay}}, decayMode:{{.DecayMode}}},
-    filter1: {type:{{.Filter1Type}}, freq:{{.Filter1Freq}}, resonance:{{.Filter1Res}}},
-    mixer: {level:{{.MixerLevel}}, pan:{{.MixerPan}}}
-};
-</script>
 {{end}}

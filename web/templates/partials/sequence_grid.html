@@ -126,12 +126,10 @@
                 {{end}}
             </tr>
             {{end}}
-            {{range $i, $row := .Grid.ExtraBankPadRows}}
+            {{range $row := .Grid.ExtraBankPadRows}}
             {{$padIdx := $row.PadIndex}}
-            {{if eq $i 0}}<tr class="bank-header-row bank-b-header" onclick="SequencePlayer.toggleBank('b')"><td class="bank-header-cell" colspan="999">Bank B <span class="bank-sep-arrow">▶</span></td></tr>{{end}}
-            {{if eq $i 16}}<tr class="bank-header-row bank-c-header" onclick="SequencePlayer.toggleBank('c')"><td class="bank-header-cell" colspan="999">Bank C <span class="bank-sep-arrow">▶</span></td></tr>{{end}}
-            {{if eq $i 32}}<tr class="bank-header-row bank-d-header" onclick="SequencePlayer.toggleBank('d')"><td class="bank-header-cell" colspan="999">Bank D <span class="bank-sep-arrow">▶</span></td></tr>{{end}}
-            <tr class="pad-row {{if lt $i 16}}bank-b-row{{else if lt $i 32}}bank-c-row{{else}}bank-d-row{{end}}" data-pad="{{$padIdx}}" style="display:none">
+            {{if $row.BankHeader}}<tr class="bank-header-row bank-{{$row.BankLetter}}-header" onclick="SequencePlayer.toggleBank('{{$row.BankLetter}}')"><td class="bank-header-cell" colspan="999">{{$row.BankHeader}} <span class="bank-sep-arrow">▶</span></td></tr>{{end}}
+            <tr class="pad-row {{$row.BankRowClass}}" data-pad="{{$padIdx}}" style="display:none">
                 <td class="track-name-cell">
                     <div class="track-name-inner">
                         <span class="track-controls">

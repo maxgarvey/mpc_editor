@@ -30,6 +30,42 @@ const TabManager = (function() {
         return null;
     }
 
+    // Registers a tab for a file whose detail HTML is already in the DOM
+    // (server-rendered on initial page load). Skips the /detail fetch.
+    function initFromDOM(path) {
+        var label = getFileName(path);
+        var ext = getExtLabel(path);
+        var id = _nextId++;
+
+        var tab = { id: id, path: path, label: label, ext: ext };
+        _tabs.push(tab);
+        _activeTabId = id;
+
+        renderTabBar();
+        highlightBrowser();
+
+        // Process server-rendered content the same way activate() does after a fetch.
+        var content = document.getElementById('detail-tab-content');
+        if (content) {
+            if (typeof htmx !== 'undefined') htmx.process(content);
+            if (typeof initDragDrop === 'function') initDragDrop();
+            if (typeof initTabs === 'function') initTabs();
+            var scripts = content.querySelectorAll('script');
+            scripts.forEach(function(oldScript) {
+                var newScript = document.createElement('script');
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+            if (typeof SequencePlayer !== 'undefined' && typeof SequencePlayer.afterDetailSwap === 'function') {
+                SequencePlayer.afterDetailSwap();
+            }
+        }
+    }
+
     function openFile(path) {
         var existing = findTabByPath(path);
         if (existing) {
@@ -225,6 +261,7 @@ const TabManager = (function() {
     }
 
     return {
+        initFromDOM: initFromDOM,
         openFile: openFile,
         activate: activate,
         close: close,
