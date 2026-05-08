@@ -4,7 +4,7 @@ GOFLAGS   := -trimpath
 LDFLAGS   := -s -w
 LINT_VER  := v2.11.4
 
-.PHONY: all build run test lint vet fmt check clean install dev generate help test-e2e test-e2e-headed test-e2e-ui electron electron-dist tauri tauri-dist
+.PHONY: all build run test lint vet fmt check check-coverage clean install dev generate help test-e2e test-e2e-headed test-e2e-ui electron electron-dist tauri tauri-dist
 
 ## —— Primary targets ——
 
@@ -34,6 +34,16 @@ test-cover:  ## Run tests with coverage report
 	go test -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
 	@echo "HTML report: go tool cover -html=coverage.out"
+
+check-coverage:  ## Fail if any internal/ package is below 80% coverage
+	@go test -cover ./... 2>&1 | awk ' \
+	  /\/internal\// && /coverage: [0-9]/ { \
+	    match($$0, /github\.com\/[^ \t]+/); pkg = substr($$0, RSTART, RLENGTH); \
+	    match($$0, /[0-9]+\.[0-9]+%/);     pct = substr($$0, RSTART, RLENGTH)+0; \
+	    if (pct < 80.0) { printf "FAIL  %-50s %.1f%%\n", pkg, pct; fail=1 } \
+	    else             { printf "ok    %-50s %.1f%%\n", pkg, pct } \
+	  } \
+	  END { if (fail) { print "\nSome packages below 80%. Run: make test-cover"; exit 1 } }'
 
 lint:  ## Run golangci-lint (installs if missing)
 	@command -v golangci-lint >/dev/null 2>&1 || { \

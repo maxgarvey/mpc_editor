@@ -77,7 +77,7 @@ Polls for USB mass storage devices matching MPC vendor/product IDs. Runs as a ba
 ### Tests
 - When adding or changing a function, add or update tests in the corresponding `*_test.go` file in the same package.
 - When adding a new HTTP handler, add tests for at least: the happy path, method-not-allowed (if the handler restricts methods), and missing/invalid required params.
-- Keep package coverage at or above 80%. Run `make test-cover` to check.
+- Keep package coverage at or above 80%. Run `make check-coverage` before opening a PR to verify. Run `make test-cover` to see the full per-function breakdown.
 - Do not use `seedFile` when the test needs a valid (parseable) file on disk — `seedFile` overwrites with a placeholder. Instead, copy the real file with `os.WriteFile` and seed the catalog separately with `srv.queries.UpsertFile(...)`.
 
 ### Documentation
