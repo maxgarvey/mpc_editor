@@ -20,12 +20,10 @@
                 <a href="/slicer" class="toolbar-link">Slicer</a>
                 <span class="toolbar-separator">|</span>
                 <span class="toolbar-label">Profile:</span>
-                <form hx-post="/edit/profile" class="inline-form">
-                    <select name="profile" hx-trigger="change" hx-post="/edit/profile">
-                        <option value="MPC1000" {{if eq .Session.Profile.Name "MPC1000"}}selected{{end}}>MPC1000</option>
-                        <option value="MPC500" {{if eq .Session.Profile.Name "MPC500"}}selected{{end}}>MPC500</option>
-                    </select>
-                </form>
+                <select name="profile" class="inline-form" hx-trigger="change" hx-post="/edit/profile">
+                    <option value="MPC1000" {{if eq .Session.Profile.Name "MPC1000"}}selected{{end}}>MPC1000</option>
+                    <option value="MPC500" {{if eq .Session.Profile.Name "MPC500"}}selected{{end}}>MPC500</option>
+                </select>
                 <span class="toolbar-separator">|</span>
                 {{template "device_status.html" .}}
                 <span class="toolbar-separator">|</span>

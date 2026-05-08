@@ -1662,6 +1662,14 @@ const SequenceEditor = (function() {
         if (globalStep >= 0) previewStep(globalStep);
     });
 
+    function adjustBars(btn, delta) {
+        var inp = delta < 0 ? btn.nextElementSibling : btn.previousElementSibling;
+        var v = parseInt(inp.value, 10) + delta;
+        if (v < 1) return;
+        inp.value = v;
+        inp.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+
     return {
         setMode: setMode,
         restoreModeButtons: restoreModeButtons,
@@ -1674,6 +1682,7 @@ const SequenceEditor = (function() {
         previewStep: previewStep,
         isContInSelection: isContInSelection,
         toggleSnap: toggleSnap,
-        restoreSnapBtn: restoreSnapBtn
+        restoreSnapBtn: restoreSnapBtn,
+        adjustBars: adjustBars
     };
 })();

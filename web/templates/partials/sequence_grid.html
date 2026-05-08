@@ -11,7 +11,7 @@
         <form class="sequence-meta-form"
               hx-post="/sequence/update"
               hx-target="#sequence-grid"
-              hx-trigger="change"
+              hx-trigger="change delay:400ms"
               hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select">
             <input type="hidden" name="path" value="{{.Path}}">
             <label class="seq-meta-label">
@@ -20,11 +20,9 @@
             </label>
             <label class="seq-meta-label">
                 Bars:
-                <button type="button" class="btn-sm seq-bars-btn"
-                        onclick="var inp=this.nextElementSibling; var v=parseInt(inp.value); if(v>1){inp.value=v-1; inp.dispatchEvent(new Event('change',{bubbles:true}));}">−</button>
+                <button type="button" class="btn-sm seq-bars-btn" onclick="SequenceEditor.adjustBars(this, -1)">−</button>
                 <input class="seq-meta-input seq-meta-input--short" type="number" name="bars" value="{{.Bars}}" min="1" max="999" step="1">
-                <button type="button" class="btn-sm seq-bars-btn"
-                        onclick="var inp=this.previousElementSibling; inp.value=parseInt(inp.value)+1; inp.dispatchEvent(new Event('change',{bubbles:true}));">+</button>
+                <button type="button" class="btn-sm seq-bars-btn" onclick="SequenceEditor.adjustBars(this, +1)">+</button>
             </label>
             <span class="seq-meta-version">{{.Version}}</span>
         </form>
@@ -47,13 +45,13 @@
         <button class="btn-sm seq-snap-btn" id="seq-snap-btn" style="display:none" onclick="SequenceEditor.toggleSnap(this)" title="Snap to grid division (Piano Roll). Hold Shift to temporarily toggle.">Snap</button>
     </div>
 
-    <div class="pgm-picker">
+    <form class="pgm-picker"
+          hx-get="/sequence?path={{.Path}}"
+          hx-target="#sequence-grid"
+          hx-trigger="change"
+          hx-include="this">
         <label for="seq-pgm-select">Program:</label>
-        <select id="seq-pgm-select"
-                hx-get="/sequence?path={{.Path}}"
-                hx-target="#sequence-grid"
-                hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select"
-                name="pgm">
+        <select id="seq-pgm-select" name="pgm">
             <option value="">— no program —</option>
             {{range .PGMFiles}}
             <option value="{{.}}" {{if eq . $.PGMPath}}selected{{end}}>{{.}}</option>
@@ -61,11 +59,7 @@
         </select>
 
         <label for="seq-tsig-select" class="seq-picker-label">Time Sig:</label>
-        <select id="seq-tsig-select"
-                hx-get="/sequence?path={{.Path}}"
-                hx-target="#sequence-grid"
-                hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select"
-                name="tsig">
+        <select id="seq-tsig-select" name="tsig">
             <option value="4_4" {{if eq .TSig "4_4"}}selected{{end}}>4/4</option>
             <option value="3_4" {{if eq .TSig "3_4"}}selected{{end}}>3/4</option>
             <option value="2_4" {{if eq .TSig "2_4"}}selected{{end}}>2/4</option>
@@ -75,11 +69,7 @@
         </select>
 
         <label for="seq-division-select" class="seq-picker-label">Division:</label>
-        <select id="seq-division-select"
-                hx-get="/sequence?path={{.Path}}"
-                hx-target="#sequence-grid"
-                hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select"
-                name="division">
+        <select id="seq-division-select" name="division">
             <option value="48" {{if eq .Division "48"}}selected{{end}}>1/8</option>
             <option value="24" {{if eq .Division "24"}}selected{{end}}>1/16</option>
             <option value="12" {{if eq .Division "12"}}selected{{end}}>1/32</option>
@@ -87,7 +77,7 @@
             <option value="16" {{if eq .Division "16"}}selected{{end}}>1/16T (triplet)</option>
             <option value="8"  {{if eq .Division "8"}}selected{{end}}>1/32T (triplet)</option>
         </select>
-    </div>
+    </form>
 
     {{if .Grid}}
     {{$spb := .Grid.Params.StepsPerBeat}}
