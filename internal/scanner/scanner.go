@@ -177,6 +177,13 @@ func (s *Scanner) scanPGM(ctx context.Context, fileID int64, path string) error 
 		return err
 	}
 
+	// Build a lowercase-name → file-ID map once so each pad×layer lookup is O(1)
+	// instead of fetching all WAV rows from the database per sample reference.
+	wavByName, err := s.buildWavNameMap(ctx)
+	if err != nil {
+		return err
+	}
+
 	for padIdx := 0; padIdx < prog.PadCount(); padIdx++ {
 		pad := prog.Pad(padIdx)
 		for layerIdx := 0; layerIdx < pad.LayerCount(); layerIdx++ {
@@ -186,11 +193,9 @@ func (s *Scanner) scanPGM(ctx context.Context, fileID int64, path string) error 
 				continue
 			}
 
-			// Try to resolve the sample to a cataloged wav file.
 			var sampleFileID sql.NullInt64
-			wavFile, err := s.findWavByName(ctx, name)
-			if err == nil {
-				sampleFileID = sql.NullInt64{Int64: wavFile.ID, Valid: true}
+			if id, ok := wavByName[strings.ToLower(name)]; ok {
+				sampleFileID = sql.NullInt64{Int64: id, Valid: true}
 			}
 
 			if err := s.queries.InsertPgmSample(ctx, db.InsertPgmSampleParams{
@@ -206,6 +211,22 @@ func (s *Scanner) scanPGM(ctx context.Context, fileID int64, path string) error 
 	}
 
 	return nil
+}
+
+// buildWavNameMap returns a map of lowercase sample name (no extension) → file ID
+// for all WAV files currently in the catalog.
+func (s *Scanner) buildWavNameMap(ctx context.Context) (map[string]int64, error) {
+	wavFiles, err := s.queries.ListFilesByType(ctx, "wav")
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]int64, len(wavFiles))
+	for _, f := range wavFiles {
+		base := filepath.Base(f.Path)
+		name := strings.ToLower(strings.TrimSuffix(base, filepath.Ext(base)))
+		m[name] = f.ID
+	}
+	return m, nil
 }
 
 // scanWAV extracts format metadata from a .wav file header.
@@ -262,26 +283,6 @@ func (s *Scanner) scanSEQ(ctx context.Context, fileID int64, path string) error 
 	}
 
 	return nil
-}
-
-// findWavByName searches for a .wav file in the catalog matching the sample name.
-func (s *Scanner) findWavByName(ctx context.Context, name string) (db.File, error) {
-	// Try common path patterns: name.wav, name.WAV
-	wavFiles, err := s.queries.ListFilesByType(ctx, "wav")
-	if err != nil {
-		return db.File{}, err
-	}
-
-	lowerName := strings.ToLower(name)
-	for _, f := range wavFiles {
-		base := filepath.Base(f.Path)
-		baseNoExt := strings.TrimSuffix(base, filepath.Ext(base))
-		if strings.ToLower(baseNoExt) == lowerName {
-			return f, nil
-		}
-	}
-
-	return db.File{}, sql.ErrNoRows
 }
 
 // addTag is a helper that logs but doesn't fail on tag insertion errors.

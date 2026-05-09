@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS files (
     mod_time  INTEGER NOT NULL DEFAULT 0,
     scanned   INTEGER NOT NULL DEFAULT 0
 );
+CREATE INDEX IF NOT EXISTS idx_files_file_type ON files(file_type);
 
 -- Metadata extracted from .pgm files.
 CREATE TABLE IF NOT EXISTS pgm_meta (

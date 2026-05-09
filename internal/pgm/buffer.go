@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 )
 
 // ProgramFileSize is the fixed size of an MPC1000 .pgm file.
@@ -134,7 +135,24 @@ func OpenReader(r io.Reader) (*Buffer, error) {
 	return NewBuffer(data), nil
 }
 
-// SaveFile writes the buffer to a .pgm file.
+// SaveFile writes the buffer to a .pgm file atomically: it writes to a
+// temporary file in the same directory, then renames into place so a crash
+// mid-write cannot produce a truncated or corrupt .pgm.
 func (b *Buffer) SaveFile(path string) error {
-	return os.WriteFile(path, b.data, 0o644)
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".pgm-save-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+
+	if _, err := tmp.Write(b.data); err != nil {
+		_ = tmp.Close()
+		os.Remove(tmpPath) //nolint:errcheck // best-effort cleanup
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath) //nolint:errcheck // best-effort cleanup
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }

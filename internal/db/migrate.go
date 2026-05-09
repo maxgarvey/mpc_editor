@@ -46,6 +46,7 @@ func Open() (*sql.DB, *Queries, error) {
 	migrateAddWavSource(sqlDB)
 	migrateCreateFileTags(sqlDB)
 	migrateAddLastDetailPath(sqlDB)
+	migrateAddFileTypeIndex(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -150,6 +151,11 @@ func migrateCreateFileTags(sqlDB *sql.DB) {
 // migrateAddLastDetailPath adds the last_detail_path column to existing databases.
 func migrateAddLastDetailPath(sqlDB *sql.DB) {
 	_, _ = sqlDB.Exec(`ALTER TABLE preferences ADD COLUMN last_detail_path TEXT NOT NULL DEFAULT ''`)
+}
+
+// migrateAddFileTypeIndex adds an index on files.file_type for faster type-filtered queries.
+func migrateAddFileTypeIndex(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_files_file_type ON files(file_type)`)
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

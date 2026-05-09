@@ -260,7 +260,15 @@ const AudioPlayer = (function() {
                 bufferCache.delete(key);
             }
         }
-        delete paramsCache[padIndex];
+        // paramsCache keys are either "padIndex" (no pgm) or "padIndex|pgmPath".
+        // Delete all keys for this pad regardless of which pgm path was used.
+        var bare = String(padIndex);
+        var prefix = bare + '|';
+        Object.keys(paramsCache).forEach(function(k) {
+            if (k === bare || k.startsWith(prefix)) {
+                delete paramsCache[k];
+            }
+        });
     }
 
     return {

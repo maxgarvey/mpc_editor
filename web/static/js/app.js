@@ -96,17 +96,28 @@ document.addEventListener('keydown', function(e) {
 
 // Re-initialize UI components when detail panel or other HTMX content changes
 document.addEventListener('htmx:afterSettle', function(e) {
-    if (e.detail.pathInfo && e.detail.pathInfo.requestPath === '/program/open') {
+    var reqPath = e.detail.pathInfo && e.detail.pathInfo.requestPath;
+    if (reqPath === '/program/open') {
         AudioPlayer.clearCache();
     }
     // When the detail panel loads a PGM, clear audio cache
-    if (e.detail.pathInfo && e.detail.pathInfo.requestPath === '/detail') {
+    if (reqPath === '/detail') {
         AudioPlayer.clearCache();
+    }
+    // Invalidate the cached params for a pad whenever its envelope, filter,
+    // mixer, or layer settings change so sequence playback picks up new values.
+    if (reqPath === '/pad/params' || (reqPath && reqPath.startsWith('/pad/layer/'))) {
+        var panel = document.querySelector('.pad-params-panel');
+        if (panel) {
+            var padData = JSON.parse(panel.getAttribute('data-pad-params') || 'null');
+            if (padData) {
+                AudioPlayer.invalidatePad(padData.padIndex);
+            }
+        }
     }
     // Re-init drag-and-drop and tabs after HTMX updates
     initDragDrop();
     initTabs();
-
 });
 
 // --- Drag-and-Drop ---

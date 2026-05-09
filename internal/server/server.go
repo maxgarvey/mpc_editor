@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
 	"github.com/maxgarvey/mpc_editor/internal/device"
@@ -17,6 +18,7 @@ import (
 
 // Server is the HTTP server for the MPC Editor web application.
 type Server struct {
+	mu              sync.Mutex // serializes all session-touching handlers
 	session         *Session
 	queries         *db.Queries
 	scanner         *scanner.Scanner
@@ -105,8 +107,18 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 }
 
 // Handler returns the HTTP handler for the server.
+// All routes except /static/ are serialized behind a mutex to prevent
+// concurrent HTMX requests from racing on shared session state.
 func (s *Server) Handler() http.Handler {
-	return s.mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/static/") {
+			s.mux.ServeHTTP(w, r)
+			return
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.mux.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) registerRoutes() {
