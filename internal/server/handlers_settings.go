@@ -37,14 +37,12 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 		s.session.WorkspacePath = absPath
 		s.session.SampleDir = absPath
 		s.session.Prefs.WorkspacePath = absPath
-		if err := s.queries.UpdateWorkspacePath(r.Context(), absPath); err != nil {
-			log.Printf("save workspace path: %v", err)
-		}
-
 		// Clear detail path — it refers to the old workspace.
 		s.session.SelectedDetailPath = ""
 		s.session.Prefs.LastDetailPath = ""
-		_ = s.queries.UpdateLastDetailPath(r.Context(), "")
+		if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {
+			log.Printf("save preferences: %v", err)
+		}
 
 		// Re-scan in background.
 		go func() {
@@ -65,8 +63,8 @@ func (s *Server) handleSettingsPost(w http.ResponseWriter, r *http.Request) {
 			s.session.Profile = pgm.ProfileMPC1000
 		}
 		s.session.Prefs.Profile = profile
-		if err := s.queries.UpdateProfile(r.Context(), profile); err != nil {
-			log.Printf("save profile: %v", err)
+		if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {
+			log.Printf("save preferences: %v", err)
 		}
 	}
 

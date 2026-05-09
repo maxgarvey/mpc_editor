@@ -47,11 +47,19 @@ func Open() (*sql.DB, *Queries, error) {
 	migrateCreateFileTags(sqlDB)
 	migrateAddLastDetailPath(sqlDB)
 	migrateAddFileTypeIndex(sqlDB)
+	migrateRenameScannedAt(sqlDB)
+	migrateAddFKIndexes(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
 
 	return sqlDB, queries, nil
+}
+
+// ExecSchema executes the canonical schema DDL against db. Useful in tests.
+func ExecSchema(sqlDB *sql.DB) error {
+	_, err := sqlDB.Exec(schemaDDL)
+	return err
 }
 
 // migrateAddWorkspacePath adds the workspace_path column to existing databases.
@@ -68,12 +76,12 @@ func migrateAddWorkspacePath(sqlDB *sql.DB) {
 func migrateCreateCatalog(sqlDB *sql.DB) {
 	tables := []string{
 		`CREATE TABLE IF NOT EXISTS files (
-			id        INTEGER PRIMARY KEY AUTOINCREMENT,
-			path      TEXT NOT NULL UNIQUE,
-			file_type TEXT NOT NULL,
-			size      INTEGER NOT NULL DEFAULT 0,
-			mod_time  INTEGER NOT NULL DEFAULT 0,
-			scanned   INTEGER NOT NULL DEFAULT 0
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			path       TEXT NOT NULL UNIQUE,
+			file_type  TEXT NOT NULL,
+			size       INTEGER NOT NULL DEFAULT 0,
+			mod_time   INTEGER NOT NULL DEFAULT 0,
+			scanned_at INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE TABLE IF NOT EXISTS pgm_meta (
 			file_id         INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
@@ -156,6 +164,20 @@ func migrateAddLastDetailPath(sqlDB *sql.DB) {
 // migrateAddFileTypeIndex adds an index on files.file_type for faster type-filtered queries.
 func migrateAddFileTypeIndex(sqlDB *sql.DB) {
 	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_files_file_type ON files(file_type)`)
+}
+
+// migrateRenameScannedAt renames the files.scanned column to scanned_at to clarify
+// that it stores a Unix timestamp (0 = never scanned), not a boolean.
+func migrateRenameScannedAt(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`ALTER TABLE files RENAME COLUMN scanned TO scanned_at`)
+}
+
+// migrateAddFKIndexes adds indexes on FK columns used in JOINs that SQLite
+// does not create automatically.
+func migrateAddFKIndexes(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_pgm_samples_sample_file_id ON pgm_samples(sample_file_id)`)
+	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_seq_tracks_pgm_file_id ON seq_tracks(pgm_file_id)`)
+	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_song_steps_seq_file_id ON song_steps(seq_file_id)`)
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

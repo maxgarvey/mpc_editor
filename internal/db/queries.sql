@@ -1,24 +1,6 @@
 -- name: GetPreferences :one
-SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path, last_detail_path
+SELECT id, profile, last_pgm_path, last_wav_path, audition_mode, workspace_path, last_detail_path
 FROM preferences WHERE id = 1;
-
--- name: UpdateProfile :exec
-UPDATE preferences SET profile = ? WHERE id = 1;
-
--- name: UpdateLastPGMPath :exec
-UPDATE preferences SET last_pgm_path = ? WHERE id = 1;
-
--- name: UpdateLastWAVPath :exec
-UPDATE preferences SET last_wav_path = ? WHERE id = 1;
-
--- name: UpdateAuditionMode :exec
-UPDATE preferences SET audition_mode = ? WHERE id = 1;
-
--- name: UpdateWorkspacePath :exec
-UPDATE preferences SET workspace_path = ? WHERE id = 1;
-
--- name: UpdateLastDetailPath :exec
-UPDATE preferences SET last_detail_path = ? WHERE id = 1;
 
 -- name: UpdateAllPreferences :exec
 UPDATE preferences SET profile = ?, last_pgm_path = ?, last_wav_path = ?, audition_mode = ?, workspace_path = ?, last_detail_path = ?
@@ -27,31 +9,32 @@ WHERE id = 1;
 -- File catalog
 
 -- name: UpsertFile :one
-INSERT INTO files (path, file_type, size, mod_time, scanned)
+INSERT INTO files (path, file_type, size, mod_time, scanned_at)
 VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(path) DO UPDATE SET
-    size = excluded.size,
-    mod_time = excluded.mod_time,
-    scanned = excluded.scanned
+    file_type  = excluded.file_type,
+    size       = excluded.size,
+    mod_time   = excluded.mod_time,
+    scanned_at = excluded.scanned_at
 RETURNING id;
 
 -- name: GetFileByPath :one
-SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE path = ?;
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE path = ?;
 
 -- name: GetFileByID :one
-SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE id = ?;
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE id = ?;
 
 -- name: ListFilesByType :many
-SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE file_type = ? ORDER BY path;
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE file_type = ? ORDER BY path;
 
 -- name: ListAllFiles :many
-SELECT id, path, file_type, size, mod_time, scanned FROM files ORDER BY path;
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files ORDER BY path;
 
 -- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?;
 
 -- name: UpdateFilePath :exec
-UPDATE files SET path = ? WHERE path = ?;
+UPDATE files SET path = sqlc.arg(new_path) WHERE path = sqlc.arg(old_path);
 
 -- name: DeleteFileByPath :exec
 DELETE FROM files WHERE path = ?;
@@ -127,8 +110,10 @@ WHERE pgm_file_id = ? AND sample_file_id IS NULL AND sample_name != '';
 UPDATE pgm_samples SET sample_file_id = (
     SELECT f.id FROM files f
     WHERE f.file_type = 'wav'
-    AND (LOWER(REPLACE(f.path, '.wav', '')) LIKE '%' || LOWER(pgm_samples.sample_name)
-         OR LOWER(REPLACE(f.path, '.WAV', '')) LIKE '%' || LOWER(pgm_samples.sample_name))
+    AND (
+        LOWER(f.path) LIKE '%/' || LOWER(pgm_samples.sample_name) || '.wav'
+        OR LOWER(f.path) = LOWER(pgm_samples.sample_name) || '.wav'
+    )
     LIMIT 1
 )
 WHERE sample_file_id IS NULL AND sample_name != '';
@@ -187,5 +172,5 @@ DELETE FROM file_tags WHERE file_id = ? AND auto = 1;
 SELECT DISTINCT f.id, f.path, f.file_type, f.size
 FROM files f
 JOIN file_tags ft ON ft.file_id = f.id
-WHERE ft.tag_value = ? OR (ft.tag_key = ? AND ft.tag_value = ?)
+WHERE ft.tag_value = sqlc.arg(value) OR (ft.tag_key = sqlc.arg(key) AND ft.tag_value = sqlc.arg(value))
 ORDER BY f.path;

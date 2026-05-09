@@ -249,7 +249,7 @@ func TestRenderDetailWAV_WithCatalogEntry(t *testing.T) {
 	// Add a tag so loadTags gets exercised
 	ctx := context.Background()
 	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck // test setup
-		FileID: id, TagKey: "", TagValue: "hihat", Auto: 0,
+		FileID: id, TagKey: "", TagValue: "hihat", Auto: false,
 	})
 
 	// Seed wav meta so WavMeta branch executes

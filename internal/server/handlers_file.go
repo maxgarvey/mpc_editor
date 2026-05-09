@@ -213,7 +213,7 @@ func (s *Server) handleTagAdd(w http.ResponseWriter, r *http.Request) {
 		FileID:   fileID,
 		TagKey:   key,
 		TagValue: value,
-		Auto:     0,
+		Auto:     false,
 	})
 
 	s.renderTagsSection(w, ctx, fileID)

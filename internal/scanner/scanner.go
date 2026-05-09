@@ -83,17 +83,17 @@ func (s *Scanner) ScanWorkspace(workspace string) (*ScanResult, error) {
 
 		// Check if file has changed since last scan.
 		existing, dbErr := s.queries.GetFileByPath(ctx, relPath)
-		if dbErr == nil && existing.ModTime == modTime && existing.Scanned > 0 {
+		if dbErr == nil && existing.ModTime == modTime && existing.ScannedAt > 0 {
 			return nil // unchanged, skip
 		}
 
 		// Upsert the file entry (scanned=0 initially for unparseable types).
 		fileID, uErr := s.queries.UpsertFile(ctx, db.UpsertFileParams{
-			Path:     relPath,
-			FileType: fileType,
-			Size:     info.Size(),
-			ModTime:  modTime,
-			Scanned:  0,
+			Path:      relPath,
+			FileType:  fileType,
+			Size:      info.Size(),
+			ModTime:   modTime,
+			ScannedAt: 0,
 		})
 		if uErr != nil {
 			result.Errors = append(result.Errors, relPath+": "+uErr.Error())
@@ -125,11 +125,11 @@ func (s *Scanner) ScanWorkspace(workspace string) (*ScanResult, error) {
 			}
 			// Mark as scanned.
 			_, _ = s.queries.UpsertFile(ctx, db.UpsertFileParams{
-				Path:     relPath,
-				FileType: fileType,
-				Size:     info.Size(),
-				ModTime:  modTime,
-				Scanned:  time.Now().Unix(),
+				Path:      relPath,
+				FileType:  fileType,
+				Size:      info.Size(),
+				ModTime:   modTime,
+				ScannedAt: time.Now().Unix(),
 			})
 			result.FilesScanned++
 		}
@@ -291,7 +291,7 @@ func (s *Scanner) addTag(ctx context.Context, fileID int64, key, value string) {
 		FileID:   fileID,
 		TagKey:   key,
 		TagValue: value,
-		Auto:     1,
+		Auto:     true,
 	})
 }
 

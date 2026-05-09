@@ -12,12 +12,12 @@ INSERT OR IGNORE INTO preferences (id) VALUES (1);
 
 -- Catalog of all files discovered in the workspace.
 CREATE TABLE IF NOT EXISTS files (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    path      TEXT NOT NULL UNIQUE,
-    file_type TEXT NOT NULL,
-    size      INTEGER NOT NULL DEFAULT 0,
-    mod_time  INTEGER NOT NULL DEFAULT 0,
-    scanned   INTEGER NOT NULL DEFAULT 0
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    path       TEXT NOT NULL UNIQUE,
+    file_type  TEXT NOT NULL,
+    size       INTEGER NOT NULL DEFAULT 0,
+    mod_time   INTEGER NOT NULL DEFAULT 0,
+    scanned_at INTEGER NOT NULL DEFAULT 0  -- 0 = not yet scanned; otherwise Unix timestamp of last scan
 );
 CREATE INDEX IF NOT EXISTS idx_files_file_type ON files(file_type);
 
@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS pgm_samples (
     sample_file_id INTEGER REFERENCES files(id) ON DELETE SET NULL,
     UNIQUE(pgm_file_id, pad, layer)
 );
+CREATE INDEX IF NOT EXISTS idx_pgm_samples_sample_file_id ON pgm_samples(sample_file_id);
 
 -- Track-to-program assignments in .seq files.
 CREATE TABLE IF NOT EXISTS seq_tracks (
@@ -66,18 +67,20 @@ CREATE TABLE IF NOT EXISTS seq_tracks (
     pgm_file_id  INTEGER REFERENCES files(id) ON DELETE SET NULL,
     UNIQUE(seq_file_id, track)
 );
+CREATE INDEX IF NOT EXISTS idx_seq_tracks_pgm_file_id ON seq_tracks(pgm_file_id);
 
 -- Song step entries.
 CREATE TABLE IF NOT EXISTS song_steps (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     song_file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
     step         INTEGER NOT NULL,
-    seq_index    INTEGER NOT NULL,
+    seq_index    INTEGER NOT NULL,  -- sequence template index from .sng binary format (not derivable from step order)
     seq_file_id  INTEGER REFERENCES files(id) ON DELETE SET NULL,
     repeats      INTEGER NOT NULL DEFAULT 1,
     tempo        REAL NOT NULL DEFAULT 0,
     UNIQUE(song_file_id, step)
 );
+CREATE INDEX IF NOT EXISTS idx_song_steps_seq_file_id ON song_steps(seq_file_id);
 
 -- Tags attached to files (free-form and key:value).
 CREATE TABLE IF NOT EXISTS file_tags (

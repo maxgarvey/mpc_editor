@@ -128,18 +128,18 @@ func isTempDir(dir string) bool {
 
 // loadPrefsFromDB reads preferences from the database, falling back to defaults.
 func loadPrefsFromDB(queries *db.Queries) Preferences {
-	row, err := queries.GetPreferences(context.Background())
+	pref, err := queries.GetPreferences(context.Background())
 	if err != nil {
 		log.Printf("load preferences from db: %v", err)
 		return DefaultPreferences()
 	}
 	return Preferences{
-		Profile:        row.Profile,
-		LastPGMPath:    row.LastPgmPath,
-		LastWAVPath:    row.LastWavPath,
-		AuditionMode:   row.AuditionMode,
-		WorkspacePath:  row.WorkspacePath,
-		LastDetailPath: row.LastDetailPath,
+		Profile:        pref.Profile,
+		LastPGMPath:    pref.LastPgmPath,
+		LastWAVPath:    pref.LastWavPath,
+		AuditionMode:   pref.AuditionMode,
+		WorkspacePath:  pref.WorkspacePath,
+		LastDetailPath: pref.LastDetailPath,
 	}
 }
 

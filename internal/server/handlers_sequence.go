@@ -573,14 +573,14 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 					_ = s.queries.AddFileTag(r.Context(), db.AddFileTagParams{
 						FileID: f.ID, TagKey: "bpm",
 						TagValue: fmt.Sprintf("%d", int(math.Round(sequence.BPM))),
-						Auto:     1,
+						Auto:     true,
 					})
 				}
 				if sequence.Bars > 0 {
 					_ = s.queries.AddFileTag(r.Context(), db.AddFileTagParams{
 						FileID: f.ID, TagKey: "bars",
 						TagValue: fmt.Sprintf("%d", sequence.Bars),
-						Auto:     1,
+						Auto:     true,
 					})
 				}
 			}

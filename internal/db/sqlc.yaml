@@ -7,3 +7,6 @@ sql:
       go:
         package: "db"
         out: "."
+        overrides:
+          - column: "file_tags.auto"
+            go_type: "bool"

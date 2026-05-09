@@ -169,7 +169,7 @@ func TestHandleSampleReport_WithCatalogWAV(t *testing.T) {
 		Source: "from sample pack",
 	})
 	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck // test setup
-		FileID: wavID, TagKey: "", TagValue: "kick", Auto: 0,
+		FileID: wavID, TagKey: "", TagValue: "kick", Auto: false,
 	})
 
 	req := httptest.NewRequest("POST", "/program/sample-report", http.NoBody)

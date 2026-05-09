@@ -19,7 +19,7 @@ type AddFileTagParams struct {
 	FileID   int64
 	TagKey   string
 	TagValue string
-	Auto     int64
+	Auto     bool
 }
 
 func (q *Queries) AddFileTag(ctx context.Context, arg AddFileTagParams) error {
@@ -78,7 +78,7 @@ const deleteSeqTracks = `-- name: DeleteSeqTracks :exec
 DELETE FROM seq_tracks WHERE seq_file_id = ?
 `
 
-// SEQ track references (future)
+// SEQ track references
 func (q *Queries) DeleteSeqTracks(ctx context.Context, seqFileID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteSeqTracks, seqFileID)
 	return err
@@ -89,14 +89,14 @@ const deleteSongSteps = `-- name: DeleteSongSteps :exec
 DELETE FROM song_steps WHERE song_file_id = ?
 `
 
-// Song step references (future)
+// Song step references
 func (q *Queries) DeleteSongSteps(ctx context.Context, songFileID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteSongSteps, songFileID)
 	return err
 }
 
 const getFileByID = `-- name: GetFileByID :one
-SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE id = ?
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE id = ?
 `
 
 func (q *Queries) GetFileByID(ctx context.Context, id int64) (File, error) {
@@ -108,13 +108,13 @@ func (q *Queries) GetFileByID(ctx context.Context, id int64) (File, error) {
 		&i.FileType,
 		&i.Size,
 		&i.ModTime,
-		&i.Scanned,
+		&i.ScannedAt,
 	)
 	return i, err
 }
 
 const getFileByPath = `-- name: GetFileByPath :one
-SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE path = ?
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE path = ?
 `
 
 func (q *Queries) GetFileByPath(ctx context.Context, path string) (File, error) {
@@ -126,7 +126,7 @@ func (q *Queries) GetFileByPath(ctx context.Context, path string) (File, error) 
 		&i.FileType,
 		&i.Size,
 		&i.ModTime,
-		&i.Scanned,
+		&i.ScannedAt,
 	)
 	return i, err
 }
@@ -143,23 +143,15 @@ func (q *Queries) GetPgmMeta(ctx context.Context, fileID int64) (PgmMetum, error
 }
 
 const getPreferences = `-- name: GetPreferences :one
-SELECT profile, last_pgm_path, last_wav_path, audition_mode, workspace_path, last_detail_path
+SELECT id, profile, last_pgm_path, last_wav_path, audition_mode, workspace_path, last_detail_path
 FROM preferences WHERE id = 1
 `
 
-type GetPreferencesRow struct {
-	Profile        string
-	LastPgmPath    string
-	LastWavPath    string
-	AuditionMode   string
-	WorkspacePath  string
-	LastDetailPath string
-}
-
-func (q *Queries) GetPreferences(ctx context.Context) (GetPreferencesRow, error) {
+func (q *Queries) GetPreferences(ctx context.Context) (Preference, error) {
 	row := q.db.QueryRowContext(ctx, getPreferences)
-	var i GetPreferencesRow
+	var i Preference
 	err := row.Scan(
+		&i.ID,
 		&i.Profile,
 		&i.LastPgmPath,
 		&i.LastWavPath,
@@ -279,7 +271,7 @@ func (q *Queries) InsertSongStep(ctx context.Context, arg InsertSongStepParams) 
 }
 
 const listAllFiles = `-- name: ListAllFiles :many
-SELECT id, path, file_type, size, mod_time, scanned FROM files ORDER BY path
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files ORDER BY path
 `
 
 func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
@@ -297,7 +289,7 @@ func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
 			&i.FileType,
 			&i.Size,
 			&i.ModTime,
-			&i.Scanned,
+			&i.ScannedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -352,14 +344,13 @@ const listFilesByTag = `-- name: ListFilesByTag :many
 SELECT DISTINCT f.id, f.path, f.file_type, f.size
 FROM files f
 JOIN file_tags ft ON ft.file_id = f.id
-WHERE ft.tag_value = ? OR (ft.tag_key = ? AND ft.tag_value = ?)
+WHERE ft.tag_value = ?1 OR (ft.tag_key = ?2 AND ft.tag_value = ?1)
 ORDER BY f.path
 `
 
 type ListFilesByTagParams struct {
-	TagValue   string
-	TagKey     string
-	TagValue_2 string
+	Value string
+	Key   string
 }
 
 type ListFilesByTagRow struct {
@@ -370,7 +361,7 @@ type ListFilesByTagRow struct {
 }
 
 func (q *Queries) ListFilesByTag(ctx context.Context, arg ListFilesByTagParams) ([]ListFilesByTagRow, error) {
-	rows, err := q.db.QueryContext(ctx, listFilesByTag, arg.TagValue, arg.TagKey, arg.TagValue_2)
+	rows, err := q.db.QueryContext(ctx, listFilesByTag, arg.Value, arg.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +389,7 @@ func (q *Queries) ListFilesByTag(ctx context.Context, arg ListFilesByTagParams) 
 }
 
 const listFilesByType = `-- name: ListFilesByType :many
-SELECT id, path, file_type, size, mod_time, scanned FROM files WHERE file_type = ? ORDER BY path
+SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE file_type = ? ORDER BY path
 `
 
 func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File, error) {
@@ -416,7 +407,7 @@ func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File,
 			&i.FileType,
 			&i.Size,
 			&i.ModTime,
-			&i.Scanned,
+			&i.ScannedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -635,8 +626,10 @@ const resolveUnlinkedSamples = `-- name: ResolveUnlinkedSamples :exec
 UPDATE pgm_samples SET sample_file_id = (
     SELECT f.id FROM files f
     WHERE f.file_type = 'wav'
-    AND (LOWER(REPLACE(f.path, '.wav', '')) LIKE '%' || LOWER(pgm_samples.sample_name)
-         OR LOWER(REPLACE(f.path, '.WAV', '')) LIKE '%' || LOWER(pgm_samples.sample_name))
+    AND (
+        LOWER(f.path) LIKE '%/' || LOWER(pgm_samples.sample_name) || '.wav'
+        OR LOWER(f.path) = LOWER(pgm_samples.sample_name) || '.wav'
+    )
     LIMIT 1
 )
 WHERE sample_file_id IS NULL AND sample_name != ''
@@ -673,62 +666,17 @@ func (q *Queries) UpdateAllPreferences(ctx context.Context, arg UpdateAllPrefere
 	return err
 }
 
-const updateAuditionMode = `-- name: UpdateAuditionMode :exec
-UPDATE preferences SET audition_mode = ? WHERE id = 1
-`
-
-func (q *Queries) UpdateAuditionMode(ctx context.Context, auditionMode string) error {
-	_, err := q.db.ExecContext(ctx, updateAuditionMode, auditionMode)
-	return err
-}
-
 const updateFilePath = `-- name: UpdateFilePath :exec
-UPDATE files SET path = ? WHERE path = ?
+UPDATE files SET path = ?1 WHERE path = ?2
 `
 
 type UpdateFilePathParams struct {
-	Path   string
-	Path_2 string
+	NewPath string
+	OldPath string
 }
 
 func (q *Queries) UpdateFilePath(ctx context.Context, arg UpdateFilePathParams) error {
-	_, err := q.db.ExecContext(ctx, updateFilePath, arg.Path, arg.Path_2)
-	return err
-}
-
-const updateLastDetailPath = `-- name: UpdateLastDetailPath :exec
-UPDATE preferences SET last_detail_path = ? WHERE id = 1
-`
-
-func (q *Queries) UpdateLastDetailPath(ctx context.Context, lastDetailPath string) error {
-	_, err := q.db.ExecContext(ctx, updateLastDetailPath, lastDetailPath)
-	return err
-}
-
-const updateLastPGMPath = `-- name: UpdateLastPGMPath :exec
-UPDATE preferences SET last_pgm_path = ? WHERE id = 1
-`
-
-func (q *Queries) UpdateLastPGMPath(ctx context.Context, lastPgmPath string) error {
-	_, err := q.db.ExecContext(ctx, updateLastPGMPath, lastPgmPath)
-	return err
-}
-
-const updateLastWAVPath = `-- name: UpdateLastWAVPath :exec
-UPDATE preferences SET last_wav_path = ? WHERE id = 1
-`
-
-func (q *Queries) UpdateLastWAVPath(ctx context.Context, lastWavPath string) error {
-	_, err := q.db.ExecContext(ctx, updateLastWAVPath, lastWavPath)
-	return err
-}
-
-const updateProfile = `-- name: UpdateProfile :exec
-UPDATE preferences SET profile = ? WHERE id = 1
-`
-
-func (q *Queries) UpdateProfile(ctx context.Context, profile string) error {
-	_, err := q.db.ExecContext(ctx, updateProfile, profile)
+	_, err := q.db.ExecContext(ctx, updateFilePath, arg.NewPath, arg.OldPath)
 	return err
 }
 
@@ -746,32 +694,24 @@ func (q *Queries) UpdateWavSource(ctx context.Context, arg UpdateWavSourceParams
 	return err
 }
 
-const updateWorkspacePath = `-- name: UpdateWorkspacePath :exec
-UPDATE preferences SET workspace_path = ? WHERE id = 1
-`
-
-func (q *Queries) UpdateWorkspacePath(ctx context.Context, workspacePath string) error {
-	_, err := q.db.ExecContext(ctx, updateWorkspacePath, workspacePath)
-	return err
-}
-
 const upsertFile = `-- name: UpsertFile :one
 
-INSERT INTO files (path, file_type, size, mod_time, scanned)
+INSERT INTO files (path, file_type, size, mod_time, scanned_at)
 VALUES (?, ?, ?, ?, ?)
 ON CONFLICT(path) DO UPDATE SET
-    size = excluded.size,
-    mod_time = excluded.mod_time,
-    scanned = excluded.scanned
+    file_type  = excluded.file_type,
+    size       = excluded.size,
+    mod_time   = excluded.mod_time,
+    scanned_at = excluded.scanned_at
 RETURNING id
 `
 
 type UpsertFileParams struct {
-	Path     string
-	FileType string
-	Size     int64
-	ModTime  int64
-	Scanned  int64
+	Path      string
+	FileType  string
+	Size      int64
+	ModTime   int64
+	ScannedAt int64
 }
 
 // File catalog
@@ -781,7 +721,7 @@ func (q *Queries) UpsertFile(ctx context.Context, arg UpsertFileParams) (int64, 
 		arg.FileType,
 		arg.Size,
 		arg.ModTime,
-		arg.Scanned,
+		arg.ScannedAt,
 	)
 	var id int64
 	err := row.Scan(&id)

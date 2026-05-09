@@ -144,9 +144,9 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	s.session.Matrix.Clear()
 
 	s.session.Prefs.LastPGMPath = pgmPath
-	_ = s.queries.UpdateLastPGMPath(r.Context(), pgmPath)
 	s.session.SelectedDetailPath = pgmPath
-	_ = s.queries.UpdateLastDetailPath(r.Context(), pgmPath)
+	s.session.Prefs.LastDetailPath = pgmPath
+	_ = s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams())
 
 	// Trigger a background scan to index the new project.
 	go func() {
@@ -186,8 +186,8 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 	s.session.Matrix.Clear()
 
 	s.session.Prefs.LastPGMPath = path
-	if err := s.queries.UpdateLastPGMPath(r.Context(), path); err != nil {
-		log.Printf("save last pgm path: %v", err)
+	if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {
+		log.Printf("save preferences: %v", err)
 	}
 
 	// Populate sample matrix from program.
@@ -237,8 +237,8 @@ func (s *Server) handleProgramSave(w http.ResponseWriter, r *http.Request) {
 	s.session.SampleDir = pgmDir
 
 	s.session.Prefs.LastPGMPath = path
-	if err := s.queries.UpdateLastPGMPath(r.Context(), path); err != nil {
-		log.Printf("save last pgm path: %v", err)
+	if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {
+		log.Printf("save preferences: %v", err)
 	}
 
 	msg := "Saved to " + path

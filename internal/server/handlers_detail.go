@@ -27,8 +27,9 @@ func (s *Server) handleDetailSelect(w http.ResponseWriter, r *http.Request) {
 		path = s.resolvePath(path)
 	}
 	s.session.SelectedDetailPath = path
-	if err := s.queries.UpdateLastDetailPath(r.Context(), path); err != nil {
-		log.Printf("save last detail path: %v", err)
+	s.session.Prefs.LastDetailPath = path
+	if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {
+		log.Printf("save preferences: %v", err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -43,7 +44,8 @@ func (s *Server) handleDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.session.SelectedDetailPath = path
-	_ = s.queries.UpdateLastDetailPath(r.Context(), path)
+	s.session.Prefs.LastDetailPath = path
+	_ = s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams())
 
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -93,10 +95,10 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 		}
 	}
 
-	if err := s.queries.UpdateLastPGMPath(r.Context(), path); err != nil {
-		log.Printf("save last pgm path: %v", err)
-	}
 	s.session.Prefs.LastPGMPath = path
+	if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {
+		log.Printf("save preferences: %v", err)
+	}
 
 	bank := parseIntParam(r, "bank", 0)
 	data := map[string]any{

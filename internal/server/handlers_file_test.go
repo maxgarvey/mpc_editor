@@ -211,7 +211,7 @@ func TestHandleTagRemove(t *testing.T) {
 
 	ctx := context.Background()
 	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck // test setup
-		FileID: id, TagKey: "", TagValue: "bass", Auto: 0,
+		FileID: id, TagKey: "", TagValue: "bass", Auto: false,
 	})
 
 	form := url.Values{"id": {itoa(id)}, "key": {""}, "value": {"bass"}}

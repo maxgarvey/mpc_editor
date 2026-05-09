@@ -205,14 +205,12 @@ func (s *Server) handleWorkspaceSet(w http.ResponseWriter, r *http.Request) {
 
 	s.session.WorkspacePath = absPath
 	s.session.Prefs.WorkspacePath = absPath
-	if err := s.queries.UpdateWorkspacePath(r.Context(), absPath); err != nil {
-		log.Printf("save workspace path: %v", err)
-	}
-
 	// Clear the last detail path — it refers to the old workspace.
 	s.session.SelectedDetailPath = ""
 	s.session.Prefs.LastDetailPath = ""
-	_ = s.queries.UpdateLastDetailPath(r.Context(), "")
+	if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {
+		log.Printf("save preferences: %v", err)
+	}
 
 	// Re-scan the new workspace in the background.
 	go func() {
@@ -508,8 +506,8 @@ func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
 
 	// For a single file, update its path directly.
 	if err := s.queries.UpdateFilePath(ctx, db.UpdateFilePathParams{
-		Path:   newRel,
-		Path_2: oldRel,
+		NewPath: newRel,
+		OldPath: oldRel,
 	}); err != nil {
 		log.Printf("update catalog path: %v", err)
 	}
@@ -525,8 +523,8 @@ func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
 		if strings.HasPrefix(f.Path, oldPrefix) {
 			updated := newPrefix + strings.TrimPrefix(f.Path, oldPrefix)
 			if err := s.queries.UpdateFilePath(ctx, db.UpdateFilePathParams{
-				Path:   updated,
-				Path_2: f.Path,
+				NewPath: updated,
+				OldPath: f.Path,
 			}); err != nil {
 				log.Printf("update catalog path %q: %v", f.Path, err)
 			}

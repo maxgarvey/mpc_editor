@@ -9,12 +9,12 @@ import (
 )
 
 type File struct {
-	ID       int64
-	Path     string
-	FileType string
-	Size     int64
-	ModTime  int64
-	Scanned  int64
+	ID        int64
+	Path      string
+	FileType  string
+	Size      int64
+	ModTime   int64
+	ScannedAt int64
 }
 
 type FileTag struct {
@@ -22,7 +22,7 @@ type FileTag struct {
 	FileID   int64
 	TagKey   string
 	TagValue string
-	Auto     int64
+	Auto     bool
 }
 
 type PgmMetum struct {

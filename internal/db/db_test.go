@@ -10,81 +10,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const testSchema = `
-CREATE TABLE IF NOT EXISTS preferences (
-    id               INTEGER PRIMARY KEY CHECK (id = 1),
-    profile          TEXT NOT NULL DEFAULT 'MPC1000',
-    last_pgm_path    TEXT NOT NULL DEFAULT '',
-    last_wav_path    TEXT NOT NULL DEFAULT '',
-    audition_mode    TEXT NOT NULL DEFAULT 'layer0',
-    workspace_path   TEXT NOT NULL DEFAULT '',
-    last_detail_path TEXT NOT NULL DEFAULT ''
-);
-INSERT OR IGNORE INTO preferences (id) VALUES (1);
-CREATE TABLE IF NOT EXISTS files (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    path      TEXT NOT NULL UNIQUE,
-    file_type TEXT NOT NULL,
-    size      INTEGER NOT NULL DEFAULT 0,
-    mod_time  INTEGER NOT NULL DEFAULT 0,
-    scanned   INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS pgm_meta (
-    file_id         INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
-    midi_pgm_change INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS wav_meta (
-    file_id         INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
-    sample_rate     INTEGER NOT NULL DEFAULT 0,
-    channels        INTEGER NOT NULL DEFAULT 0,
-    bits_per_sample INTEGER NOT NULL DEFAULT 0,
-    frame_count     INTEGER NOT NULL DEFAULT 0,
-    source          TEXT NOT NULL DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS seq_meta (
-    file_id INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
-    bpm     REAL NOT NULL DEFAULT 0,
-    bars    INTEGER NOT NULL DEFAULT 0,
-    version TEXT NOT NULL DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS pgm_samples (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    pgm_file_id    INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    pad            INTEGER NOT NULL,
-    layer          INTEGER NOT NULL,
-    sample_name    TEXT NOT NULL,
-    sample_file_id INTEGER REFERENCES files(id) ON DELETE SET NULL,
-    UNIQUE(pgm_file_id, pad, layer)
-);
-CREATE TABLE IF NOT EXISTS seq_tracks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    seq_file_id  INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    track        INTEGER NOT NULL,
-    track_name   TEXT NOT NULL DEFAULT '',
-    midi_channel INTEGER NOT NULL DEFAULT 0,
-    pgm_file_id  INTEGER REFERENCES files(id) ON DELETE SET NULL,
-    UNIQUE(seq_file_id, track)
-);
-CREATE TABLE IF NOT EXISTS song_steps (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    song_file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    step         INTEGER NOT NULL,
-    seq_index    INTEGER NOT NULL,
-    seq_file_id  INTEGER REFERENCES files(id) ON DELETE SET NULL,
-    repeats      INTEGER NOT NULL DEFAULT 1,
-    tempo        REAL NOT NULL DEFAULT 0,
-    UNIQUE(song_file_id, step)
-);
-CREATE TABLE IF NOT EXISTS file_tags (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_id   INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    tag_key   TEXT NOT NULL DEFAULT '',
-    tag_value TEXT NOT NULL,
-    auto      INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(file_id, tag_key, tag_value)
-);
-`
-
 func openTestDB(t *testing.T) (*sql.DB, *Queries) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
@@ -92,7 +17,7 @@ func openTestDB(t *testing.T) (*sql.DB, *Queries) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if _, err := sqlDB.Exec(testSchema); err != nil {
+	if _, err := sqlDB.Exec(schemaDDL); err != nil {
 		t.Fatal(err)
 	}
 	return sqlDB, New(sqlDB)
@@ -236,7 +161,7 @@ func TestUpdateFilePath(t *testing.T) {
 	ctx := context.Background()
 
 	id, _ := q.UpsertFile(ctx, UpsertFileParams{Path: "old.wav", FileType: "wav", Size: 1})
-	if err := q.UpdateFilePath(ctx, UpdateFilePathParams{Path: "new.wav", Path_2: "old.wav"}); err != nil {
+	if err := q.UpdateFilePath(ctx, UpdateFilePathParams{NewPath: "new.wav", OldPath: "old.wav"}); err != nil {
 		t.Fatalf("UpdateFilePath: %v", err)
 	}
 	f, _ := q.GetFileByID(ctx, id)
@@ -259,36 +184,29 @@ func TestPreferences(t *testing.T) {
 		t.Errorf("default profile = %q, want MPC1000", prefs.Profile)
 	}
 
-	if err := q.UpdateLastPGMPath(ctx, "/path/to/prog.pgm"); err != nil {
-		t.Fatalf("UpdateLastPGMPath: %v", err)
-	}
-	if err := q.UpdateLastWAVPath(ctx, "/path/to/sample.wav"); err != nil {
-		t.Fatalf("UpdateLastWAVPath: %v", err)
-	}
-	if err := q.UpdateWorkspacePath(ctx, "/workspace"); err != nil {
-		t.Fatalf("UpdateWorkspacePath: %v", err)
-	}
-	if err := q.UpdateLastDetailPath(ctx, "/path/to/file.pgm"); err != nil {
-		t.Fatalf("UpdateLastDetailPath: %v", err)
-	}
-	if err := q.UpdateAuditionMode(ctx, "layer1"); err != nil {
-		t.Fatalf("UpdateAuditionMode: %v", err)
-	}
-	if err := q.UpdateProfile(ctx, "MPC500"); err != nil {
-		t.Fatalf("UpdateProfile: %v", err)
-	}
 	if err := q.UpdateAllPreferences(ctx, UpdateAllPreferencesParams{
-		Profile:      "MPC1000",
-		LastPgmPath:  "/new.pgm",
-		LastWavPath:  "/new.wav",
-		AuditionMode: "layer0",
+		Profile:        "MPC500",
+		LastPgmPath:    "/path/to/prog.pgm",
+		LastWavPath:    "/path/to/sample.wav",
+		AuditionMode:   "layer1",
+		WorkspacePath:  "/workspace",
+		LastDetailPath: "/path/to/file.pgm",
 	}); err != nil {
 		t.Fatalf("UpdateAllPreferences: %v", err)
 	}
 
-	prefs2, _ := q.GetPreferences(ctx)
-	if prefs2.Profile != "MPC1000" {
-		t.Errorf("profile after update = %q, want MPC1000", prefs2.Profile)
+	prefs2, err := q.GetPreferences(ctx)
+	if err != nil {
+		t.Fatalf("GetPreferences after update: %v", err)
+	}
+	if prefs2.Profile != "MPC500" {
+		t.Errorf("profile = %q, want MPC500", prefs2.Profile)
+	}
+	if prefs2.LastPgmPath != "/path/to/prog.pgm" {
+		t.Errorf("last_pgm_path = %q", prefs2.LastPgmPath)
+	}
+	if prefs2.WorkspacePath != "/workspace" {
+		t.Errorf("workspace_path = %q", prefs2.WorkspacePath)
 	}
 }
 
@@ -475,10 +393,10 @@ func TestFileTags(t *testing.T) {
 
 	id, _ := q.UpsertFile(ctx, UpsertFileParams{Path: "tagged.wav", FileType: "wav", Size: 1})
 
-	if err := q.AddFileTag(ctx, AddFileTagParams{FileID: id, TagKey: "genre", TagValue: "hip-hop", Auto: 0}); err != nil {
+	if err := q.AddFileTag(ctx, AddFileTagParams{FileID: id, TagKey: "genre", TagValue: "hip-hop", Auto: false}); err != nil {
 		t.Fatalf("AddFileTag: %v", err)
 	}
-	if err := q.AddFileTag(ctx, AddFileTagParams{FileID: id, TagKey: "channels", TagValue: "mono", Auto: 1}); err != nil {
+	if err := q.AddFileTag(ctx, AddFileTagParams{FileID: id, TagKey: "channels", TagValue: "mono", Auto: true}); err != nil {
 		t.Fatalf("AddFileTag auto: %v", err)
 	}
 
@@ -491,7 +409,7 @@ func TestFileTags(t *testing.T) {
 	}
 
 	// ListFilesByTag
-	files, err := q.ListFilesByTag(ctx, ListFilesByTagParams{TagKey: "genre", TagValue: "hip-hop"})
+	files, err := q.ListFilesByTag(ctx, ListFilesByTagParams{Key: "genre", Value: "hip-hop"})
 	if err != nil {
 		t.Fatalf("ListFilesByTag: %v", err)
 	}
@@ -648,5 +566,8 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 	migrateAddWavSource(sqlDB)
 	migrateCreateFileTags(sqlDB)
 	migrateAddLastDetailPath(sqlDB)
+	migrateAddFileTypeIndex(sqlDB)
+	migrateRenameScannedAt(sqlDB)
+	migrateAddFKIndexes(sqlDB)
 	// migrateJSONPrefs skipped: requires filesystem side effects.
 }
