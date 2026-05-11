@@ -402,12 +402,7 @@ function openSettingsModal() {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // Fetch settings content from server
-    fetch('/settings')
-        .then(function(r) { return r.text(); })
-        .then(function(html) {
-            document.getElementById('settings-content').innerHTML = html;
-        });
+    htmx.ajax('GET', '/settings', { target: '#settings-content' });
 }
 
 function closeSettingsModal() {
@@ -419,25 +414,11 @@ function saveSettings() {
     var workspace = document.getElementById('settings-workspace');
     var profile = document.getElementById('settings-profile');
 
-    var params = new URLSearchParams();
-    if (workspace) params.set('workspace', workspace.value);
-    if (profile) params.set('profile', profile.value);
+    var values = {};
+    if (workspace) values.workspace = workspace.value;
+    if (profile) values.profile = profile.value;
 
-    fetch('/settings/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString()
-    }).then(function(r) {
-        if (r.ok) {
-            // Check for HX-Redirect header
-            var redirect = r.headers.get('HX-Redirect');
-            if (redirect) {
-                window.location.href = redirect;
-            } else {
-                window.location.reload();
-            }
-        }
-    });
+    htmx.ajax('POST', '/settings/save', { values: values });
 }
 
 // --- New Folder Modal ---
@@ -1256,6 +1237,7 @@ function refreshPadGridAndParams(padIndex) {
 // --- Sample Picker ---
 
 var _sampleCache = null;
+document.body.addEventListener('invalidateSampleCache', function() { _sampleCache = null; });
 
 function openSamplePicker(layerIndex) {
     var overlay = document.createElement('div');
