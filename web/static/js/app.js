@@ -144,14 +144,12 @@ function handleDrop(e) {
     e.stopPropagation();
     e.currentTarget.classList.remove('drag-over');
 
+    var padIndex = parseInt(e.currentTarget.getAttribute('data-pad-index') || '0');
+
     // Check for internal browser-to-pad drag (WAV file from file browser).
     var wavPath = e.dataTransfer.getData('text/wav-path');
     if (wavPath) {
-        var hxGet = e.currentTarget.getAttribute('hx-get');
-        var match = hxGet && hxGet.match(/\/pad\/(\d+)/);
-        var padIndex = match ? parseInt(match[1]) : 0;
         var hasSample = e.currentTarget.classList.contains('has-sample');
-
         if (hasSample) {
             openAssignModal(wavPath, padIndex);
         } else {
@@ -163,11 +161,6 @@ function handleDrop(e) {
     // OS file drop handling.
     var files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
-
-    // Get pad index from the button's hx-get attribute
-    var hxGet = e.currentTarget.getAttribute('hx-get');
-    var match = hxGet && hxGet.match(/\/pad\/(\d+)/);
-    var padIndex = match ? parseInt(match[1]) : 0;
 
     uploadFiles(files, padIndex, files.length > 1 ? 'per-pad' : 'per-pad');
 }
@@ -1092,9 +1085,7 @@ function assignWavToPad(wavPath) {
     var padIndex = 0;
     var padLabel = 'A1';
     if (selectedBtn) {
-        var padGet = selectedBtn.getAttribute('hx-get');
-        var padMatch = padGet && padGet.match(/\/pad\/(\d+)/);
-        if (padMatch) padIndex = parseInt(padMatch[1]);
+        padIndex = parseInt(selectedBtn.getAttribute('data-pad-index') || '0');
         var bank = String.fromCharCode(65 + Math.floor(padIndex / 16));
         padLabel = bank + ((padIndex % 16) + 1);
     }
@@ -1202,7 +1193,7 @@ function refreshPadGridAndParams(padIndex) {
                 // Highlight the assigned pad.
                 var btns = document.querySelectorAll('.pad-btn');
                 btns.forEach(function(b) {
-                    b.classList.toggle('selected', b.getAttribute('hx-get') === '/pad/' + padIndex);
+                    b.classList.toggle('selected', parseInt(b.getAttribute('data-pad-index') || '-1') === padIndex);
                 });
             });
     }

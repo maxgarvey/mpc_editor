@@ -4,6 +4,8 @@
     <button class="pad-btn {{if .Selected}}selected{{end}} {{if .HasSample}}has-sample{{end}}"
             hx-get="/pad/{{.Index}}"
             hx-target="#pad-params"
+            hx-indicator="#pad-section-loading"
+            data-pad-index="{{.Index}}"
             onclick="AudioPlayer.playAllPadLayers({{.Index}})"
             title="{{.Name}}">
         <span class="pad-number">{{.Display}}</span>
