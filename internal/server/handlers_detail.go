@@ -118,6 +118,7 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 		}
 	}
 
+	w.Header().Set("HX-Trigger", "clearAudioCache")
 	s.renderTemplate(w, "detail_pgm.html", data)
 }
 
@@ -140,6 +141,7 @@ func (s *Server) renderCurrentPGMDetail(w http.ResponseWriter, r *http.Request) 
 			data["Tags"] = s.loadTags(r.Context(), f.ID)
 		}
 	}
+	w.Header().Set("HX-Trigger", "clearAudioCache")
 	s.renderTemplate(w, "detail_pgm.html", data)
 }
 

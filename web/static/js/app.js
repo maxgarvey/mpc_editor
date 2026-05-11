@@ -94,31 +94,15 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Re-initialize UI components when detail panel or other HTMX content changes
-document.addEventListener('htmx:afterSettle', function(e) {
-    var reqPath = e.detail.pathInfo && e.detail.pathInfo.requestPath;
-    if (reqPath === '/program/open') {
-        AudioPlayer.clearCache();
-    }
-    // When the detail panel loads a PGM, clear audio cache
-    if (reqPath === '/detail') {
-        AudioPlayer.clearCache();
-    }
-    // Invalidate the cached params for a pad whenever its envelope, filter,
-    // mixer, or layer settings change so sequence playback picks up new values.
-    if (reqPath === '/pad/params' || (reqPath && reqPath.startsWith('/pad/layer/'))) {
-        var panel = document.querySelector('.pad-params-panel');
-        if (panel) {
-            var padData = JSON.parse(panel.getAttribute('data-pad-params') || 'null');
-            if (padData) {
-                AudioPlayer.invalidatePad(padData.padIndex);
-            }
-        }
-    }
-    // Re-init drag-and-drop and tabs after HTMX updates
+// Re-initialize UI components when HTMX swaps content
+document.addEventListener('htmx:afterSettle', function() {
     initDragDrop();
     initTabs();
 });
+
+// Audio cache invalidation via server-sent HX-Trigger events
+document.body.addEventListener('clearAudioCache', function() { AudioPlayer.clearCache(); });
+document.body.addEventListener('invalidatePad', function(e) { AudioPlayer.invalidatePad(e.detail.value); });
 
 // --- Drag-and-Drop ---
 
