@@ -19,6 +19,12 @@ func TestHandleRemoveAllSamples(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("status = %d", w.Code)
 	}
+	if w.Header().Get("HX-Redirect") != "" {
+		t.Error("expected partial HTML response, not HX-Redirect")
+	}
+	if !strings.Contains(w.Body.String(), "detail-pgm") {
+		t.Error("response body should contain PGM detail HTML")
+	}
 }
 
 func TestHandleRemoveAllSamples_MethodNotAllowed(t *testing.T) {
@@ -44,6 +50,9 @@ func TestHandleChromaticLayout(t *testing.T) {
 
 	if w.Code != 200 {
 		t.Fatalf("status = %d", w.Code)
+	}
+	if w.Header().Get("HX-Redirect") != "" {
+		t.Error("expected partial HTML response, not HX-Redirect")
 	}
 	// Verify MIDI note was set
 	if srv.session.Program.Pad(0).GetMIDINote() != 35 {
@@ -74,6 +83,9 @@ func TestHandleCopySettingsToAll(t *testing.T) {
 
 	if w.Code != 200 {
 		t.Fatalf("status = %d", w.Code)
+	}
+	if w.Header().Get("HX-Redirect") != "" {
+		t.Error("expected partial HTML response, not HX-Redirect")
 	}
 }
 

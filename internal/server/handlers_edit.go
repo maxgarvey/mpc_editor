@@ -23,8 +23,7 @@ func (s *Server) handleRemoveAllSamples(w http.ResponseWriter, r *http.Request) 
 	}
 	s.session.Matrix.Clear()
 
-	w.Header().Set("HX-Redirect", "/")
-	w.WriteHeader(http.StatusOK)
+	s.renderCurrentPGMDetail(w, r)
 }
 
 // handleChromaticLayout assigns consecutive MIDI notes to pads (B0, C1, C#1, ...).
@@ -39,8 +38,7 @@ func (s *Server) handleChromaticLayout(w http.ResponseWriter, r *http.Request) {
 		prog.Pad(i).SetMIDINote(35 + i) // B0 = 35, C1 = 36, ...
 	}
 
-	w.Header().Set("HX-Redirect", "/")
-	w.WriteHeader(http.StatusOK)
+	s.renderCurrentPGMDetail(w, r)
 }
 
 // handleCopySettingsToAll copies the selected pad's parameters to all other pads.
@@ -65,11 +63,9 @@ func (s *Server) handleCopySettingsToAll(w http.ResponseWriter, r *http.Request)
 		}
 		dst := prog.Pad(i)
 		dst.CopyFrom(src, ignore)
-		// Preserve original MIDI note
 	}
 
-	w.Header().Set("HX-Redirect", "/")
-	w.WriteHeader(http.StatusOK)
+	s.renderCurrentPGMDetail(w, r)
 }
 
 // handleProfileSwitch changes the active MPC profile.

@@ -121,6 +121,28 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 	s.renderTemplate(w, "detail_pgm.html", data)
 }
 
+// renderCurrentPGMDetail renders detail_pgm.html from the current in-memory
+// session state without re-reading the file from disk.
+func (s *Server) renderCurrentPGMDetail(w http.ResponseWriter, r *http.Request) {
+	bank := parseIntParam(r, "bank", 0)
+	data := map[string]any{
+		"Session":   s.session,
+		"PadGrid":   s.padGridData(bank),
+		"PadParams": s.padParamsData(),
+		"Banks":     []int{0, 1, 2, 3},
+		"Bank":      bank,
+	}
+	workspace := s.session.WorkspacePath
+	path := s.session.FilePath
+	if relPath, err := filepath.Rel(workspace, path); err == nil {
+		if f, err := s.queries.GetFileByPath(r.Context(), relPath); err == nil {
+			data["FileID"] = f.ID
+			data["Tags"] = s.loadTags(r.Context(), f.ID)
+		}
+	}
+	s.renderTemplate(w, "detail_pgm.html", data)
+}
+
 func (s *Server) renderDetailWAV(w http.ResponseWriter, path string) {
 	ctx := context.Background()
 	workspace := s.session.WorkspacePath

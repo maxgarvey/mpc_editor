@@ -2,9 +2,9 @@
 <div class="detail-pgm">
     <div class="edit-toolbar">
         <span class="toolbar-label">Edit:</span>
-        <button hx-post="/edit/remove-all-samples" hx-confirm="Remove all samples from all pads?" class="btn-sm">Remove All Samples</button>
-        <button hx-post="/edit/chromatic-layout" class="btn-sm">Chromatic Layout</button>
-        <button hx-post="/edit/copy-settings-to-all" hx-confirm="Copy selected pad's settings to all pads?" class="btn-sm">Copy Settings to All</button>
+        <button hx-post="/edit/remove-all-samples" hx-confirm="Remove all samples from all pads?" hx-target="#detail-tab-content" hx-swap="innerHTML" class="btn-sm">Remove All Samples</button>
+        <button hx-post="/edit/chromatic-layout" hx-target="#detail-tab-content" hx-swap="innerHTML" class="btn-sm">Chromatic Layout</button>
+        <button hx-post="/edit/copy-settings-to-all" hx-confirm="Copy selected pad's settings to all pads?" hx-target="#detail-tab-content" hx-swap="innerHTML" class="btn-sm">Copy Settings to All</button>
         <button hx-post="/program/sample-report" hx-target="#report-status" hx-swap="innerHTML" class="btn-sm">Sample Report</button>
         <span id="report-status" class="toolbar-status"></span>
     </div>
@@ -15,10 +15,12 @@
                 {{range .Banks}}
                 <button class="bank-tab {{if eq . $.Bank}}active{{end}}"
                         hx-get="/partials/pad-grid?bank={{.}}"
-                        hx-target="#pad-grid">
+                        hx-target="#pad-grid"
+                        hx-indicator="#pad-section-loading">
                     Bank {{padBankLabel .}}
                 </button>
                 {{end}}
+                <span id="pad-section-loading" class="htmx-indicator pad-section-spinner"></span>
             </div>
             <div id="pad-grid">
                 {{template "pad_grid.html" .PadGrid}}
