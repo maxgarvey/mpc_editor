@@ -13,6 +13,15 @@ import (
 
 func (s *Server) handleDeviceStatus(w http.ResponseWriter, r *http.Request) {
 	dev := s.detector.Current()
+	key := ""
+	if dev != nil {
+		key = dev.MountPath
+	}
+	if key == s.lastDeviceKey {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	s.lastDeviceKey = key
 	s.renderTemplate(w, "device_status.html", map[string]any{
 		"Device": dev,
 	})

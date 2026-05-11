@@ -27,6 +27,7 @@ type Server struct {
 	startupScanDone chan struct{}
 	mux             *http.ServeMux
 	staticFS        fs.FS
+	lastDeviceKey   string // fingerprint of last rendered device status; "" = no device
 }
 
 // New creates a new Server with the given embedded filesystem for templates and static assets.
@@ -39,6 +40,7 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 		mux:             http.NewServeMux(),
 		staticFS:        staticFS,
 		startupScanDone: make(chan struct{}),
+		lastDeviceKey:   "\x00", // sentinel: forces first poll to render
 	}
 
 	funcMap := template.FuncMap{

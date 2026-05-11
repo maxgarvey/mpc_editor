@@ -13,12 +13,22 @@ import (
 func TestHandleDeviceStatus(t *testing.T) {
 	srv := testServer(t)
 
+	// First poll should always render (sentinel initial state).
 	req := httptest.NewRequest("GET", "/device/status", http.NoBody)
 	w := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(w, req)
 
 	if w.Code != 200 {
-		t.Fatalf("status = %d", w.Code)
+		t.Fatalf("first poll status = %d, want 200", w.Code)
+	}
+
+	// Second poll with unchanged state should return 204.
+	req2 := httptest.NewRequest("GET", "/device/status", http.NoBody)
+	w2 := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusNoContent {
+		t.Errorf("second poll status = %d, want 204 (unchanged)", w2.Code)
 	}
 }
 
