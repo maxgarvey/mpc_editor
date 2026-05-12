@@ -16,7 +16,7 @@ template_data.go   Shared structs passed to Go html/template files
 workspace.go       Workspace path validation and resolution helpers
 
 handlers_pad.go        Pad parameter read/write, batch copy
-handlers_edit.go       Program-level edits (MIDI note, profile switch)
+handlers_edit.go       Program-level edits (chromatic layout, copy-to-all, profile switch)
 handlers_audio.go      WAV audition (stream PCM to browser), waveform peak data
 handlers_slicer.go     Beat detection UI: load WAV, adjust sensitivity, export slices
 handlers_sequence.go   Sequence step grid: view, insert, edit, delete, multi-select, playback events
@@ -25,11 +25,11 @@ handlers_file.go       File operations: rename, move, delete, new-folder
 handlers_program.go    Open/save/new .pgm file, session program management
 handlers_assign.go     Drag-and-drop sample assignment to pads
 handlers_import.go     Import samples from external directories
-handlers_device.go     MPC USB device status + use-as-workspace action
+handlers_device.go     MPC USB device status + use-as-workspace action; polls return 204 when unchanged
 handlers_scan.go       Trigger workspace rescan
 handlers_settings.go   Settings modal (profile, workspace path, preferences)
 handlers_api.go        JSON API endpoints consumed by JS
-handlers_detail.go     Detail panel tab management
+handlers_detail.go     Detail panel rendering; renderDetailPGM / renderCurrentPGMDetail helpers
 ```
 
 ## Session (`session.go`)
@@ -72,6 +72,19 @@ On startup, the session restores the last-opened program and workspace from `Pre
 Templates are parsed from the embedded `web/templates/` FS at startup with a `template.FuncMap` that adds helpers: `add`, `mul`, `mod`, `seq`, `padBankLabel`, `velocityColor`, `velocityOpacity`. All handler responses call `s.renderTemplate(w, name, data)`.
 
 HTMX requests (`HX-Request: true`) receive partial HTML; full-page requests receive the complete layout.
+
+### HX-Trigger events
+
+Handlers that affect audio state set `HX-Trigger` response headers so JS reacts without path-checking:
+
+| Header value | Set by | JS effect |
+|---|---|---|
+| `clearAudioCache` | `renderDetailPGM`, `renderCurrentPGMDetail` | `AudioPlayer.clearCache()` |
+| `{"invalidatePad":N}` | `handlePadParams`, `handleLayerUpdate` | `AudioPlayer.invalidatePad(N)` |
+
+### Edit toolbar partial swaps
+
+The three edit-toolbar actions (`/edit/remove-all-samples`, `/edit/chromatic-layout`, `/edit/copy-settings-to-all`) return the re-rendered `detail_pgm.html` partial via `renderCurrentPGMDetail`, targeting `#detail-tab-content` — no full-page reload. `/edit/profile` keeps `HX-Redirect: /` because it changes the global header.
 
 ## Security Notes
 

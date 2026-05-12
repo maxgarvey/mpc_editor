@@ -41,6 +41,22 @@ The app uses HTMX 2.0 (`hx-get`, `hx-post`, `hx-target`, `hx-trigger`). Key patt
 - Most interactions are `hx-post` or `hx-get` with `hx-target` pointing at a container `div`.
 - `hx-include` passes sibling form fields with a request (e.g. the PGM/time-sig selectors are included with every step-grid action).
 - HTMX 2.0 fires `htmx:afterSwap` on the **swapped-in elements** (not the target container). JS hooks use `evt.target.closest('#sequence-grid')` to detect relevant swaps.
+- Edit toolbar actions (`/edit/remove-all-samples`, `/edit/chromatic-layout`, `/edit/copy-settings-to-all`) return the `detail_pgm.html` partial with `hx-target="#detail-tab-content"`, avoiding a full-page redirect.
+
+### Server-sent HX-Trigger events
+
+Handlers signal audio state changes via `HX-Trigger` response headers rather than relying on client-side URL inspection:
+
+| Event | Fired by | JS handler |
+|-------|----------|-----------|
+| `clearAudioCache` | `renderDetailPGM`, `renderCurrentPGMDetail` | `AudioPlayer.clearCache()` |
+| `invalidatePad` (value: pad index) | `handlePadParams`, `handleLayerUpdate` | `AudioPlayer.invalidatePad(N)` |
+
+JS listens with `document.body.addEventListener('clearAudioCache', ...)` and `document.body.addEventListener('invalidatePad', e => AudioPlayer.invalidatePad(e.detail.value))`.
+
+### `data-pad-index` attribute
+
+Pad buttons carry `data-pad-index="N"` in addition to `hx-get="/pad/N"`. Drag-drop and sample-assignment JS reads the pad index from `getAttribute('data-pad-index')` instead of parsing the URL out of `hx-get`.
 
 ## JavaScript Modules
 
@@ -63,7 +79,7 @@ Two IIFEs: `SequencePlayer` and `SequenceEditor`.
 ### `app.js`
 - `TabManager`: tracks open files as browser tabs; reopens the last viewed file on load.
 - `WorkspacePanel`: collapse/expand the left file browser; persisted in `localStorage`.
-- Modal helpers: new-program dialog, save confirmation, settings modal.
+- Modal helpers: new-program dialog, save confirmation, settings modal (loads content and saves via `htmx.ajax`).
 
 ### `audio.js`
 - `AudioPlayer`: decodes WAV bytes (fetched from `/audio/stream`) into `AudioBuffer`; caches decoded buffers by pad index; plays samples at exact Web Audio API times for accurate sequencer timing.
