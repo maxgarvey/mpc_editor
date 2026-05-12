@@ -1,5 +1,5 @@
 {{define "detail_pgm.html"}}
-<div class="detail-pgm">
+<div class="detail-pgm" data-file-path="{{.Session.FilePath}}">
     <div class="edit-toolbar">
         <span class="toolbar-label">Edit:</span>
         <button hx-post="/edit/remove-all-samples" hx-confirm="Remove all samples from all pads?" hx-target="#detail-tab-content" hx-swap="innerHTML" class="btn-sm">Remove All Samples</button>

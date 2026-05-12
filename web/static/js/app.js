@@ -111,6 +111,12 @@ function initDetailContent(el) {
     }
     var waveformCanvas = el.querySelector('#waveform-canvas');
     if (waveformCanvas && typeof Waveform !== 'undefined') Waveform.load();
+    var pgmPanel = el.querySelector('.detail-pgm[data-file-path]');
+    if (pgmPanel) {
+        var pgmPath = pgmPanel.getAttribute('data-file-path');
+        var pathEl = document.getElementById('save-pgm-path');
+        if (pathEl && pgmPath) pathEl.value = pgmPath;
+    }
 }
 
 // Re-initialize UI components when HTMX swaps content
