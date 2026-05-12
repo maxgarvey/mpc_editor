@@ -16,6 +16,7 @@
          {{if .IsDir}}
          hx-get="/browse/nav?dir={{.Path}}"
          hx-target="#file-nav"
+         hx-indicator="#file-nav-spinner"
          {{else}}
          onclick="TabManager.openFile('{{.Path}}')"
          {{if eq .Ext ".wav"}}draggable="true" ondragstart="event.dataTransfer.setData('text/wav-path', '{{.Path}}')"{{end}}

@@ -39,6 +39,7 @@
         <aside class="browser-panel">
             <div class="browser-panel-header">
                 <span class="browser-panel-label">Workspace</span>
+                <span id="file-nav-spinner" class="htmx-indicator nav-spinner"></span>
                 <button class="panel-collapse-btn" id="panel-collapse-btn"
                         onclick="WorkspacePanel.toggle()" title="Collapse panel">&#x25C4;</button>
             </div>
@@ -48,6 +49,7 @@
                        hx-get="/browse/search"
                        hx-trigger="input delay:250ms"
                        hx-target="#file-nav"
+                       hx-indicator="#file-nav-spinner"
                        name="q">
             </div>
             <div id="file-nav">
