@@ -1100,6 +1100,9 @@ document.addEventListener('htmx:afterSettle', function(e) {
     if (e.detail.target && e.detail.target.id === 'file-nav') {
         TabManager.refreshBrowserHighlight();
     }
+    if (e.detail.target && e.detail.target.id === 'move-dirs-container') {
+        attachMoveDirClickSelection(e.detail.target);
+    }
 });
 
 // --- WAV-to-Pad Assignment ---
@@ -1865,21 +1868,16 @@ function loadMoveDirs(dir) {
         var container = document.getElementById('move-dirs-container');
         if (container) {
             container.innerHTML = html;
-            attachMoveDirListeners();
+            if (typeof htmx !== 'undefined') htmx.process(container);
+            attachMoveDirClickSelection(container);
         }
     });
 }
 
-function attachMoveDirListeners() {
-    // Directory entry click — navigate into or select
-    var entries = document.querySelectorAll('#move-dirs-container .move-dir-entry');
+function attachMoveDirClickSelection(container) {
+    var entries = (container || document).querySelectorAll('#move-dirs-container .move-dir-entry');
     entries.forEach(function(entry) {
-        entry.addEventListener('dblclick', function() {
-            var path = entry.getAttribute('data-path');
-            if (path) loadMoveDirs(path);
-        });
         entry.addEventListener('click', function() {
-            // Select this directory as destination
             entries.forEach(function(e) { e.classList.remove('selected'); });
             entry.classList.add('selected');
             var path = entry.getAttribute('data-path');
@@ -1890,20 +1888,8 @@ function attachMoveDirListeners() {
             if (btn) btn.disabled = false;
         });
     });
-
-    // Breadcrumb navigation
-    var breadcrumbs = document.querySelectorAll('#move-dirs-container .move-dir-nav');
-    breadcrumbs.forEach(function(link) {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            loadMoveDirs(link.getAttribute('data-dir') || '');
-        });
-    });
-
-    // Allow selecting the current directory (the one being viewed) via the hidden input
     var currentDirInput = document.getElementById('move-current-dir');
-    if (currentDirInput) {
-        // Reset selection when navigating
+    if (currentDirInput && currentDirInput.value) {
         window._moveDestDir = currentDirInput.value;
         var display = document.getElementById('move-dest-display');
         var dirName = currentDirInput.value.split('/').pop();
