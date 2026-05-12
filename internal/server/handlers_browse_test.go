@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
+	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
 
 func TestFilterAllows(t *testing.T) {
@@ -780,6 +781,205 @@ func TestHandleWorkspaceRename_WithActivePGM(t *testing.T) {
 	expected := filepath.Join(workspace, "renamed.pgm")
 	if srv.session.FilePath != expected {
 		t.Errorf("session.FilePath = %q, want %q", srv.session.FilePath, expected)
+	}
+}
+
+func TestHandleWorkspaceRename_MatrixWAVPatch(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	wavPath := filepath.Join(workspace, "kick.wav")
+	writeTestFile(t, wavPath, "wav data")
+	_ = srv.session.Program.Pad(0).Layer(0).SetSampleName("kick")
+	srv.session.Matrix.Set(0, 0, &pgm.SampleRef{Name: "kick", FilePath: wavPath, Status: pgm.SampleOK})
+
+	form := url.Values{"path": {wavPath}, "name": {"kik.wav"}}
+	req := httptest.NewRequest("POST", "/workspace/rename", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	// Matrix was patched → HX-Redirect response
+	if w.Header().Get("HX-Redirect") == "" {
+		t.Error("expected HX-Redirect after matrix patch")
+	}
+	ref := srv.session.Matrix.Get(0, 0)
+	if ref == nil {
+		t.Fatal("matrix[0][0] is nil after rename")
+	}
+	wantPath := filepath.Join(workspace, "kik.wav")
+	if ref.FilePath != wantPath {
+		t.Errorf("matrix[0][0].FilePath = %q, want %q", ref.FilePath, wantPath)
+	}
+	if ref.Name != "kik" {
+		t.Errorf("matrix[0][0].Name = %q, want %q", ref.Name, "kik")
+	}
+}
+
+func TestHandleWorkspaceRename_DirectoryContainsMatrixSample(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	dir := filepath.Join(workspace, "beats")
+	wavPath := filepath.Join(dir, "snare.wav")
+	writeTestFile(t, wavPath, "wav data")
+	_ = srv.session.Program.Pad(1).Layer(0).SetSampleName("snare")
+	srv.session.Matrix.Set(1, 0, &pgm.SampleRef{Name: "snare", FilePath: wavPath, Status: pgm.SampleOK})
+
+	form := url.Values{"path": {dir}, "name": {"drums"}}
+	req := httptest.NewRequest("POST", "/workspace/rename", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	if w.Header().Get("HX-Redirect") == "" {
+		t.Error("expected HX-Redirect after directory rename with matrix samples")
+	}
+	ref := srv.session.Matrix.Get(1, 0)
+	if ref == nil {
+		t.Fatal("matrix[1][0] is nil after directory rename")
+	}
+	wantPath := filepath.Join(workspace, "drums", "snare.wav")
+	if ref.FilePath != wantPath {
+		t.Errorf("matrix[1][0].FilePath = %q, want %q", ref.FilePath, wantPath)
+	}
+}
+
+func TestHandleWorkspaceDelete_DiskClearsMatrix(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	wavPath := filepath.Join(workspace, "hat.wav")
+	writeTestFile(t, wavPath, "wav data")
+	_ = srv.session.Program.Pad(2).Layer(0).SetSampleName("hat")
+	srv.session.Matrix.Set(2, 0, &pgm.SampleRef{Name: "hat", FilePath: wavPath, Status: pgm.SampleOK})
+
+	form := url.Values{"path": {"hat.wav"}, "mode": {"disk"}}
+	req := httptest.NewRequest("POST", "/workspace/delete", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	if srv.session.Matrix.Get(2, 0) != nil {
+		t.Error("matrix[2][0] should be nil after disk delete")
+	}
+	if name := srv.session.Program.Pad(2).Layer(0).GetSampleName(); name != "" {
+		t.Errorf("program pad 2 layer 0 sample name = %q, want empty", name)
+	}
+}
+
+func TestHandleWorkspaceDelete_CatalogPreservesMatrix(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	wavPath := filepath.Join(workspace, "clap.wav")
+	writeTestFile(t, wavPath, "wav data")
+	_ = srv.session.Program.Pad(3).Layer(0).SetSampleName("clap")
+	srv.session.Matrix.Set(3, 0, &pgm.SampleRef{Name: "clap", FilePath: wavPath, Status: pgm.SampleOK})
+
+	form := url.Values{"path": {"clap.wav"}, "mode": {"catalog"}}
+	req := httptest.NewRequest("POST", "/workspace/delete", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	// Catalog-mode: matrix should be unchanged
+	ref := srv.session.Matrix.Get(3, 0)
+	if ref == nil || ref.FilePath != wavPath {
+		t.Errorf("matrix[3][0] = %v, want ref with path %q (catalog delete should not clear matrix)", ref, wavPath)
+	}
+	// File still on disk
+	if _, err := os.Stat(wavPath); err != nil {
+		t.Error("catalog delete should not remove file from disk")
+	}
+}
+
+func TestHandleWorkspaceDelete_ActivePGMResetsSession(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	// Copy a real pgm into workspace and open it.
+	pgmPath := filepath.Join(workspace, "active.pgm")
+	pgmData, err := os.ReadFile(testdataPath("test.pgm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pgmPath, pgmData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	openForm := url.Values{"path": {pgmPath}}
+	openReq := httptest.NewRequest("POST", "/program/open", strings.NewReader(openForm.Encode()))
+	openReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	srv.Handler().ServeHTTP(httptest.NewRecorder(), openReq)
+	if srv.session.FilePath != pgmPath {
+		t.Fatalf("program not opened: FilePath = %q", srv.session.FilePath)
+	}
+
+	// Delete it from disk.
+	form := url.Values{"path": {"active.pgm"}, "mode": {"disk"}}
+	req := httptest.NewRequest("POST", "/workspace/delete", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	if w.Header().Get("HX-Redirect") == "" {
+		t.Error("expected HX-Redirect after active pgm delete")
+	}
+	if srv.session.FilePath != "" {
+		t.Errorf("session.FilePath = %q, want empty after pgm delete", srv.session.FilePath)
+	}
+	if _, err := os.Stat(pgmPath); err == nil {
+		t.Error("pgm should have been deleted from disk")
+	}
+}
+
+func TestHandleWorkspaceMove_MatrixWAVPatch(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	wavPath := filepath.Join(workspace, "bass.wav")
+	writeTestFile(t, wavPath, "wav data")
+	destDir := filepath.Join(workspace, "samples")
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = srv.session.Program.Pad(4).Layer(0).SetSampleName("bass")
+	srv.session.Matrix.Set(4, 0, &pgm.SampleRef{Name: "bass", FilePath: wavPath, Status: pgm.SampleOK})
+
+	form := url.Values{"path": {wavPath}, "dest": {destDir}}
+	req := httptest.NewRequest("POST", "/workspace/move", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	if w.Header().Get("HX-Redirect") == "" {
+		t.Error("expected HX-Redirect after matrix patch on move")
+	}
+	ref := srv.session.Matrix.Get(4, 0)
+	if ref == nil {
+		t.Fatal("matrix[4][0] is nil after move")
+	}
+	wantPath := filepath.Join(destDir, "bass.wav")
+	if ref.FilePath != wantPath {
+		t.Errorf("matrix[4][0].FilePath = %q, want %q", ref.FilePath, wantPath)
 	}
 }
 

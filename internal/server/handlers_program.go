@@ -81,6 +81,8 @@ func (s *Server) handleProgramNew(w http.ResponseWriter, r *http.Request) {
 	s.session.FilePath = ""
 	s.session.Matrix.Clear()
 	s.session.SelectedPad = 0
+	s.session.Slicer = nil
+	s.session.SlicerPath = ""
 
 	// Return full page via redirect for HTMX
 	w.Header().Set("HX-Redirect", "/")
@@ -142,6 +144,8 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	s.session.SampleDir = projectDir
 	s.session.SelectedPad = 0
 	s.session.Matrix.Clear()
+	s.session.Slicer = nil
+	s.session.SlicerPath = ""
 
 	s.session.Prefs.LastPGMPath = pgmPath
 	s.session.SelectedDetailPath = pgmPath
@@ -184,6 +188,8 @@ func (s *Server) handleProgramOpen(w http.ResponseWriter, r *http.Request) {
 	s.session.SampleDir = pgmDir
 	s.session.SelectedPad = 0
 	s.session.Matrix.Clear()
+	s.session.Slicer = nil
+	s.session.SlicerPath = ""
 
 	s.session.Prefs.LastPGMPath = path
 	if err := s.queries.UpdateAllPreferences(r.Context(), s.session.Prefs.ToDBParams()); err != nil {

@@ -210,6 +210,61 @@ func TestHandleProgramNew_MethodNotAllowed(t *testing.T) {
 	}
 }
 
+func TestHandleProgramNew_ClearsSlicer(t *testing.T) {
+	srv := testServer(t)
+
+	// Load a slicer so it's active.
+	form := url.Values{"path": {testdataPath("myLoop.wav")}}
+	req := httptest.NewRequest("POST", "/slicer/load", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	srv.Handler().ServeHTTP(httptest.NewRecorder(), req)
+	if srv.session.Slicer == nil {
+		t.Fatal("slicer should be active after load")
+	}
+
+	req = httptest.NewRequest("POST", "/program/new", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if srv.session.Slicer != nil {
+		t.Error("slicer should be nil after program/new")
+	}
+}
+
+func TestHandleProgramOpen_ClearsSlicer(t *testing.T) {
+	srv := testServer(t)
+
+	// Load a slicer.
+	loadForm := url.Values{"path": {testdataPath("myLoop.wav")}}
+	loadReq := httptest.NewRequest("POST", "/slicer/load", strings.NewReader(loadForm.Encode()))
+	loadReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	srv.Handler().ServeHTTP(httptest.NewRecorder(), loadReq)
+	if srv.session.Slicer == nil {
+		t.Fatal("slicer should be active after load")
+	}
+
+	// Open a program — should clear the slicer.
+	pgmDest := filepath.Join(srv.session.WorkspacePath, "test.pgm")
+	if err := copyFileForTest(testdataPath("test.pgm"), pgmDest); err != nil {
+		t.Fatal(err)
+	}
+	openForm := url.Values{"path": {pgmDest}}
+	req := httptest.NewRequest("POST", "/program/open", strings.NewReader(openForm.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if srv.session.Slicer != nil {
+		t.Error("slicer should be nil after program/open")
+	}
+}
+
 func copyFileForTest(src, dst string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {

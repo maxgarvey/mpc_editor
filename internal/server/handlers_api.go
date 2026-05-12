@@ -258,6 +258,8 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 		s.session.SampleDir = pgmDir
 		s.session.SelectedPad = padIdx
 		s.session.Matrix.Clear()
+		s.session.Slicer = nil
+		s.session.SlicerPath = ""
 		for i := range 64 {
 			pad := prog.Pad(i)
 			for j := range 4 {

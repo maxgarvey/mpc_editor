@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
+	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
 
 // BrowseData holds template data for the file browser.
@@ -367,12 +368,27 @@ func (s *Server) handleWorkspaceRename(w http.ResponseWriter, r *http.Request) {
 	// Update catalog database path.
 	s.updateCatalogPath(r.Context(), oldPath, newPath)
 
-	// Update session if the renamed file was the active program.
+	// Update session if the renamed file or a containing directory was the active program.
 	if s.session.FilePath == oldPath {
 		s.session.FilePath = newPath
 		s.session.SampleDir = filepath.Dir(newPath)
+	} else if strings.HasPrefix(s.session.FilePath, oldPath+string(filepath.Separator)) {
+		s.session.FilePath = newPath + s.session.FilePath[len(oldPath):]
+		s.session.SampleDir = filepath.Dir(s.session.FilePath)
 	}
 
+	// Patch in-memory sample matrix for WAV renames/directory renames.
+	changed := s.patchMatrixForPath(oldPath, newPath)
+	if changed {
+		if s.session.FilePath != "" {
+			_ = s.session.Program.Save(s.session.FilePath)
+		}
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	w.Header().Set("HX-Trigger", "invalidateSampleCache")
 	parentDir := filepath.Dir(oldPath)
 	relDir, _ := filepath.Rel(s.session.WorkspacePath, parentDir)
 	if relDir == "." {
@@ -433,12 +449,27 @@ func (s *Server) handleWorkspaceMove(w http.ResponseWriter, r *http.Request) {
 	// Update catalog database path.
 	s.updateCatalogPath(r.Context(), srcPath, newPath)
 
-	// Update session if the moved file was the active program.
+	// Update session if the moved file or a containing directory was the active program.
 	if s.session.FilePath == srcPath {
 		s.session.FilePath = newPath
 		s.session.SampleDir = filepath.Dir(newPath)
+	} else if strings.HasPrefix(s.session.FilePath, srcPath+string(filepath.Separator)) {
+		s.session.FilePath = newPath + s.session.FilePath[len(srcPath):]
+		s.session.SampleDir = filepath.Dir(s.session.FilePath)
 	}
 
+	// Patch in-memory sample matrix for WAV/directory moves.
+	changed := s.patchMatrixForPath(srcPath, newPath)
+	if changed {
+		if s.session.FilePath != "" {
+			_ = s.session.Program.Save(s.session.FilePath)
+		}
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	w.Header().Set("HX-Trigger", "invalidateSampleCache")
 	// Re-render the nav at the parent of the source (where the file disappeared from).
 	parentDir := filepath.Dir(srcPath)
 	relDir, _ := filepath.Rel(s.session.WorkspacePath, parentDir)
@@ -492,6 +523,58 @@ func (s *Server) handleWorkspaceDirs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// patchMatrixForPath updates the in-memory sample matrix when a file or directory is
+// renamed, moved, or deleted. Pass newAbs="" to clear affected pads.
+// Returns true if any pad was modified (so the caller can decide to save the program).
+func (s *Server) patchMatrixForPath(oldAbs, newAbs string) bool {
+	if s.session.Program == nil {
+		return false
+	}
+	dirPrefix := oldAbs + string(filepath.Separator)
+	changed := false
+	for i := range 64 {
+		for j := range 4 {
+			ref := s.session.Matrix.Get(i, j)
+			if ref == nil {
+				continue
+			}
+			exactMatch := ref.FilePath == oldAbs
+			prefixMatch := strings.HasPrefix(ref.FilePath, dirPrefix)
+			if !exactMatch && !prefixMatch {
+				continue
+			}
+			changed = true
+			if newAbs == "" {
+				s.session.Matrix.Set(i, j, nil)
+				_ = s.session.Program.Pad(i).Layer(j).SetSampleName("")
+				continue
+			}
+			var newFilePath string
+			if exactMatch {
+				newFilePath = newAbs
+			} else {
+				rel, _ := strings.CutPrefix(ref.FilePath, dirPrefix)
+				newFilePath = filepath.Join(newAbs, rel)
+			}
+			newName := ref.Name
+			if exactMatch {
+				stem := strings.TrimSuffix(filepath.Base(newFilePath), filepath.Ext(newFilePath))
+				if len(stem) > 16 {
+					stem = stem[:16]
+				}
+				if stem != ref.Name {
+					newName = stem
+					_ = s.session.Program.Pad(i).Layer(j).SetSampleName(stem)
+				}
+			}
+			s.session.Matrix.Set(i, j, &pgm.SampleRef{
+				Name: newName, FilePath: newFilePath, Status: ref.Status,
+			})
+		}
+	}
+	return changed
+}
+
 // updateCatalogPath updates the catalog database when a file or directory is renamed/moved.
 func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
 	workspace := s.session.WorkspacePath
@@ -520,8 +603,8 @@ func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
 		return
 	}
 	for _, f := range files {
-		if strings.HasPrefix(f.Path, oldPrefix) {
-			updated := newPrefix + strings.TrimPrefix(f.Path, oldPrefix)
+		if suffix, ok := strings.CutPrefix(f.Path, oldPrefix); ok {
+			updated := newPrefix + suffix
 			if err := s.queries.UpdateFilePath(ctx, db.UpdateFilePathParams{
 				NewPath: updated,
 				OldPath: f.Path,
@@ -582,9 +665,27 @@ func (s *Server) handleWorkspaceDelete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("delete: %v", err), http.StatusInternalServerError)
 			return
 		}
+
+		// If the active program was deleted, reset session.
+		if s.session.FilePath == absPath ||
+			strings.HasPrefix(s.session.FilePath, absPath+string(filepath.Separator)) {
+			s.session.Program = pgm.NewProgram()
+			s.session.FilePath = ""
+			s.session.SampleDir = ""
+			s.session.Matrix.Clear()
+			w.Header().Set("HX-Redirect", "/")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Clear any matrix pads that referenced the deleted path.
+		changed := s.patchMatrixForPath(absPath, "")
+		if changed && s.session.FilePath != "" {
+			_ = s.session.Program.Save(s.session.FilePath)
+		}
 	}
 
-	w.Header().Set("HX-Trigger", "refreshBrowser")
+	w.Header().Set("HX-Trigger", `{"refreshBrowser":true,"invalidateSampleCache":true}`)
 	w.WriteHeader(http.StatusOK)
 }
 
