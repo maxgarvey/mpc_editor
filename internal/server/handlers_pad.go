@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -115,7 +114,7 @@ func (s *Server) handlePadParams(w http.ResponseWriter, r *http.Request) {
 		log.Printf("save program: %v", err)
 	}
 
-	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"invalidatePad":%d}`, idx))
+	w.Header().Set("HX-Trigger", hxTriggerInvalidatePad(idx))
 	s.renderTemplate(w, "pad_params.html", s.padParamsData())
 }
 
@@ -204,7 +203,7 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 		log.Printf("save program: %v", err)
 	}
 
-	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"invalidatePad":%d}`, padIdx))
+	w.Header().Set("HX-Trigger", hxTriggerInvalidatePad(padIdx))
 	s.renderTemplate(w, "pad_params.html", s.padParamsData())
 }
 

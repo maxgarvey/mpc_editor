@@ -1,5 +1,9 @@
 // MPC Editor - Client-side JavaScript
 
+// HX-Trigger event names — must match the Go constants in internal/server/server.go.
+var HX_CLEAR_AUDIO_CACHE = 'clearAudioCache';
+var HX_INVALIDATE_PAD    = 'invalidatePad';
+
 // Update range slider value displays
 document.addEventListener('input', function(e) {
     if (e.target.classList.contains('slider-input')) {
@@ -101,8 +105,8 @@ document.addEventListener('htmx:afterSettle', function() {
 });
 
 // Audio cache invalidation via server-sent HX-Trigger events
-document.body.addEventListener('clearAudioCache', function() { AudioPlayer.clearCache(); });
-document.body.addEventListener('invalidatePad', function(e) { AudioPlayer.invalidatePad(e.detail.value); });
+document.body.addEventListener(HX_CLEAR_AUDIO_CACHE, function() { AudioPlayer.clearCache(); });
+document.body.addEventListener(HX_INVALIDATE_PAD, function(e) { AudioPlayer.invalidatePad(e.detail.value); });
 
 // --- Drag-and-Drop ---
 

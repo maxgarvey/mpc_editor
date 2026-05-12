@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"log"
@@ -15,6 +16,14 @@ import (
 	"github.com/maxgarvey/mpc_editor/internal/device"
 	"github.com/maxgarvey/mpc_editor/internal/scanner"
 )
+
+// HX-Trigger event names sent in response headers; must match the JS listeners in app.js.
+const hxTriggerClearAudioCache = "clearAudioCache"
+
+// hxTriggerInvalidatePad returns the HX-Trigger JSON for a single pad invalidation.
+func hxTriggerInvalidatePad(padIdx int) string {
+	return fmt.Sprintf(`{"invalidatePad":%d}`, padIdx)
+}
 
 // Server is the HTTP server for the MPC Editor web application.
 type Server struct {
