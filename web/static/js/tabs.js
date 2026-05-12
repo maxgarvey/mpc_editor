@@ -63,6 +63,7 @@ const TabManager = (function() {
             if (typeof SequencePlayer !== 'undefined' && typeof SequencePlayer.afterDetailSwap === 'function') {
                 SequencePlayer.afterDetailSwap();
             }
+            if (typeof initDetailContent === 'function') initDetailContent(content);
         }
     }
 
@@ -140,6 +141,7 @@ const TabManager = (function() {
                 if (typeof SequencePlayer !== 'undefined' && typeof SequencePlayer.afterDetailSwap === 'function') {
                     SequencePlayer.afterDetailSwap();
                 }
+                if (typeof initDetailContent === 'function') initDetailContent(content);
             })
             .catch(function(err) {
                 console.warn('Tab activate failed:', err);

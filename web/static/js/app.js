@@ -98,10 +98,26 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+// Initialize any detail-panel content that requires JS setup.
+// Called from both htmx:afterSettle (HTMX swaps) and tabs.js (fetch-based tab activations).
+function initDetailContent(el) {
+    if (!el || !el.querySelector) return;
+    var wavPanel = el.querySelector('.detail-wav[data-rel-path]');
+    if (wavPanel) {
+        var relPath = wavPanel.getAttribute('data-rel-path');
+        var audioUrl = '/audio/file?path=' + encodeURIComponent(relPath);
+        if (typeof WavWaveform !== 'undefined') WavWaveform.load(relPath);
+        if (typeof WavDetailPlayer !== 'undefined') WavDetailPlayer.init(audioUrl, relPath);
+    }
+    var waveformCanvas = el.querySelector('#waveform-canvas');
+    if (waveformCanvas && typeof Waveform !== 'undefined') Waveform.load();
+}
+
 // Re-initialize UI components when HTMX swaps content
-document.addEventListener('htmx:afterSettle', function() {
+document.addEventListener('htmx:afterSettle', function(e) {
     initDragDrop();
     initTabs();
+    initDetailContent(e.detail && e.detail.target ? e.detail.target : document.body);
 });
 
 // Audio cache invalidation via server-sent HX-Trigger events

@@ -1,5 +1,5 @@
 {{define "detail_wav.html"}}
-<div class="detail-wav">
+<div class="detail-wav" data-rel-path="{{.RelPath}}">
     <div class="detail-header">
         <span class="detail-type">[WAV]</span>
         <span class="detail-path">{{.RelPath}}</span>
@@ -57,8 +57,4 @@
 
     {{if .FileID}}{{template "tags_section.html" .}}{{end}}
 </div>
-<script>
-WavWaveform.load('{{.RelPath}}');
-WavDetailPlayer.init('/audio/file?path={{.RelPath}}', '{{.RelPath}}');
-</script>
 {{end}}
