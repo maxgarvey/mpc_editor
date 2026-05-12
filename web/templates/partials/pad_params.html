@@ -46,7 +46,7 @@
     <!-- Pad Parameters -->
     <div class="param-section" id="params-section">
         <h3>Pad Parameters</h3>
-        <form hx-post="/pad/params" hx-target="#pad-params">
+        <form hx-post="/pad/params" hx-target="#pad-params" hx-trigger="change">
             <div class="param-row">
                 <label>Voice Overlap</label>
                 <select name="voice_overlap">
@@ -62,14 +62,13 @@
                 <label>MIDI Note</label>
                 <input type="number" name="midi_note" value="{{.MIDINote}}" min="0" max="127" class="num-input">
             </div>
-            <button type="submit" class="btn-primary">Apply</button>
         </form>
     </div>
 
     <!-- Envelope -->
     <div class="param-section" id="envelope-section">
         <h3>Envelope</h3>
-        <form hx-post="/pad/params" hx-target="#pad-params">
+        <form hx-post="/pad/params" hx-target="#pad-params" hx-trigger="change">
             <div class="param-row">
                 <label>Attack</label>
                 <input type="range" name="attack" value="{{.Attack}}" min="0" max="100" class="slider-input">
@@ -87,14 +86,13 @@
                     <option value="1" {{if eq .DecayMode 1}}selected{{end}}>Start</option>
                 </select>
             </div>
-            <button type="submit" class="btn-primary">Apply</button>
         </form>
     </div>
 
     <!-- Filter -->
     <div class="param-section" id="filter-section">
         <h3>Filter 1</h3>
-        <form hx-post="/pad/params" hx-target="#pad-params">
+        <form hx-post="/pad/params" hx-target="#pad-params" hx-trigger="change">
             <div class="param-row">
                 <label>Type</label>
                 <select name="filter1_type">
@@ -114,14 +112,13 @@
                 <input type="range" name="filter1_res" value="{{.Filter1Res}}" min="0" max="100" class="slider-input">
                 <span class="value-display">{{.Filter1Res}}</span>
             </div>
-            <button type="submit" class="btn-primary">Apply</button>
         </form>
     </div>
 
     <!-- Mixer -->
     <div class="param-section" id="mixer-section">
         <h3>Mixer</h3>
-        <form hx-post="/pad/params" hx-target="#pad-params">
+        <form hx-post="/pad/params" hx-target="#pad-params" hx-trigger="change">
             <div class="param-row">
                 <label>Level</label>
                 <input type="range" name="mixer_level" value="{{.MixerLevel}}" min="0" max="100" class="slider-input">
@@ -140,7 +137,6 @@
                     <option value="2" {{if eq .MixerOutput 2}}selected{{end}}>3-4</option>
                 </select>
             </div>
-            <button type="submit" class="btn-primary">Apply</button>
         </form>
     </div>
 </div>
