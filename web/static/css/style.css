@@ -2597,6 +2597,10 @@ tr.pad-row:not(.has-events) .step-cell {
     /* default color inherited from .tag-chip */
 }
 
+.tag-remove-form {
+    display: inline;
+}
+
 .tag-remove {
     background: none;
     border: none;

@@ -6,7 +6,7 @@
         <span class="tag-chip {{if .Auto}}tag-auto{{end}}">
             {{if .TagKey}}<span class="tag-key">{{.TagKey}}:</span>{{end}}
             <span class="tag-value">{{.TagValue}}</span>
-            <form style="display:inline" hx-post="/file/tags/remove" hx-target="#tags-section" hx-swap="outerHTML">
+            <form class="tag-remove-form" hx-post="/file/tags/remove" hx-target="#tags-section" hx-swap="outerHTML">
                 <input type="hidden" name="id" value="{{$.FileID}}">
                 <input type="hidden" name="key" value="{{.TagKey}}">
                 <input type="hidden" name="value" value="{{.TagValue}}">
