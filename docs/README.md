@@ -7,6 +7,7 @@ Binary format specifications for MPC file types, derived from reverse-engineerin
 | File | Description |
 |------|-------------|
 | [`seq-format.md`](seq-format.md) | Byte-level layout of the `.SEQ` sequence file format: header fields, track chunks, event encoding, timing constants, and verification examples from real MPC 1000 files |
+| [`song-format.md`](song-format.md) | Partially-derived layout of the `.SNG` song file format: confirmed header, song step structure, and guidance for further reverse-engineering |
 | [`references.md`](references.md) | External resources: open-source MPC projects, format documentation links, community forums, and official manuals |
 
 ## Status
@@ -17,7 +18,7 @@ None of the MPC file formats are officially documented by Akai. All content here
 |--------|-------------------|
 | `.PGM` | Well documented — see [`references.md`](references.md) for the Stephen Norum spec |
 | `.SEQ` | Partially documented — [`seq-format.md`](seq-format.md) covers header, tracks, and events; several header fields remain unknown |
-| `.SNG` | Undocumented at byte level |
+| `.SNG` | Header confirmed from hardware file; step record layout unconfirmed (empty test file has no steps) — see [`song-format.md`](song-format.md) |
 | `.ALL` | Undocumented at byte level |
 
 Fields marked `[?]` in `seq-format.md` are observed in real files but not yet understood. Update the spec whenever new evidence clarifies them.

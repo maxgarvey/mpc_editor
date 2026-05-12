@@ -18,19 +18,65 @@ Each step contains:
 
 | Field | Description |
 |-------|-------------|
-| Sequence index | Which sequence to play (0-98) |
+| Sequence index | Which sequence to play (0–98) |
 | Repeat count | Number of times to repeat the sequence |
-| Tempo override | Optional tempo change for this step |
+| Tempo override | Optional tempo change for this step (0 = use sequence's own tempo) |
 
 ### Binary Format
 
-The byte-level binary layout of .SNG files is **not publicly documented**.
-Existing community knowledge comes from the MPC operator's manual and runtime
-behavior rather than file-level reverse-engineering.
+> **Evidence level:** The header is confirmed by hex analysis of `testdata/test.sng`
+> (an empty song captured from MPC 1000 hardware). The step record layout is
+> **not yet confirmed** — the test file is all-zero after the header, so step
+> encoding cannot be derived from it alone. Fields marked **[?]** are unknown.
+> Update this file whenever new evidence (hex dumps of real populated songs)
+> clarifies them.
 
-To build a parser, hex dumps of real .SNG files would need to be analyzed
-against known song configurations (known sequence count, step count, tempo
-values) to map out the binary structure.
+#### File Header
+
+`testdata/test.sng` is 256 bytes. The first 12 bytes are the ASCII magic string
+`MPC1000 SNG` followed by a null byte (0x00). All remaining bytes are zero in
+this empty-song file.
+
+```
+Offset  Size   Field       Notes
+------  ----   -----       -----
+0x00    11     magic       ASCII "MPC1000 SNG" (no leading null bytes)
+0x0B     1     null        0x00 terminator for the magic string
+0x0C    [?]   [?]          Unknown; all zero in the observed empty file
+```
+
+**Key difference from .SEQ:** SEQ files begin with 4 null bytes before the
+magic string (`0x00 0x00 0x00 0x00 "MPC1000 SEQ"`). SNG files begin directly
+with the magic string at offset 0x00.
+
+#### Step Records (layout unconfirmed)
+
+Each step likely encodes:
+
+- A sequence index byte (0–98)
+- A repeat count byte (number of times to loop the sequence before advancing)
+- A tempo field (possibly 2 bytes matching BPM × 10, same encoding as SEQ
+  header `bpm` field; 0 = no override)
+
+The total file size for a populated song is unknown. The 256-byte empty stub
+does not reveal whether step records are fixed-size (as in SEQ events) or
+variable-length.
+
+#### How to Reverse-Engineer This
+
+To map out the binary layout, produce two or three small songs with known
+configurations on real MPC 1000 hardware, then diff their hex dumps:
+
+1. Song with 1 step: sequence 0, repeat once, no tempo override
+2. Song with 2 steps: sequences 0 and 1, different repeat counts
+3. Song with a tempo override on step 2
+
+```bash
+xxd MySong.SNG | head -20
+```
+
+Compare byte positions that differ between files against the known parameter
+values to identify the encoding.
 
 ---
 
