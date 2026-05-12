@@ -11,7 +11,7 @@
 <body>
     <header class="app-header">
         <div class="header-top">
-            <h1><span class="title-mpc">MPC</span> <span class="title-editor">Editor</span></h1>
+            <h1>{{template "brand_title.html" .}}</h1>
             <nav class="toolbar">
                 <button onclick="openNewModal()">New</button>
                 <input type="hidden" id="open-pgm-path" value="{{.Session.Prefs.LastPGMPath}}">
