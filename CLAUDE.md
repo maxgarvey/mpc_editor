@@ -56,6 +56,27 @@ Handlers are split by domain: `handlers_pad.go`, `handlers_audio.go`, `handlers_
 
 Go `html/template` files. `layout.html` is the shell; everything else is a partial rendered by HTMX swaps. Template functions are registered in `server.go` (e.g. `padBankLabel`, `velocityColor`, `seq`).
 
+### JavaScript (`web/static/js/`)
+
+Vanilla JS globals — no bundler. Files are loaded in order via `<script>` tags; all functions are global. `app.js` loads first and defines shared utilities (`escapeHtml`, `escapeAttr`, `formatBytes`) that the other modules depend on.
+
+| File | Responsibility |
+|------|---------------|
+| `app.js` | Core init, HTMX event handlers, param/bank/pad tab highlighting, `initDetailContent`, Save/Settings/Mkdir modals, WAV browser preview, browser nav refresh, `WorkspacePanel`, shared utilities |
+| `drag_drop.js` | Drag-and-drop onto pad buttons and slicer canvas, XHR file upload with progress bar |
+| `file_browser.js` | Context menu, inline rename, Delete modal, Move modal |
+| `new_modal.js` | New Program / New Sequence / Import Files modal |
+| `pad_assignment.js` | WAV-to-pad assignment, Drag-to-Pad modal, pad grid/params refresh, Sample Picker, Pad Picker |
+| `device_transfer.js` | MPC USB file transfer modal |
+| `audio.js` | `AudioPlayer` — Web Audio API playback, cache, pad invalidation |
+| `tabs.js` | `TabManager` — tab open/close/highlight, fetch-based tab activation |
+| `sequencer.js` | `SequencePlayer` / `SequenceEditor` — step grid playback and editing |
+| `wav_detail_player.js` | WAV detail panel transport controls |
+| `wav_waveform.js` | WAV detail panel waveform canvas |
+| `waveform.js` | Slicer waveform canvas |
+
+`layout.html` loads all modules; `slicer_page.html` loads only `app.js` and `drag_drop.js`.
+
 ### Audio pipeline (`internal/audio/`)
 
 - `wav.go`: WAV I/O
