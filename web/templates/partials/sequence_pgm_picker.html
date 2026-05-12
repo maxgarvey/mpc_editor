@@ -1,0 +1,35 @@
+{{define "sequence_pgm_picker.html"}}
+<form class="pgm-picker"
+      hx-get="/sequence?path={{.Path}}"
+      hx-target="#sequence-grid"
+      hx-trigger="change"
+      hx-include="this">
+    <label for="seq-pgm-select">Program:</label>
+    <select id="seq-pgm-select" name="pgm">
+        <option value="">— no program —</option>
+        {{range .PGMFiles}}
+        <option value="{{.}}" {{if eq . $.PGMPath}}selected{{end}}>{{.}}</option>
+        {{end}}
+    </select>
+
+    <label for="seq-tsig-select" class="seq-picker-label">Time Sig:</label>
+    <select id="seq-tsig-select" name="tsig">
+        <option value="4_4" {{if eq .TSig "4_4"}}selected{{end}}>4/4</option>
+        <option value="3_4" {{if eq .TSig "3_4"}}selected{{end}}>3/4</option>
+        <option value="2_4" {{if eq .TSig "2_4"}}selected{{end}}>2/4</option>
+        <option value="6_8" {{if eq .TSig "6_8"}}selected{{end}}>6/8</option>
+        <option value="5_4" {{if eq .TSig "5_4"}}selected{{end}}>5/4</option>
+        <option value="7_8" {{if eq .TSig "7_8"}}selected{{end}}>7/8</option>
+    </select>
+
+    <label for="seq-division-select" class="seq-picker-label">Division:</label>
+    <select id="seq-division-select" name="division">
+        <option value="48" {{if eq .Division "48"}}selected{{end}}>1/8</option>
+        <option value="24" {{if eq .Division "24"}}selected{{end}}>1/16</option>
+        <option value="12" {{if eq .Division "12"}}selected{{end}}>1/32</option>
+        <option value="6"  {{if eq .Division "6"}}selected{{end}}>1/64</option>
+        <option value="16" {{if eq .Division "16"}}selected{{end}}>1/16T (triplet)</option>
+        <option value="8"  {{if eq .Division "8"}}selected{{end}}>1/32T (triplet)</option>
+    </select>
+</form>
+{{end}}

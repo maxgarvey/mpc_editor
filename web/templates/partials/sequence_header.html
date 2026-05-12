@@ -1,0 +1,25 @@
+{{define "sequence_header.html"}}
+<div class="sequence-header">
+    <h3 class="sequence-title">[SEQ] {{.FileName}}</h3>
+    <div class="sequence-file-location">File Location: <span class="sequence-path">{{.Path}}</span></div>
+
+    <form class="sequence-meta-form"
+          hx-post="/sequence/update"
+          hx-target="#sequence-grid"
+          hx-trigger="change delay:400ms"
+          hx-include="#seq-pgm-select, #seq-tsig-select, #seq-division-select">
+        <input type="hidden" name="path" value="{{.Path}}">
+        <label class="seq-meta-label">
+            Tempo:
+            <input class="seq-meta-input" type="number" name="bpm" value="{{.BPM}}" min="20" max="300" step="0.1"> BPM
+        </label>
+        <label class="seq-meta-label">
+            Bars:
+            <button type="button" class="btn-sm seq-bars-btn" onclick="SequenceEditor.adjustBars(this, -1)">−</button>
+            <input class="seq-meta-input seq-meta-input--short" type="number" name="bars" value="{{.Bars}}" min="1" max="999" step="1">
+            <button type="button" class="btn-sm seq-bars-btn" onclick="SequenceEditor.adjustBars(this, +1)">+</button>
+        </label>
+        <span class="seq-meta-version">{{.Version}}</span>
+    </form>
+</div>
+{{end}}

@@ -1,0 +1,18 @@
+{{define "sequence_controls.html"}}
+<div class="seq-controls">
+    <button class="btn-sm btn-set" onclick="SequencePlayer.play('{{.Path}}', 0)">Play</button>
+    <button class="btn-sm" onclick="SequencePlayer.stop()">Stop</button>
+    <button class="btn-sm{{if .Loop}} active{{end}}" id="seq-loop-btn" onclick="SequencePlayer.toggleLoop()">Loop</button>
+    <span class="seq-mode-sep">|</span>
+    <span class="seq-mode-label">Mode:</span>
+    <button class="btn-sm seq-mode-btn seq-mode-btn--view" onclick="SequenceEditor.setMode('view', this)">View</button>
+    <button class="btn-sm seq-mode-btn seq-mode-btn--insert" onclick="SequenceEditor.setMode('insert', this)">Insert</button>
+    <button class="btn-sm seq-mode-btn seq-mode-btn--edit" onclick="SequenceEditor.setMode('edit', this)">Edit</button>
+    <span class="seq-mode-sep">|</span>
+    <span class="seq-mode-label">Layout:</span>
+    <button class="btn-sm seq-view-btn seq-view-btn--grid active" onclick="SequencePlayer.setViewMode('grid')">Grid</button>
+    <button class="btn-sm seq-view-btn seq-view-btn--continuous" onclick="SequencePlayer.setViewMode('continuous')">Piano Roll</button>
+    <span class="seq-mode-sep" id="seq-snap-sep" style="display:none">|</span>
+    <button class="btn-sm seq-snap-btn" id="seq-snap-btn" style="display:none" onclick="SequenceEditor.toggleSnap(this)" title="Snap to grid division (Piano Roll). Hold Shift to temporarily toggle.">Snap</button>
+</div>
+{{end}}
