@@ -5,7 +5,8 @@
         <button hx-post="/edit/remove-all-samples" hx-confirm="Remove all samples from all pads?" hx-target="#detail-tab-content" hx-swap="innerHTML" class="btn-sm">Remove All Samples</button>
         <button hx-post="/edit/chromatic-layout" hx-target="#detail-tab-content" hx-swap="innerHTML" class="btn-sm">Chromatic Layout</button>
         <button hx-post="/edit/copy-settings-to-all" hx-confirm="Copy selected pad's settings to all pads?" hx-target="#detail-tab-content" hx-swap="innerHTML" class="btn-sm">Copy Settings to All</button>
-        <button hx-post="/program/sample-report" hx-target="#report-status" hx-swap="innerHTML" class="btn-sm">Sample Report</button>
+        <button hx-post="/program/sample-report" hx-target="#report-status" hx-swap="innerHTML" hx-indicator="#report-spinner" class="btn-sm">Sample Report</button>
+        <span id="report-spinner" class="htmx-indicator nav-spinner"></span>
         <span id="report-status" class="toolbar-status"></span>
     </div>
 
