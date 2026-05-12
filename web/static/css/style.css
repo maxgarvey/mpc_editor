@@ -1256,13 +1256,23 @@ body {
     font-size: 13px;
 }
 
-.detail-list a {
+.detail-list a,
+.detail-list .btn-link {
     color: #a0c840;
     text-decoration: none;
 }
 
-.detail-list a:hover {
+.detail-list a:hover,
+.detail-list .btn-link:hover {
     text-decoration: underline;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
 }
 
 /* WAV waveform */

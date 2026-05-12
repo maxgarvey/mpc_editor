@@ -49,7 +49,7 @@
         <h3>Used by Programs</h3>
         <ul class="detail-list">
             {{range .UsedBy}}
-            <li><a href="#" onclick="TabManager.openFile('{{.Path}}'); return false;">{{.Path}}</a></li>
+            <li><button type="button" class="btn-link" onclick="TabManager.openFile('{{.Path}}')">{{.Path}}</button></li>
             {{end}}
         </ul>
     </div>
