@@ -427,10 +427,14 @@ document.addEventListener('refreshBrowser', function() {
 
 // --- Browser Nav Highlighting ---
 
-// After browser nav re-renders (directory navigation, mkdir), re-apply tab highlighting
+// After browser nav re-renders (directory navigation, mkdir), re-apply tab highlighting.
+// Also stop any active WAV preview since the nav buttons were replaced and _previewBtn
+// would otherwise be a stale reference to a detached element, breaking toggle-off.
 document.addEventListener('htmx:afterSettle', function(e) {
     if (e.detail.target && e.detail.target.id === 'file-nav') {
         TabManager.refreshBrowserHighlight();
+        if (_previewAudio) _previewAudio.pause();
+        _clearBrowserPreviewState();
     }
     if (e.detail.target && e.detail.target.id === 'move-dirs-container') {
         attachMoveDirClickSelection(e.detail.target);
