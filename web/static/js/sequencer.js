@@ -594,6 +594,26 @@ const SequencePlayer = (function() {
             });
             ph.style.height = totalH + 'px';
         }
+
+        // Re-derive .track-muted from the authoritative Sets so the DOM
+        // class never drifts from the JS state after a grid swap.
+        document.querySelectorAll('.pad-row[data-pad], .seq-cont-track[data-pad]').forEach(function(row) {
+            var idx = parseInt(row.getAttribute('data-pad'));
+            var muted = mutedPads.has(idx) || (soloPads.size > 0 && !soloPads.has(idx));
+            row.classList.toggle('track-muted', muted);
+        });
+
+        // Sync mute/solo button active states.
+        document.querySelectorAll('.track-mute-btn').forEach(function(btn) {
+            var row = btn.closest('[data-pad]');
+            if (!row) return;
+            btn.classList.toggle('active', mutedPads.has(parseInt(row.getAttribute('data-pad'))));
+        });
+        document.querySelectorAll('.track-solo-btn').forEach(function(btn) {
+            var row = btn.closest('[data-pad]');
+            if (!row) return;
+            btn.classList.toggle('active', soloPads.has(parseInt(row.getAttribute('data-pad'))));
+        });
     }
 
     function toggleBank(letter) {
