@@ -512,6 +512,7 @@ const SequencePlayer = (function() {
     }
 
     function afterDetailSwap() {
+        SequenceEditor.cancelAllDrags();
         SequenceEditor.clearSelection();
         syncLoopFromDOM();
         SequenceEditor.restoreModeButtons();
@@ -1790,10 +1791,10 @@ const SequenceEditor = (function() {
         inp.dispatchEvent(new Event('change', {bubbles: true}));
     }
 
-    // Cancel any active drag and remove the ghost if the browser loses focus
-    // (e.g. mouse released outside the window). Without this the red drag ghost
-    // can remain on screen indefinitely.
-    window.addEventListener('blur', function() {
+    // Cancel all active drag operations and remove any ghost elements.
+    // Called on window blur (mouse released outside window) and on HTMX grid
+    // swaps so drag state never outlives the DOM elements it references.
+    function cancelAllDrags() {
         if (dragGhost) { dragGhost.remove(); dragGhost = null; }
         if (gridInsert) {
             if (gridInsertOverCell) { gridInsertOverCell.classList.remove('step-drop-target'); gridInsertOverCell = null; }
@@ -1811,7 +1812,9 @@ const SequenceEditor = (function() {
             contDrag = null;
         }
         if (contInsert) { contInsert.el.remove(); contInsert = null; }
-    });
+    }
+
+    window.addEventListener('blur', cancelAllDrags);
 
     return {
         setMode: setMode,
@@ -1826,6 +1829,7 @@ const SequenceEditor = (function() {
         isContInSelection: isContInSelection,
         toggleSnap: toggleSnap,
         restoreSnapBtn: restoreSnapBtn,
-        adjustBars: adjustBars
+        adjustBars: adjustBars,
+        cancelAllDrags: cancelAllDrags
     };
 })();
