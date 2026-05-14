@@ -251,6 +251,43 @@ func TestHandleTagRemove_InvalidID(t *testing.T) {
 	}
 }
 
+// TestHandleTagRemove_AutoTagProtected verifies that auto=1 tags cannot be removed
+// via the HTTP endpoint — the SQL guard (AND auto = 0) keeps them in the DB.
+func TestHandleTagRemove_AutoTagProtected(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "kick.wav", "wav")
+
+	ctx := context.Background()
+	srv.queries.AddFileTag(ctx, db.AddFileTagParams{ //nolint:errcheck // test setup
+		FileID: id, TagKey: "bpm", TagValue: "120", Auto: true,
+	})
+
+	form := url.Values{"id": {itoa(id)}, "key": {"bpm"}, "value": {"120"}}
+	req := httptest.NewRequest("POST", "/file/tags/remove", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	// Auto tag must still be present in DB
+	tags, err := srv.queries.ListFileTags(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, tag := range tags {
+		if tag.TagKey == "bpm" && tag.TagValue == "120" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("auto-tag was deleted but should have been protected by AND auto = 0 guard")
+	}
+}
+
 func itoa(n int64) string {
 	return fmt.Sprintf("%d", n)
 }

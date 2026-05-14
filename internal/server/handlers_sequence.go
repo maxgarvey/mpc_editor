@@ -327,6 +327,7 @@ type SequenceViewData struct {
 	Grid     *seq.StepGrid
 	FileID   int64
 	Tags     []db.FileTag
+	OOBSwap  bool     // true when this data is used for an HTMX out-of-band swap
 	PGMPath  string   // currently selected program for note mapping
 	PGMFiles []string // all PGM files in workspace for the picker
 	TSig     string   // time signature, e.g. "4_4"
@@ -546,6 +547,15 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 		newBars = v
 	}
 
+	// Resolve catalog entry unconditionally so we can return updated tags.
+	var fileID int64
+	workspace := s.session.WorkspacePath
+	if relPath, err2 := filepath.Rel(workspace, path); err2 == nil {
+		if f, err2 := s.queries.GetFileByPath(r.Context(), relPath); err2 == nil {
+			fileID = f.ID
+		}
+	}
+
 	if newBPM != sequence.BPM || newBars != sequence.Bars {
 		if err := seq.PatchFile(path, newBPM, newBars); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -559,30 +569,27 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 			sequence.Bars = newBars
 		}
 		// Update DB catalog and auto-tags.
-		workspace := s.session.WorkspacePath
-		if relPath, err2 := filepath.Rel(workspace, path); err2 == nil {
-			if f, err2 := s.queries.GetFileByPath(r.Context(), relPath); err2 == nil {
-				_ = s.queries.UpsertSeqMeta(r.Context(), db.UpsertSeqMetaParams{
-					FileID:  f.ID,
-					Bpm:     sequence.BPM,
-					Bars:    int64(sequence.Bars),
-					Version: sequence.Version,
+		if fileID != 0 {
+			_ = s.queries.UpsertSeqMeta(r.Context(), db.UpsertSeqMetaParams{
+				FileID:  fileID,
+				Bpm:     sequence.BPM,
+				Bars:    int64(sequence.Bars),
+				Version: sequence.Version,
+			})
+			_ = s.queries.RemoveAutoTags(r.Context(), fileID)
+			if sequence.BPM > 0 {
+				_ = s.queries.AddFileTag(r.Context(), db.AddFileTagParams{
+					FileID: fileID, TagKey: "bpm",
+					TagValue: fmt.Sprintf("%d", int(math.Round(sequence.BPM))),
+					Auto:     true,
 				})
-				_ = s.queries.RemoveAutoTags(r.Context(), f.ID)
-				if sequence.BPM > 0 {
-					_ = s.queries.AddFileTag(r.Context(), db.AddFileTagParams{
-						FileID: f.ID, TagKey: "bpm",
-						TagValue: fmt.Sprintf("%d", int(math.Round(sequence.BPM))),
-						Auto:     true,
-					})
-				}
-				if sequence.Bars > 0 {
-					_ = s.queries.AddFileTag(r.Context(), db.AddFileTagParams{
-						FileID: f.ID, TagKey: "bars",
-						TagValue: fmt.Sprintf("%d", sequence.Bars),
-						Auto:     true,
-					})
-				}
+			}
+			if sequence.Bars > 0 {
+				_ = s.queries.AddFileTag(r.Context(), db.AddFileTagParams{
+					FileID: fileID, TagKey: "bars",
+					TagValue: fmt.Sprintf("%d", sequence.Bars),
+					Auto:     true,
+				})
 			}
 		}
 	}
@@ -602,6 +609,12 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 	if division == "" {
 		division = "24"
 	}
+
+	var tags []db.FileTag
+	if fileID != 0 {
+		tags, _ = s.queries.ListFileTags(r.Context(), fileID)
+	}
+
 	data := SequenceViewData{
 		Path:     path,
 		FileName: filepath.Base(path),
@@ -610,12 +623,25 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 		Loop:     sequence.Loop,
 		Version:  sequence.Version,
 		Grid:     grid,
+		FileID:   fileID,
+		Tags:     tags,
 		PGMPath:  pgmRelPath,
 		PGMFiles: s.pgmFilesInWorkspace(),
 		TSig:     tsig,
 		Division: division,
 	}
-	s.renderTemplate(w, "sequence_grid.html", data)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := s.templates.ExecuteTemplate(w, "sequence_grid.html", data); err != nil {
+		log.Printf("template sequence_grid.html: %v", err)
+		return
+	}
+	if fileID != 0 {
+		oobData := SequenceViewData{FileID: fileID, Tags: tags, OOBSwap: true}
+		if err := s.templates.ExecuteTemplate(w, "tags_section.html", oobData); err != nil {
+			log.Printf("template tags_section.html (oob): %v", err)
+		}
+	}
 }
 
 func (s *Server) handleSequenceToggleLoop(w http.ResponseWriter, r *http.Request) {

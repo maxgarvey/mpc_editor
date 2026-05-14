@@ -698,6 +698,53 @@ func TestHandleSequenceUpdate_WithWorkspaceSEQ(t *testing.T) {
 	}
 }
 
+// TestHandleSequenceUpdate_OOBTagsSection verifies that when BPM changes and the SEQ
+// is in the workspace catalog, the response includes an OOB tags section element that
+// reflects the updated auto-tags.
+func TestHandleSequenceUpdate_OOBTagsSection(t *testing.T) {
+	srv := testServer(t)
+
+	seqData, err := os.ReadFile(testdataPath("test.seq"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seqDest := filepath.Join(srv.session.WorkspacePath, "oob.seq")
+	if err := os.WriteFile(seqDest, seqData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	if _, err := srv.queries.UpsertFile(ctx, db.UpsertFileParams{
+		Path: "oob.seq", FileType: "seq", Size: int64(len(seqData)), ModTime: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	form := url.Values{
+		"path": {seqDest},
+		"bpm":  {"120.0"},
+		"bars": {"2"},
+	}
+	req := httptest.NewRequest("POST", "/sequence/update", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `hx-swap-oob="outerHTML:#tags-section"`) {
+		t.Error("response missing OOB tags-section swap attribute")
+	}
+	if !strings.Contains(body, "bpm") {
+		t.Error("response missing bpm auto-tag")
+	}
+	if !strings.Contains(body, "bars") {
+		t.Error("response missing bars auto-tag")
+	}
+}
+
 // TestHandleSequencePage_WithCatalogPGM seeds a PGM in the catalog so that
 // pgmFilesInWorkspace returns non-empty results, covering the loop-body append path.
 func TestHandleSequencePage_WithCatalogPGM(t *testing.T) {

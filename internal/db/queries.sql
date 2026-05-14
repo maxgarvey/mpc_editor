@@ -163,7 +163,7 @@ INSERT OR IGNORE INTO file_tags (file_id, tag_key, tag_value, auto)
 VALUES (?, ?, ?, ?);
 
 -- name: RemoveFileTag :exec
-DELETE FROM file_tags WHERE file_id = ? AND tag_key = ? AND tag_value = ?;
+DELETE FROM file_tags WHERE file_id = ? AND tag_key = ? AND tag_value = ? AND auto = 0;
 
 -- name: RemoveAutoTags :exec
 DELETE FROM file_tags WHERE file_id = ? AND auto = 1;

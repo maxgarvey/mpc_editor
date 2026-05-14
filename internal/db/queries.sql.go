@@ -608,7 +608,7 @@ func (q *Queries) RemoveAutoTags(ctx context.Context, fileID int64) error {
 }
 
 const removeFileTag = `-- name: RemoveFileTag :exec
-DELETE FROM file_tags WHERE file_id = ? AND tag_key = ? AND tag_value = ?
+DELETE FROM file_tags WHERE file_id = ? AND tag_key = ? AND tag_value = ? AND auto = 0
 `
 
 type RemoveFileTagParams struct {

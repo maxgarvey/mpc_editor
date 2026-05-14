@@ -1,17 +1,19 @@
 {{define "tags_section.html"}}
-<div class="detail-section detail-tags" id="tags-section">
+<div class="detail-section detail-tags" id="tags-section"{{if .OOBSwap}} hx-swap-oob="outerHTML:#tags-section"{{end}}>
     <h3>Tags</h3>
     <div class="tag-list">
         {{range .Tags}}
-        <span class="tag-chip {{if .Auto}}tag-auto{{end}}">
+        <span class="tag-chip {{if .Auto}}tag-auto{{end}}"{{if .Auto}} title="Auto-generated from sequence parameters — edit via Tempo/Bars above"{{end}}>
             {{if .TagKey}}<span class="tag-key">{{.TagKey}}:</span>{{end}}
             <span class="tag-value">{{.TagValue}}</span>
+            {{if not .Auto}}
             <form class="tag-remove-form" hx-post="/file/tags/remove" hx-target="#tags-section" hx-swap="outerHTML">
                 <input type="hidden" name="id" value="{{$.FileID}}">
                 <input type="hidden" name="key" value="{{.TagKey}}">
                 <input type="hidden" name="value" value="{{.TagValue}}">
                 <button type="submit" class="tag-remove">&times;</button>
             </form>
+            {{end}}
         </span>
         {{end}}
     </div>

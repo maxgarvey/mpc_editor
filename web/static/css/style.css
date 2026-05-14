@@ -2646,8 +2646,10 @@ tr.pad-row:not(.has-events) .step-cell {
 }
 
 .tag-chip.tag-auto {
-    border-color: #555;
-    color: #999;
+    background: #1e2a1a;
+    border: 1px dashed #4a6a3a;
+    color: #7a9a6a;
+    cursor: default;
 }
 
 .tag-key {
