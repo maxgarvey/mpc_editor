@@ -531,6 +531,7 @@ const SequencePlayer = (function() {
     }
 
     function afterDetailSwap() {
+        SequenceEditor.activate();
         SequenceEditor.cancelAllDrags();
         SequenceEditor.clearSelection();
         syncLoopFromDOM();
@@ -570,6 +571,7 @@ const SequencePlayer = (function() {
         syncLoopFromDOM();
         syncMetaFromDOM();
         renderGridRuler();
+        if (document.getElementById('seq-step-grid')) SequenceEditor.activate();
         SequenceEditor.restoreSnapBtn();
     });
 
@@ -959,6 +961,7 @@ const SequencePlayer = (function() {
 
 const SequenceEditor = (function() {
     var mode = 'view'; // 'view' | 'insert' | 'edit'
+    var _editorActive = false; // true only when a sequence detail panel is visible
 
     // --- drag state ---
     var drag = null; // { pad, step, bar, el }
@@ -1182,6 +1185,7 @@ const SequenceEditor = (function() {
     // ---- insert mode: click to toggle ----
 
     document.addEventListener('click', function(e) {
+        if (!_editorActive) return;
         if (mode !== 'insert') return;
         var cell = e.target.closest('#seq-step-grid .step-cell');
         if (!cell) return;
@@ -1207,6 +1211,7 @@ const SequenceEditor = (function() {
     // ---- insert mode: mousedown → drag to position, mouseup to commit ----
 
     document.addEventListener('mousedown', function(e) {
+        if (!_editorActive) return;
         if (mode === 'insert' && e.button === 0) {
             var insertCell = e.target.closest('#seq-step-grid .step-cell');
             if (insertCell) {
@@ -1233,6 +1238,7 @@ const SequenceEditor = (function() {
     // ---- edit mode: mouse-drag to move ----
 
     document.addEventListener('mousedown', function(e) {
+        if (!_editorActive) return;
         if (mode !== 'edit') return;
         if (e.button !== 0) return;
         var cell = e.target.closest('#seq-step-grid .step-cell');
@@ -1266,6 +1272,7 @@ const SequenceEditor = (function() {
     });
 
     document.addEventListener('mousemove', function(e) {
+        if (!_editorActive) return;
         if (!drag && !contDrag && !contInsert && !gridInsert) return;
 
         if (dragGhost) {
@@ -1359,6 +1366,7 @@ const SequenceEditor = (function() {
     });
 
     document.addEventListener('mouseup', function(e) {
+        if (!_editorActive) return;
         // Piano roll drag
         if (contDrag) {
             var contContainer = document.getElementById('seq-continuous-view');
@@ -1524,6 +1532,7 @@ const SequenceEditor = (function() {
     // ---- right-click: event detail popover (single or multi) ----
 
     document.addEventListener('contextmenu', function(e) {
+        if (!_editorActive) return;
         var cell = e.target.closest('#seq-step-grid .step-cell');
         if (!cell || !cell.classList.contains('step-active')) return;
         e.preventDefault();
@@ -1553,6 +1562,7 @@ const SequenceEditor = (function() {
     // ---- piano roll right-click: event detail popover ----
 
     document.addEventListener('contextmenu', function(e) {
+        if (!_editorActive) return;
         var evDiv = e.target.closest('.seq-cont-event');
         if (!evDiv) return;
         e.preventDefault();
@@ -1661,6 +1671,7 @@ const SequenceEditor = (function() {
 
     // Close detail on click outside; clear selection on click outside grid/piano-roll.
     document.addEventListener('mousedown', function(e) {
+        if (!_editorActive) return;
         var panel = document.getElementById('seq-event-detail');
         if (panel && panel.style.display !== 'none' && !panel.contains(e.target)) {
             closeDetail();
@@ -1672,6 +1683,7 @@ const SequenceEditor = (function() {
 
     // Close detail on Escape; Delete selected events on Delete key.
     document.addEventListener('keydown', function(e) {
+        if (!_editorActive) return;
         if (e.key === 'Escape') { closeDetail(); return; }
         if (e.key === 'Delete') {
             var panel = document.getElementById('seq-event-detail');
@@ -1693,6 +1705,7 @@ const SequenceEditor = (function() {
     // ---- piano roll: click (ctrl+click selection / view-mode preview) ----
 
     document.addEventListener('click', function(e) {
+        if (!_editorActive) return;
         var evDiv = e.target.closest('.seq-cont-event');
         if (!evDiv) return;
         var pad = parseInt(evDiv.dataset.pad);
@@ -1721,6 +1734,7 @@ const SequenceEditor = (function() {
     // ---- piano roll: insert-mode mousedown on empty track body starts a pending insert ----
 
     document.addEventListener('mousedown', function(e) {
+        if (!_editorActive) return;
         if (mode !== 'insert') return;
         if (e.button !== 0) return;
         if (e.target.closest('.seq-cont-event')) return; // handled by click handler (toggle existing)
@@ -1749,6 +1763,7 @@ const SequenceEditor = (function() {
     // ---- piano roll: edit-mode mousedown for drag ----
 
     document.addEventListener('mousedown', function(e) {
+        if (!_editorActive) return;
         if (mode !== 'edit') return;
         if (e.button !== 0) return;
         var evDiv = e.target.closest('.seq-cont-event');
@@ -1812,6 +1827,7 @@ const SequenceEditor = (function() {
 
     // View mode: click to preview; ctrl+click to select.
     document.addEventListener('click', function(e) {
+        if (!_editorActive) return;
         if (mode !== 'view') return;
         var cell = e.target.closest('#seq-step-grid .step-cell');
         if (!cell) return;
@@ -1862,7 +1878,12 @@ const SequenceEditor = (function() {
 
     window.addEventListener('blur', cancelAllDrags);
 
+    function activate() { _editorActive = true; }
+    function deactivate() { _editorActive = false; cancelAllDrags(); }
+
     return {
+        activate: activate,
+        deactivate: deactivate,
         setMode: setMode,
         restoreModeButtons: restoreModeButtons,
         clearSelection: clearSelection,

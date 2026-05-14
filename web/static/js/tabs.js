@@ -90,6 +90,9 @@ const TabManager = (function() {
                 (SequencePlayer.isPlaying() || SequencePlayer.isPaused())) {
             SequencePlayer.stop(true);
         }
+        if (typeof SequenceEditor !== 'undefined') {
+            SequenceEditor.deactivate();
+        }
     }
 
     function activate(tabId) {
