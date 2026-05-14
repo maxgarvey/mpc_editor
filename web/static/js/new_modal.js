@@ -285,19 +285,19 @@ function confirmNewProgram() {
 
 function changeImportDest() {
     openBrowser('select-dir', 'import-dest-path');
-    // When selectDir is called, it updates the hidden input.
-    // We also need to update the displayed path text.
-    var checkInterval = setInterval(function() {
-        var overlay = document.getElementById('browser-overlay');
-        if (!overlay) {
-            clearInterval(checkInterval);
+    // Watch for the browser overlay to be removed, then sync the displayed path.
+    // MutationObserver fires exactly once on removal — no polling, no leak.
+    var observer = new MutationObserver(function() {
+        if (!document.getElementById('browser-overlay')) {
+            observer.disconnect();
             var input = document.getElementById('import-dest-path');
             var display = document.querySelector('.import-dest-path');
             if (input && display) {
                 display.textContent = input.value || 'workspace root';
             }
         }
-    }, 200);
+    });
+    observer.observe(document.body, { childList: true, subtree: false });
 }
 
 function handleImportFileSelect(input) {
