@@ -2,6 +2,8 @@
 
 (function() {
     var activeMenu = null;
+    var _moveSrcPath;
+    var _moveDestDir;
 
     function dismissMenu() {
         if (activeMenu) {
@@ -151,156 +153,166 @@
         // Prevent click on the input from bubbling to the entry
         input.addEventListener('click', function(e) { e.stopPropagation(); });
     }
-})();
 
-// --- Delete Modal ---
+    // --- Delete Modal ---
 
-function openDeleteModal(path, isDir) {
-    var itemType = isDir ? 'directory' : 'file';
-    var name = path.split('/').pop();
+    function openDeleteModal(path, isDir) {
+        var itemType = isDir ? 'directory' : 'file';
+        var name = path.split('/').pop();
 
-    var overlay = document.createElement('div');
-    overlay.id = 'delete-overlay';
-    overlay.className = 'file-browser-overlay';
-    overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) closeDeleteModal();
-    });
+        var overlay = document.createElement('div');
+        overlay.id = 'delete-overlay';
+        overlay.className = 'file-browser-overlay';
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeDeleteModal();
+        });
 
-    var modal = document.createElement('div');
-    modal.className = 'file-browser-modal';
-    modal.style.maxWidth = '420px';
-    modal.innerHTML =
-        '<h3>Delete ' + itemType + '</h3>' +
-        '<p style="margin:8px 0;word-break:break-all"><strong>' + name + '</strong></p>' +
-        '<p style="margin:8px 0;color:#aaa;font-size:12px">' + path + '</p>' +
-        '<div class="save-confirm-actions" style="flex-direction:column;gap:8px;margin-top:16px">' +
-            '<button class="btn-primary" style="background:#c44" onclick="confirmDelete(\'' + escapeAttr(path) + '\', \'disk\')">Delete from disk</button>' +
-            '<button class="btn-primary" onclick="confirmDelete(\'' + escapeAttr(path) + '\', \'catalog\')">Remove from catalog only</button>' +
-            '<button class="btn-primary" onclick="closeDeleteModal()">Cancel</button>' +
-        '</div>';
+        var modal = document.createElement('div');
+        modal.className = 'file-browser-modal';
+        modal.style.maxWidth = '420px';
+        modal.innerHTML =
+            '<h3>Delete ' + itemType + '</h3>' +
+            '<p style="margin:8px 0;word-break:break-all"><strong>' + name + '</strong></p>' +
+            '<p style="margin:8px 0;color:#aaa;font-size:12px">' + path + '</p>' +
+            '<div class="save-confirm-actions" style="flex-direction:column;gap:8px;margin-top:16px">' +
+                '<button class="btn-primary" style="background:#c44" onclick="confirmDelete(\'' + escapeAttr(path) + '\', \'disk\')">Delete from disk</button>' +
+                '<button class="btn-primary" onclick="confirmDelete(\'' + escapeAttr(path) + '\', \'catalog\')">Remove from catalog only</button>' +
+                '<button class="btn-primary" onclick="closeDeleteModal()">Cancel</button>' +
+            '</div>';
 
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-}
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
 
-function closeDeleteModal() {
-    var overlay = document.getElementById('delete-overlay');
-    if (overlay) overlay.remove();
-}
+    function closeDeleteModal() {
+        var overlay = document.getElementById('delete-overlay');
+        if (overlay) overlay.remove();
+    }
 
-function confirmDelete(path, mode) {
-    closeDeleteModal();
-    fetch('/workspace/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'path=' + encodeURIComponent(path) + '&mode=' + mode
-    }).then(function(r) {
-        if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
-        var prefix = path + '/';
-        TabManager.getTabs().forEach(function(tab) {
-            if (tab.path === path || tab.path.startsWith(prefix)) {
-                TabManager.close(tab.id);
+    function confirmDelete(path, mode) {
+        closeDeleteModal();
+        fetch('/workspace/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'path=' + encodeURIComponent(path) + '&mode=' + mode
+        }).then(function(r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+            var prefix = path + '/';
+            TabManager.getTabs().forEach(function(tab) {
+                if (tab.path === path || tab.path.startsWith(prefix)) {
+                    TabManager.close(tab.id);
+                }
+            });
+            refreshBrowserNav();
+        }).catch(function(err) {
+            alert('Delete failed: ' + err.message);
+        });
+    }
+
+    // --- Move Modal ---
+
+    function openMoveModal(srcPath, isDir) {
+        var overlay = document.createElement('div');
+        overlay.id = 'move-overlay';
+        overlay.className = 'file-browser-overlay';
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeMoveModal();
+        });
+
+        var fileName = srcPath.split('/').pop();
+
+        var modal = document.createElement('div');
+        modal.className = 'save-confirm-modal';
+        modal.innerHTML =
+            '<div class="save-confirm-header">Move "' + escapeHtml(fileName) + '"</div>' +
+            '<div id="move-dirs-container" class="save-confirm-body" style="padding:0; max-height:400px; overflow-y:auto;">' +
+                '<div style="padding:16px; color:#888;">Loading...</div>' +
+            '</div>' +
+            '<div class="move-dest-label">Destination: <strong id="move-dest-display">(select a folder)</strong></div>' +
+            '<div class="save-confirm-actions">' +
+                '<button class="btn-primary" id="move-confirm-btn" onclick="confirmMove()" disabled>Move</button>' +
+                '<button class="btn-primary" onclick="closeMoveModal()">Cancel</button>' +
+            '</div>';
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        _moveSrcPath = srcPath;
+        _moveDestDir = null;
+
+        // Load directory listing
+        loadMoveDirs('');
+
+        document.addEventListener('keydown', moveDirKeyHandler);
+    }
+
+    function moveDirKeyHandler(e) {
+        if (e.key === 'Escape') closeMoveModal();
+    }
+
+    function closeMoveModal() {
+        var overlay = document.getElementById('move-overlay');
+        if (overlay) overlay.remove();
+        document.removeEventListener('keydown', moveDirKeyHandler);
+    }
+
+    function loadMoveDirs(dir) {
+        var url = '/workspace/dirs?dir=' + encodeURIComponent(dir);
+        fetch(url).then(function(r) { return r.text(); }).then(function(html) {
+            var container = document.getElementById('move-dirs-container');
+            if (container) {
+                container.innerHTML = html;
+                if (typeof htmx !== 'undefined') htmx.process(container);
+                attachMoveDirClickSelection(container);
             }
         });
-        refreshBrowserNav();
-    }).catch(function(err) {
-        alert('Delete failed: ' + err.message);
-    });
-}
+    }
 
-// --- Move Modal ---
-
-function openMoveModal(srcPath, isDir) {
-    var overlay = document.createElement('div');
-    overlay.id = 'move-overlay';
-    overlay.className = 'file-browser-overlay';
-    overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) closeMoveModal();
-    });
-
-    var fileName = srcPath.split('/').pop();
-
-    var modal = document.createElement('div');
-    modal.className = 'save-confirm-modal';
-    modal.innerHTML =
-        '<div class="save-confirm-header">Move "' + escapeHtml(fileName) + '"</div>' +
-        '<div id="move-dirs-container" class="save-confirm-body" style="padding:0; max-height:400px; overflow-y:auto;">' +
-            '<div style="padding:16px; color:#888;">Loading...</div>' +
-        '</div>' +
-        '<div class="move-dest-label">Destination: <strong id="move-dest-display">(select a folder)</strong></div>' +
-        '<div class="save-confirm-actions">' +
-            '<button class="btn-primary" id="move-confirm-btn" onclick="confirmMove()" disabled>Move</button>' +
-            '<button class="btn-primary" onclick="closeMoveModal()">Cancel</button>' +
-        '</div>';
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    window._moveSrcPath = srcPath;
-    window._moveDestDir = null;
-
-    // Load directory listing
-    loadMoveDirs('');
-
-    document.addEventListener('keydown', moveDirKeyHandler);
-}
-
-function moveDirKeyHandler(e) {
-    if (e.key === 'Escape') closeMoveModal();
-}
-
-function closeMoveModal() {
-    var overlay = document.getElementById('move-overlay');
-    if (overlay) overlay.remove();
-    document.removeEventListener('keydown', moveDirKeyHandler);
-}
-
-function loadMoveDirs(dir) {
-    var url = '/workspace/dirs?dir=' + encodeURIComponent(dir);
-    fetch(url).then(function(r) { return r.text(); }).then(function(html) {
-        var container = document.getElementById('move-dirs-container');
-        if (container) {
-            container.innerHTML = html;
-            if (typeof htmx !== 'undefined') htmx.process(container);
-            attachMoveDirClickSelection(container);
-        }
-    });
-}
-
-function attachMoveDirClickSelection(container) {
-    var entries = (container || document).querySelectorAll('#move-dirs-container .move-dir-entry');
-    entries.forEach(function(entry) {
-        entry.addEventListener('click', function() {
-            entries.forEach(function(e) { e.classList.remove('selected'); });
-            entry.classList.add('selected');
-            var path = entry.getAttribute('data-path');
-            window._moveDestDir = path;
+    function attachMoveDirClickSelection(container) {
+        var entries = (container || document).querySelectorAll('#move-dirs-container .move-dir-entry');
+        entries.forEach(function(entry) {
+            entry.addEventListener('click', function() {
+                entries.forEach(function(e) { e.classList.remove('selected'); });
+                entry.classList.add('selected');
+                var path = entry.getAttribute('data-path');
+                _moveDestDir = path;
+                var display = document.getElementById('move-dest-display');
+                if (display) display.textContent = entry.querySelector('.entry-name').textContent;
+                var btn = document.getElementById('move-confirm-btn');
+                if (btn) btn.disabled = false;
+            });
+        });
+        var currentDirInput = document.getElementById('move-current-dir');
+        if (currentDirInput && currentDirInput.value) {
+            _moveDestDir = currentDirInput.value;
             var display = document.getElementById('move-dest-display');
-            if (display) display.textContent = entry.querySelector('.entry-name').textContent;
+            var dirName = currentDirInput.value.split('/').pop();
+            if (display) display.textContent = dirName + ' (current folder)';
             var btn = document.getElementById('move-confirm-btn');
             if (btn) btn.disabled = false;
-        });
-    });
-    var currentDirInput = document.getElementById('move-current-dir');
-    if (currentDirInput && currentDirInput.value) {
-        window._moveDestDir = currentDirInput.value;
-        var display = document.getElementById('move-dest-display');
-        var dirName = currentDirInput.value.split('/').pop();
-        if (display) display.textContent = dirName + ' (current folder)';
-        var btn = document.getElementById('move-confirm-btn');
-        if (btn) btn.disabled = false;
+        }
     }
-}
 
-function confirmMove() {
-    var dest = window._moveDestDir;
-    var src = window._moveSrcPath;
-    if (!dest || !src) return;
+    function confirmMove() {
+        var dest = _moveDestDir;
+        var src = _moveSrcPath;
+        if (!dest || !src) return;
 
-    closeMoveModal();
+        closeMoveModal();
 
-    htmx.ajax('POST', '/workspace/move', {
-        target: '#file-nav',
-        values: { path: src, dest: dest }
-    });
-}
+        htmx.ajax('POST', '/workspace/move', {
+            target: '#file-nav',
+            values: { path: src, dest: dest }
+        });
+    }
+
+    // Expose public API (called from onclick attributes and app.js)
+    window.openDeleteModal = openDeleteModal;
+    window.closeDeleteModal = closeDeleteModal;
+    window.confirmDelete = confirmDelete;
+    window.openMoveModal = openMoveModal;
+    window.closeMoveModal = closeMoveModal;
+    window.loadMoveDirs = loadMoveDirs;
+    window.attachMoveDirClickSelection = attachMoveDirClickSelection;
+    window.confirmMove = confirmMove;
+})();
