@@ -1,15 +1,56 @@
 // --- Drag-and-Drop ---
 
-function initDragDrop() {
-    const padBtns = document.querySelectorAll('.pad-btn');
-    padBtns.forEach(btn => {
-        btn.addEventListener('dragover', handleDragOver);
-        btn.addEventListener('dragleave', handleDragLeave);
-        btn.addEventListener('drop', handleDrop);
+// Pad-button drag-and-drop uses document-level delegation so listeners are
+// attached exactly once regardless of how many HTMX swaps replace the pad grid.
+(function() {
+    document.addEventListener('dragover', function(e) {
+        var btn = e.target.closest('.pad-btn');
+        if (!btn) return;
+        e.preventDefault();
+        btn.classList.add('drag-over');
+        e.dataTransfer.dropEffect = 'copy';
     });
 
-    // Also allow drop on slicer waveform container
-    const waveformContainer = document.querySelector('.waveform-container');
+    document.addEventListener('dragleave', function(e) {
+        var btn = e.target.closest('.pad-btn');
+        if (!btn) return;
+        // Only remove the class when the cursor actually leaves the button,
+        // not when it moves to a child element (pad-number, pad-name, etc.).
+        if (!btn.contains(e.relatedTarget)) {
+            btn.classList.remove('drag-over');
+        }
+    });
+
+    document.addEventListener('drop', function(e) {
+        var btn = e.target.closest('.pad-btn');
+        if (!btn) return;
+        e.preventDefault();
+        btn.classList.remove('drag-over');
+
+        var padIndex = parseInt(btn.getAttribute('data-pad-index') || '0');
+
+        // Internal browser-to-pad drag (WAV file from file browser).
+        var wavPath = e.dataTransfer.getData('text/wav-path');
+        if (wavPath) {
+            if (btn.classList.contains('has-sample')) {
+                openAssignModal(wavPath, padIndex);
+            } else {
+                assignPathToPad(wavPath, padIndex, 'per-pad');
+            }
+            return;
+        }
+
+        // OS file drop.
+        var files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+        uploadFiles(files, padIndex, 'per-pad');
+    });
+})();
+
+// initDragDrop handles the slicer waveform container drop target, which lives
+// on a separate page and is initialized once on DOMContentLoaded.
+function initDragDrop() {
+    var waveformContainer = document.querySelector('.waveform-container');
     if (waveformContainer) {
         waveformContainer.addEventListener('dragover', handleDragOver);
         waveformContainer.addEventListener('dragleave', handleDragLeave);
@@ -26,37 +67,9 @@ function handleDragOver(e) {
 
 function handleDragLeave(e) {
     e.preventDefault();
-    // Only remove the class when the cursor actually leaves the element,
-    // not when it moves to a child (pad-number, pad-name, etc.).
     if (!e.currentTarget.contains(e.relatedTarget)) {
         e.currentTarget.classList.remove('drag-over');
     }
-}
-
-function handleDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-
-    var padIndex = parseInt(e.currentTarget.getAttribute('data-pad-index') || '0');
-
-    // Check for internal browser-to-pad drag (WAV file from file browser).
-    var wavPath = e.dataTransfer.getData('text/wav-path');
-    if (wavPath) {
-        var hasSample = e.currentTarget.classList.contains('has-sample');
-        if (hasSample) {
-            openAssignModal(wavPath, padIndex);
-        } else {
-            assignPathToPad(wavPath, padIndex, 'per-pad');
-        }
-        return;
-    }
-
-    // OS file drop handling.
-    var files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-
-    uploadFiles(files, padIndex, files.length > 1 ? 'per-pad' : 'per-pad');
 }
 
 function handleSlicerDrop(e) {
@@ -67,19 +80,13 @@ function handleSlicerDrop(e) {
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
 
-    // Load the first WAV file into the slicer
-    // For local files, we need to upload then load
     const formData = new FormData();
     formData.append('files', files[0]);
 
-    // Upload the file, then load it into the slicer
     fetch('/assign/upload?pad=0&mode=per-pad', {
         method: 'POST',
         body: formData
     }).then(() => {
-        // For slicer, we'd need the file path on disk.
-        // Since drag-drop gives us browser files, we upload and store them.
-        // For now, show a message that the user should use the path input.
         const panel = document.getElementById('slicer-panel');
         if (panel) {
             const msg = panel.querySelector('.export-result');
@@ -150,5 +157,4 @@ function uploadFiles(files, padIndex, mode) {
     xhr.send(formData);
 }
 
-// Init drag-drop on load
 document.addEventListener('DOMContentLoaded', initDragDrop);

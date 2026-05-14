@@ -146,7 +146,6 @@ function initDetailContent(el) {
 
 // Re-initialize UI components when HTMX swaps content
 document.addEventListener('htmx:afterSettle', function(e) {
-    initDragDrop();
     initTabs();
     initDetailContent(e.detail && e.detail.target ? e.detail.target : document.body);
 });
