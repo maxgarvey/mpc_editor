@@ -3,6 +3,7 @@
 const SequencePlayer = (function() {
     var playing = false;
     var paused = false;  // stopped mid-sequence; playhead stays until second stop
+    var pausedFracStep = 0; // fractional step position saved when pausing
     var looping = false;
     var scheduleTimer = null;
     var rafHandle = null;
@@ -609,7 +610,25 @@ const SequencePlayer = (function() {
         return !mutedPads.has(padIndex);
     }
 
+    function resume() {
+        var ctx = AudioPlayer.getContext();
+        var bufferSec = 0.05;
+        // Re-anchor startAudioTime so that pausedFracStep lands at ctx.currentTime + buffer.
+        startAudioTime = ctx.currentTime + bufferSec - pausedFracStep * stepDurationSec;
+        scheduledUpTo = ctx.currentTime + bufferSec;
+        currentStep = -1; // force drawLoop to re-highlight on the first tick
+        playing = true;
+        paused = false;
+        pendingPgm = null; // let checkPgmChange detect any dropdown change since pause
+        var stopBtn = document.getElementById('seq-stop-btn');
+        if (stopBtn) stopBtn.classList.remove('active');
+        initPlayhead();
+        scheduler();
+        drawLoop();
+    }
+
     function play(seqPath, bar) {
+        if (paused) { resume(); return; }
         stop(true);
         var pgm = currentPgm();
         activePgm = pgm;
@@ -753,6 +772,8 @@ const SequencePlayer = (function() {
 
         if (playing && !reset) {
             // First press while playing: pause at current position.
+            var ctx0 = AudioPlayer.getContext();
+            pausedFracStep = ((ctx0.currentTime - startAudioTime) / stepDurationSec) % totalSteps;
             playing = false;
             if (scheduleTimer) { clearTimeout(scheduleTimer); scheduleTimer = null; }
             if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = null; }
@@ -766,6 +787,9 @@ const SequencePlayer = (function() {
         }
 
         // Full reset: second press while paused, Play starting fresh, or natural end.
+        // Scroll back to the beginning only on user-initiated resets (second stop press),
+        // not when play() or drawLoop calls stop(true) internally.
+        var scrollToStart = !reset && paused;
         playing = false;
         paused = false;
         pendingPgm = null;
@@ -779,6 +803,12 @@ const SequencePlayer = (function() {
         });
         hidePlayhead();
         if (stopBtn) stopBtn.classList.remove('active');
+        if (scrollToStart) {
+            var gridScroll = document.getElementById('seq-grid-scroll');
+            if (gridScroll) gridScroll.scrollLeft = 0;
+            var contView = document.getElementById('seq-continuous-view');
+            if (contView) contView.scrollLeft = 0;
+        }
     }
 
     // Re-fetch events and re-attach playhead after a grid DOM update.
