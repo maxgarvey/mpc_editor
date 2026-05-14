@@ -963,6 +963,7 @@ const WavDetailPlayer = (function() {
 
     return {
         init: init,
+        cleanup: cleanup,
         toggle: toggle,
         stop: stopPlayback,
         seek: seek,

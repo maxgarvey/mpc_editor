@@ -127,6 +127,9 @@ document.addEventListener('keydown', function(e) {
 // Called from both htmx:afterSettle (HTMX swaps) and tabs.js (fetch-based tab activations).
 function initDetailContent(el) {
     if (!el || !el.querySelector) return;
+    // Always clean up the WAV detail player when the detail panel content changes,
+    // so audio stops and DOM refs are cleared even when switching to a non-WAV tab.
+    if (typeof WavDetailPlayer !== 'undefined') WavDetailPlayer.cleanup();
     var wavPanel = el.querySelector('.detail-wav[data-rel-path]');
     if (wavPanel) {
         var relPath = wavPanel.getAttribute('data-rel-path');
