@@ -1,7 +1,7 @@
 {{define "sequence_controls.html"}}
 <div class="seq-controls">
     <button class="btn-sm btn-set" onclick="SequencePlayer.play('{{.Path}}', 0)">Play</button>
-    <button class="btn-sm" onclick="SequencePlayer.stop()">Stop</button>
+    <button class="btn-sm" id="seq-stop-btn" onclick="SequencePlayer.stop()">Stop</button>
     <button class="btn-sm{{if .Loop}} active{{end}}" id="seq-loop-btn" onclick="SequencePlayer.toggleLoop()">Loop</button>
     <span class="seq-mode-sep">|</span>
     <span class="seq-mode-label">Mode:</span>

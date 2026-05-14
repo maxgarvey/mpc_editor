@@ -2,6 +2,7 @@
 
 const SequencePlayer = (function() {
     var playing = false;
+    var paused = false;  // stopped mid-sequence; playhead stays until second stop
     var looping = false;
     var scheduleTimer = null;
     var rafHandle = null;
@@ -16,7 +17,9 @@ const SequencePlayer = (function() {
 
     var SCHEDULE_AHEAD_SEC = 0.12;
     var LOOKAHEAD_MS = 25;
-    var selectedPgm = '';
+    var activePgm = '';   // program the scheduler is using right now
+    var pendingPgm = null; // program being prefetched; null when none in flight
+    var pgmLoadId = 0;     // increments on each new load to discard stale callbacks
 
     // View mode: 'grid' | 'continuous'
     var seqViewMode = 'grid';
@@ -74,7 +77,17 @@ const SequencePlayer = (function() {
             return;
         }
         if (!playheadEl) return;
-        playheadEl.style.left = (playheadStepLeft + fractionalStep * playheadStepWidth) + 'px';
+        var contentX = playheadStepLeft + fractionalStep * playheadStepWidth;
+        playheadEl.style.left = contentX + 'px';
+        // Auto-scroll to keep playhead visible (mirrors piano roll behavior).
+        var gridScrollEl = document.getElementById('seq-grid-scroll');
+        if (gridScrollEl) {
+            var visLeft = gridScrollEl.scrollLeft + TRACK_NAME_W;
+            var visRight = gridScrollEl.scrollLeft + gridScrollEl.clientWidth;
+            if (contentX < visLeft || contentX > visRight - 30) {
+                gridScrollEl.scrollLeft = Math.max(0, contentX - TRACK_NAME_W - 60);
+            }
+        }
     }
 
     function hidePlayhead() {
@@ -437,7 +450,7 @@ const SequencePlayer = (function() {
 
     function currentPgm() {
         var el = document.getElementById('seq-pgm-select');
-        return el ? el.value : selectedPgm;
+        return el ? el.value : activePgm;
     }
 
     function loadContinuousView() {
@@ -505,6 +518,13 @@ const SequencePlayer = (function() {
         restoreBankState();
         restoreViewLayout();
         renderGridRuler();
+        // The DOM was replaced; force drawLoop to re-highlight the current step
+        // on the next frame so the new cells pick up step-playing immediately.
+        if (playing) currentStep = -1;
+        // If the stop button survived the swap (it lives in sequence_controls which
+        // is inside the swapped region), sync its active state to paused.
+        var stopBtn = document.getElementById('seq-stop-btn');
+        if (stopBtn) stopBtn.classList.toggle('active', paused);
         refreshEvents();
     }
 
@@ -590,10 +610,12 @@ const SequencePlayer = (function() {
     }
 
     function play(seqPath, bar) {
-        stop();
-        var pgmEl = document.getElementById('seq-pgm-select');
-        selectedPgm = pgmEl ? pgmEl.value : '';
-        var pgmParam = selectedPgm ? '&pgm=' + encodeURIComponent(selectedPgm) : '';
+        stop(true);
+        var pgm = currentPgm();
+        activePgm = pgm;
+        pendingPgm = null;
+        pgmLoadId++;
+        var pgmParam = pgm ? '&pgm=' + encodeURIComponent(pgm) : '';
         fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=' + bar + pgmParam + getDisplayParams())
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -602,7 +624,7 @@ const SequencePlayer = (function() {
                 (data.events || []).forEach(function(e) {
                     if (!seen[e.padIndex]) { seen[e.padIndex] = true; padIndices.push(e.padIndex); }
                 });
-                return AudioPlayer.prefetchPadParams(padIndices, selectedPgm).then(function() { return data; });
+                return AudioPlayer.prefetchPadParams(padIndices, pgm).then(function() { return data; });
             })
             .then(function(data) { startPlayback(data); })
             .catch(function(err) { console.warn('Sequence fetch failed:', err); });
@@ -629,9 +651,48 @@ const SequencePlayer = (function() {
         drawLoop();
     }
 
+    // Watch for a program change mid-playback. Prefetches the new program in the
+    // background and atomically flips activePgm once the prefetch is complete, so
+    // in-flight events always finish with the old program's samples.
+    function checkPgmChange() {
+        var selected = currentPgm();
+        if (selected === activePgm || selected === pendingPgm) return;
+        pendingPgm = selected;
+        var myId = ++pgmLoadId;
+        var padIndices = [];
+        var seen = {};
+        seqEvents.forEach(function(e) {
+            if (!seen[e.padIndex]) { seen[e.padIndex] = true; padIndices.push(e.padIndex); }
+        });
+        AudioPlayer.prefetchPadParams(padIndices, selected).then(function() {
+            if (playing && myId === pgmLoadId) {
+                activePgm = selected;
+                pendingPgm = null;
+            }
+        });
+    }
+
     function scheduler() {
         if (!playing) return;
         var ctx = AudioPlayer.getContext();
+
+        // Pick up live BPM changes from the DOM input and re-anchor playback position.
+        var bpmEl = document.getElementById('seq-bpm-input');
+        if (bpmEl) {
+            var liveBpm = parseFloat(bpmEl.value);
+            if (liveBpm >= 20 && liveBpm !== seqBpm) {
+                var newStepDur = (60 / liveBpm) * (seqTicksPerStep / 96);
+                var fracStep = (ctx.currentTime - startAudioTime) / stepDurationSec;
+                startAudioTime = ctx.currentTime - fracStep * newStepDur;
+                scheduledUpTo = ctx.currentTime;
+                seqBpm = liveBpm;
+                stepDurationSec = newStepDur;
+            }
+        }
+
+        // Detect program dropdown changes and kick off a background prefetch.
+        checkPgmChange();
+
         var scheduleUntil = ctx.currentTime + SCHEDULE_AHEAD_SEC;
 
         while (scheduledUpTo < scheduleUntil) {
@@ -639,10 +700,10 @@ const SequencePlayer = (function() {
             if (!looping && absStep >= totalSteps) break;
             var step = absStep % totalSteps;
             var stepTime = startAudioTime + absStep * stepDurationSec;
-            if (selectedPgm) {
+            if (activePgm) {
                 seqEvents.forEach(function(e) {
                     if (e.step === step && isPadAudible(e.padIndex)) {
-                        AudioPlayer.playPadAtTime(e.padIndex, e.velocity, stepTime, selectedPgm);
+                        AudioPlayer.playPadAtTime(e.padIndex, e.velocity, stepTime, activePgm);
                     }
                 });
             }
@@ -660,7 +721,7 @@ const SequencePlayer = (function() {
         var absStep = Math.floor(absStepFrac);
 
         if (!looping && absStep >= totalSteps) {
-            stop();
+            stop(true);
             return;
         }
 
@@ -687,8 +748,28 @@ const SequencePlayer = (function() {
         });
     }
 
-    function stop() {
+    function stop(reset) {
+        var stopBtn = document.getElementById('seq-stop-btn');
+
+        if (playing && !reset) {
+            // First press while playing: pause at current position.
+            playing = false;
+            if (scheduleTimer) { clearTimeout(scheduleTimer); scheduleTimer = null; }
+            if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = null; }
+            AudioPlayer.stop();
+            document.querySelectorAll('.step-cell.step-playing').forEach(function(cell) {
+                cell.classList.remove('step-playing');
+            });
+            paused = true;
+            if (stopBtn) stopBtn.classList.add('active');
+            return;
+        }
+
+        // Full reset: second press while paused, Play starting fresh, or natural end.
         playing = false;
+        paused = false;
+        pendingPgm = null;
+        pgmLoadId++;
         if (scheduleTimer) { clearTimeout(scheduleTimer); scheduleTimer = null; }
         if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = null; }
         currentStep = 0;
@@ -697,6 +778,7 @@ const SequencePlayer = (function() {
             cell.classList.remove('step-playing');
         });
         hidePlayhead();
+        if (stopBtn) stopBtn.classList.remove('active');
     }
 
     // Re-fetch events and re-attach playhead after a grid DOM update.
@@ -775,6 +857,7 @@ const SequencePlayer = (function() {
         restoreViewLayout: restoreViewLayout,
         afterDetailSwap: afterDetailSwap,
         syncLoop: syncLoopFromDOM,
+        resetStepHighlight: function() { currentStep = -1; },
         toggleLoop: function() {
             var grid = document.getElementById('seq-step-grid');
             if (!grid) return;
@@ -978,7 +1061,10 @@ const SequenceEditor = (function() {
             .then(function(html) {
                 if (!html) return;
                 var grid = document.getElementById('sequence-grid');
-                if (grid) {
+                if (!grid) return;
+                // Defer DOM write to the next animation frame so the audio scheduler
+                // can fire in between (reduces insert-during-playback stutter).
+                requestAnimationFrame(function() {
                     grid.innerHTML = html;
                     if (window.htmx) htmx.process(grid);
                     clearSelection();
@@ -987,8 +1073,9 @@ const SequenceEditor = (function() {
                     SequencePlayer.restoreBankState();
                     SequencePlayer.restoreViewLayout();
                     SequencePlayer.syncLoop();
+                    if (SequencePlayer.isPlaying()) SequencePlayer.resetStepHighlight();
                     SequencePlayer.refreshEvents();
-                }
+                });
             })
             .catch(function(err) { console.error('seq edit fetch failed:', err); });
     }
@@ -999,9 +1086,9 @@ const SequenceEditor = (function() {
         mode = m;
         restoreModeButtons();
         var grid = getGrid();
-        if (grid) {
-            grid.setAttribute('data-seq-mode', m);
-        }
+        if (grid) grid.setAttribute('data-seq-mode', m);
+        var contView = document.getElementById('seq-continuous-view');
+        if (contView) contView.setAttribute('data-seq-mode', m);
     }
 
     function restoreModeButtons() {
@@ -1010,6 +1097,8 @@ const SequenceEditor = (function() {
         if (active) active.classList.add('active');
         var grid = getGrid();
         if (grid) grid.setAttribute('data-seq-mode', mode);
+        var contView = document.getElementById('seq-continuous-view');
+        if (contView) contView.setAttribute('data-seq-mode', mode);
     }
 
     // ---- insert mode: click to toggle ----
@@ -1669,6 +1758,29 @@ const SequenceEditor = (function() {
         inp.value = v;
         inp.dispatchEvent(new Event('change', {bubbles: true}));
     }
+
+    // Cancel any active drag and remove the ghost if the browser loses focus
+    // (e.g. mouse released outside the window). Without this the red drag ghost
+    // can remain on screen indefinitely.
+    window.addEventListener('blur', function() {
+        if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+        if (gridInsert) {
+            if (gridInsertOverCell) { gridInsertOverCell.classList.remove('step-drop-target'); gridInsertOverCell = null; }
+            gridInsert = null;
+        }
+        if (drag) {
+            if (drag.el) drag.el.classList.remove('step-dragging');
+            if (dragOverCell) { dragOverCell.classList.remove('step-drop-target'); dragOverCell = null; }
+            drag = null;
+        }
+        if (contDrag) {
+            contDrag.el.classList.remove('seq-cont-event-dragging');
+            if (contDragOverRow) { contDragOverRow.classList.remove('seq-cont-track-drop-target'); contDragOverRow = null; }
+            removeContDragPreview();
+            contDrag = null;
+        }
+        if (contInsert) { contInsert.el.remove(); contInsert = null; }
+    });
 
     return {
         setMode: setMode,

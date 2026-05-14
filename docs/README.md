@@ -8,6 +8,7 @@ Binary format specifications for MPC file types, derived from reverse-engineerin
 |------|-------------|
 | [`seq-format.md`](seq-format.md) | Byte-level layout of the `.SEQ` sequence file format: header fields, track chunks, event encoding, timing constants, and verification examples from real MPC 1000 files |
 | [`song-format.md`](song-format.md) | Partially-derived layout of the `.SNG` song file format: confirmed header, song step structure, and guidance for further reverse-engineering |
+| [`regex-patterns.md`](regex-patterns.md) | Regex-as-spec representation of all known fields in `.PGM`, `.SEQ`, and `.SNG`: identification patterns, field extraction, Python examples, and a consolidated table of every unknown byte region |
 | [`references.md`](references.md) | External resources: open-source MPC projects, format documentation links, community forums, and official manuals |
 
 ## Status

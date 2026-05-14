@@ -1827,6 +1827,24 @@ tr.pad-row:not(.has-events) .step-cell {
     border-color: #a0c840;
     box-shadow: inset 0 0 6px rgba(160, 200, 64, 0.3);
 }
+
+/* Piano roll: mode-based cursors */
+[data-seq-mode="insert"] .seq-cont-track-body {
+    cursor: cell;
+}
+[data-seq-mode="insert"] .seq-cont-event {
+    cursor: cell;
+}
+[data-seq-mode="edit"] .seq-cont-event {
+    cursor: grab;
+}
+[data-seq-mode="edit"] .seq-cont-event:active {
+    cursor: grabbing;
+}
+[data-seq-mode="view"] .seq-cont-event {
+    cursor: pointer;
+}
+
 .step-cell.step-dragging {
     opacity: 0.4;
 }
