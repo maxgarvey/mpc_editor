@@ -14,6 +14,8 @@ const SequencePlayer = (function() {
     var totalSteps = 16;
     var seqEvents = [];
     var seqBpm = 120;
+    var seqBars = 1;
+    var seqBeatsPerBar = 4;
     var scheduledUpTo = 0; // audio time up to which we've scheduled
 
     var SCHEDULE_AHEAD_SEC = 0.12;
@@ -205,19 +207,20 @@ const SequencePlayer = (function() {
         return { el: wrapper, totalPx: totalPx };
     }
 
-    // Renders the three-row ruler above the grid table using data attributes stored on the table element.
+    // Renders the three-row ruler above the grid table. Module vars are authoritative;
+    // DOM data attributes serve as the fallback before the first play() populates them.
     function renderGridRuler() {
         var grid = document.getElementById('seq-step-grid');
         var rulerWrap = document.getElementById('seq-grid-ruler');
         if (!grid || !rulerWrap) return;
 
-        var bpm = parseFloat(grid.dataset.seqBpm) || 120;
-        var bars = parseInt(grid.dataset.seqBars) || 1;
+        var bpm = seqBpm || parseFloat(grid.dataset.seqBpm) || 120;
+        var bars = seqBars || parseInt(grid.dataset.seqBars) || 1;
         var tsig = grid.dataset.seqTsig || '4_4';
-        var ticksPerStep = parseInt(grid.dataset.seqDivision) || 24;
+        var ticksPerStep = seqTicksPerStep || parseInt(grid.dataset.seqDivision) || 24;
 
         var tsParts = tsig.split('_');
-        var beatsPerBar = parseInt(tsParts[0]) || 4;
+        var beatsPerBar = seqBeatsPerBar || parseInt(tsParts[0]) || 4;
         var beatDenom = parseInt(tsParts[1]) || 4;
         var ticksPerBar = beatsPerBar * 96 * 4 / beatDenom;
         var stepsPerBar = Math.round(ticksPerBar / ticksPerStep);
@@ -511,10 +514,27 @@ const SequencePlayer = (function() {
         if (btn) btn.classList.toggle('active', looping);
     }
 
+    // Initialises module-level display vars from the server-rendered DOM attrs
+    // so renderGridRuler() has authoritative values before the first play() call.
+    function syncMetaFromDOM() {
+        var grid = document.getElementById('seq-step-grid');
+        if (!grid) return;
+        var bpm = parseFloat(grid.dataset.seqBpm);
+        if (bpm >= 20) seqBpm = bpm;
+        var bars = parseInt(grid.dataset.seqBars);
+        if (bars > 0) seqBars = bars;
+        var div = parseInt(grid.dataset.seqDivision);
+        if (div > 0) seqTicksPerStep = div;
+        var tsig = grid.dataset.seqTsig || '4_4';
+        var bpb = parseInt(tsig.split('_')[0]);
+        if (bpb > 0) seqBeatsPerBar = bpb;
+    }
+
     function afterDetailSwap() {
         SequenceEditor.cancelAllDrags();
         SequenceEditor.clearSelection();
         syncLoopFromDOM();
+        syncMetaFromDOM();
         SequenceEditor.restoreModeButtons();
         SequenceEditor.restoreSnapBtn();
         restoreBankState();
@@ -548,6 +568,7 @@ const SequencePlayer = (function() {
         }
         restoreBankState();
         syncLoopFromDOM();
+        syncMetaFromDOM();
         renderGridRuler();
         SequenceEditor.restoreSnapBtn();
     });
@@ -672,6 +693,8 @@ const SequencePlayer = (function() {
 
     function startPlayback(data) {
         seqBpm = data.bpm || 120;
+        seqBars = data.bars || 1;
+        seqBeatsPerBar = data.beatsPerBar || 4;
         seqEvents = data.events || [];
         seqTicksPerStep = data.ticksPerStep || 24;
         stepDurationSec = (60 / seqBpm) * (seqTicksPerStep / 96);
@@ -727,6 +750,7 @@ const SequencePlayer = (function() {
                 scheduledUpTo = ctx.currentTime;
                 seqBpm = liveBpm;
                 stepDurationSec = newStepDur;
+                renderGridRuler();
             }
         }
 
@@ -847,6 +871,8 @@ const SequencePlayer = (function() {
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 seqEvents = data.events || [];
+                seqBars = data.bars || seqBars;
+                seqBeatsPerBar = data.beatsPerBar || seqBeatsPerBar;
                 totalSteps = (data.stepsPerBar || 16) * (data.bars || 1);
                 seqTicksPerStep = data.ticksPerStep || 24;
                 seqTotalTicks = data.totalTicks || (totalSteps * seqTicksPerStep);
