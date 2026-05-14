@@ -877,6 +877,7 @@ const SequencePlayer = (function() {
         play: play,
         stop: stop,
         isPlaying: function() { return playing; },
+        isPaused: function() { return paused; },
         toggleMutePad: toggleMutePad,
         toggleSoloPad: toggleSoloPad,
         toggleBank: toggleBank,

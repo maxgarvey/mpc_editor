@@ -85,10 +85,18 @@ const TabManager = (function() {
         activate(id);
     }
 
+    function stopSequenceIfPlaying() {
+        if (typeof SequencePlayer !== 'undefined' &&
+                (SequencePlayer.isPlaying() || SequencePlayer.isPaused())) {
+            SequencePlayer.stop(true);
+        }
+    }
+
     function activate(tabId) {
         var tab = findTabById(tabId);
         if (!tab) return;
 
+        stopSequenceIfPlaying();
         _activeTabId = tabId;
 
         // Update tab bar active states
@@ -187,6 +195,7 @@ const TabManager = (function() {
     }
 
     function showWelcome() {
+        stopSequenceIfPlaying();
         var content = document.getElementById('detail-tab-content');
         if (content) {
             content.innerHTML =
