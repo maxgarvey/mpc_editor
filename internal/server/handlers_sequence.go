@@ -358,12 +358,12 @@ type SequenceViewData struct {
 	Grid      *seq.StepGrid
 	FileID    int64
 	Tags      []db.FileTag
-	OOBSwap   bool     // true when this data is used for an HTMX out-of-band swap
+	OOBSwap   bool       // true when this data is used for an HTMX out-of-band swap
 	PadColors [16]string // CSS colors indexed by Bank A pad index (0-15), "" if none
-	PGMPath   string   // currently selected program for note mapping
-	PGMFiles  []string // all PGM files in workspace for the picker
-	TSig      string   // time signature, e.g. "4_4"
-	Division  string   // step division in ticks, e.g. "24" for 16th notes
+	PGMPath   string     // currently selected program for note mapping
+	PGMFiles  []string   // all PGM files in workspace for the picker
+	TSig      string     // time signature, e.g. "4_4"
+	Division  string     // step division in ticks, e.g. "24" for 16th notes
 }
 
 // padColorsFor builds a [16]string of CSS colors for Bank A pads of the program at pgmRelPath.
