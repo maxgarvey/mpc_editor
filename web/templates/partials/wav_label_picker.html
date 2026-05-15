@@ -1,0 +1,33 @@
+{{define "wav_label_picker.html"}}
+<div class="wav-label-picker" id="wav-label-picker">
+    <span class="label-picker-heading">Label:</span>
+    <div class="label-category-row">
+        {{range .Taxonomy}}
+        {{$cat := .Name}}
+        <div class="label-category{{if eq $.Category $cat}} label-category-active{{end}}">
+            <button class="label-cat-btn{{if eq $.Category $cat}} active{{end}}"
+                    onclick="LabelPicker.toggleCategory('{{$cat}}', this)"
+                    type="button">{{$cat}}</button>
+            <div class="label-subcat-row{{if eq $.Category $cat}} visible{{end}}" id="label-subcats-{{$cat}}">
+                {{range .Subcats}}
+                <button class="label-subcat-btn{{if and (eq $.Category $cat) (eq $.Subcategory .Name)}} active{{end}}"
+                        hx-post="/file/label"
+                        hx-target="#wav-label-picker"
+                        hx-swap="outerHTML"
+                        hx-vals='{"id": "{{$.FileID}}", "category": "{{$cat}}", "subcategory": "{{.Name}}"}'
+                        type="button">{{.Name}}</button>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+        {{if .Category}}
+        <button class="label-clear-btn"
+                hx-post="/file/label"
+                hx-target="#wav-label-picker"
+                hx-swap="outerHTML"
+                hx-vals='{"id": "{{.FileID}}", "category": "", "subcategory": ""}'
+                type="button" title="Clear label">&times;</button>
+        {{end}}
+    </div>
+</div>
+{{end}}

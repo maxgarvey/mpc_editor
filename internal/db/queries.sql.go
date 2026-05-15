@@ -96,7 +96,7 @@ func (q *Queries) DeleteSongSteps(ctx context.Context, songFileID int64) error {
 }
 
 const getFileByID = `-- name: GetFileByID :one
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE id = ?
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE id = ?
 `
 
 func (q *Queries) GetFileByID(ctx context.Context, id int64) (File, error) {
@@ -109,12 +109,15 @@ func (q *Queries) GetFileByID(ctx context.Context, id int64) (File, error) {
 		&i.Size,
 		&i.ModTime,
 		&i.ScannedAt,
+		&i.Color,
+		&i.Category,
+		&i.Subcategory,
 	)
 	return i, err
 }
 
 const getFileByPath = `-- name: GetFileByPath :one
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE path = ?
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE path = ?
 `
 
 func (q *Queries) GetFileByPath(ctx context.Context, path string) (File, error) {
@@ -127,7 +130,37 @@ func (q *Queries) GetFileByPath(ctx context.Context, path string) (File, error) 
 		&i.Size,
 		&i.ModTime,
 		&i.ScannedAt,
+		&i.Color,
+		&i.Category,
+		&i.Subcategory,
 	)
+	return i, err
+}
+
+const getFileColor = `-- name: GetFileColor :one
+SELECT color FROM files WHERE id = ?
+`
+
+func (q *Queries) GetFileColor(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getFileColor, id)
+	var color string
+	err := row.Scan(&color)
+	return color, err
+}
+
+const getFileLabel = `-- name: GetFileLabel :one
+SELECT category, subcategory FROM files WHERE id = ?
+`
+
+type GetFileLabelRow struct {
+	Category    string
+	Subcategory string
+}
+
+func (q *Queries) GetFileLabel(ctx context.Context, id int64) (GetFileLabelRow, error) {
+	row := q.db.QueryRowContext(ctx, getFileLabel, id)
+	var i GetFileLabelRow
+	err := row.Scan(&i.Category, &i.Subcategory)
 	return i, err
 }
 
@@ -271,7 +304,7 @@ func (q *Queries) InsertSongStep(ctx context.Context, arg InsertSongStepParams) 
 }
 
 const listAllFiles = `-- name: ListAllFiles :many
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files ORDER BY path
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files ORDER BY path
 `
 
 func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
@@ -290,6 +323,9 @@ func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
 			&i.Size,
 			&i.ModTime,
 			&i.ScannedAt,
+			&i.Color,
+			&i.Category,
+			&i.Subcategory,
 		); err != nil {
 			return nil, err
 		}
@@ -389,7 +425,7 @@ func (q *Queries) ListFilesByTag(ctx context.Context, arg ListFilesByTagParams) 
 }
 
 const listFilesByType = `-- name: ListFilesByType :many
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE file_type = ? ORDER BY path
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE file_type = ? ORDER BY path
 `
 
 func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File, error) {
@@ -408,6 +444,9 @@ func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File,
 			&i.Size,
 			&i.ModTime,
 			&i.ScannedAt,
+			&i.Color,
+			&i.Category,
+			&i.Subcategory,
 		); err != nil {
 			return nil, err
 		}
@@ -598,6 +637,39 @@ func (q *Queries) ListSongSteps(ctx context.Context, songFileID int64) ([]ListSo
 	return items, nil
 }
 
+const listWavColored = `-- name: ListWavColored :many
+SELECT id, path, color FROM files WHERE file_type = 'wav' AND color != '' ORDER BY path
+`
+
+type ListWavColoredRow struct {
+	ID    int64
+	Path  string
+	Color string
+}
+
+func (q *Queries) ListWavColored(ctx context.Context) ([]ListWavColoredRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWavColored)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListWavColoredRow
+	for rows.Next() {
+		var i ListWavColoredRow
+		if err := rows.Scan(&i.ID, &i.Path, &i.Color); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeAutoTags = `-- name: RemoveAutoTags :exec
 DELETE FROM file_tags WHERE file_id = ? AND auto = 1
 `
@@ -637,6 +709,35 @@ WHERE sample_file_id IS NULL AND sample_name != ''
 
 func (q *Queries) ResolveUnlinkedSamples(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, resolveUnlinkedSamples)
+	return err
+}
+
+const setFileColor = `-- name: SetFileColor :exec
+UPDATE files SET color = ? WHERE id = ?
+`
+
+type SetFileColorParams struct {
+	Color string
+	ID    int64
+}
+
+func (q *Queries) SetFileColor(ctx context.Context, arg SetFileColorParams) error {
+	_, err := q.db.ExecContext(ctx, setFileColor, arg.Color, arg.ID)
+	return err
+}
+
+const setFileLabel = `-- name: SetFileLabel :exec
+UPDATE files SET category = ?, subcategory = ? WHERE id = ?
+`
+
+type SetFileLabelParams struct {
+	Category    string
+	Subcategory string
+	ID          int64
+}
+
+func (q *Queries) SetFileLabel(ctx context.Context, arg SetFileLabelParams) error {
+	_, err := q.db.ExecContext(ctx, setFileLabel, arg.Category, arg.Subcategory, arg.ID)
 	return err
 }
 

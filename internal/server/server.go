@@ -206,6 +206,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/workspace/delete", s.handleWorkspaceDelete)
 	s.mux.HandleFunc("/file/tags/add", s.handleTagAdd)
 	s.mux.HandleFunc("/file/tags/remove", s.handleTagRemove)
+	s.mux.HandleFunc("/file/color", s.handleFileColor)
+	s.mux.HandleFunc("/file/label", s.handleFileLabel)
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)
 	s.mux.HandleFunc("/file/", s.handleFileDetail)
 

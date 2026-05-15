@@ -1,0 +1,22 @@
+{{define "wav_color_picker.html"}}
+<div class="wav-color-picker" id="wav-color-picker"{{if .OOB}} hx-swap-oob="outerHTML"{{end}}>
+    <span class="color-picker-label">Color:</span>
+    <div class="color-swatch-row">
+        {{range .Presets}}
+        <button class="color-swatch{{if eq $.Color .Name}} active{{end}}"
+                style="background-color: {{.CSS}}"
+                hx-post="/file/color"
+                hx-target="#wav-color-picker"
+                hx-swap="outerHTML"
+                hx-vals='{"id": "{{$.FileID}}", "color": "{{.Name}}"}'
+                title="{{.Name}}"></button>
+        {{end}}
+        <button class="color-swatch color-swatch-none{{if eq .Color ""}} active{{end}}"
+                hx-post="/file/color"
+                hx-target="#wav-color-picker"
+                hx-swap="outerHTML"
+                hx-vals='{"id": "{{$.FileID}}", "color": ""}'
+                title="No color">&times;</button>
+    </div>
+</div>
+{{end}}

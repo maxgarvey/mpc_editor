@@ -254,6 +254,7 @@ const SequencePlayer = (function() {
         seqTicksPerStep = ticksPerStep;
         var sampleNames = data.padSampleNames || [];
 
+        var padColors = data.padColors || [];
         var pxpt = STEP_PX / ticksPerStep;
         PX_PER_TICK = pxpt;
 
@@ -336,6 +337,8 @@ const SequencePlayer = (function() {
 
                 var nameCell = document.createElement('div');
                 nameCell.className = 'seq-cont-track-name';
+                var padColor = padColors[padIdx] || '';
+                if (padColor) nameCell.style.borderLeft = '3px solid ' + padColor;
 
                 var controls = document.createElement('div');
                 controls.className = 'seq-cont-track-controls';
@@ -410,7 +413,7 @@ const SequencePlayer = (function() {
                     evDiv.dataset.gs = evGs;
                     evDiv.style.left = Math.round(e.tick * pxpt) + 'px';
                     evDiv.style.width = Math.max(3, Math.round(e.durationTicks * pxpt)) + 'px';
-                    evDiv.style.backgroundColor = velocityToColor(e.velocity);
+                    evDiv.style.backgroundColor = padColors[padIdx] || velocityToColor(e.velocity);
                     evDiv.style.opacity = 0.5 + e.velocity / 127 * 0.5;
                     evDiv.title = padLabel(padIdx) + ' vel:' + e.velocity;
                     if (SequenceEditor.isContInSelection(padIdx, evGs)) {
@@ -457,7 +460,7 @@ const SequencePlayer = (function() {
         return el ? el.value : activePgm;
     }
 
-    function loadContinuousView() {
+    function loadContinuousView(swapOnLoad) {
         var grid = document.getElementById('seq-step-grid');
         if (!grid) return;
         var seqPath = grid.dataset.seqPath;
@@ -466,7 +469,10 @@ const SequencePlayer = (function() {
         var pgmParam = pgm ? '&pgm=' + encodeURIComponent(pgm) : '';
         fetch('/sequence/events?path=' + encodeURIComponent(seqPath) + '&bar=0' + pgmParam + getDisplayParams())
             .then(function(r) { return r.json(); })
-            .then(function(data) { renderContinuousView(data); })
+            .then(function(data) {
+                renderContinuousView(data);
+                if (swapOnLoad) restoreViewLayout();
+            })
             .catch(function(err) { console.warn('Continuous view load failed:', err); });
     }
 
@@ -484,9 +490,18 @@ const SequencePlayer = (function() {
 
     function setViewMode(m) {
         seqViewMode = m;
-        restoreViewLayout();
-        if (m === 'continuous') loadContinuousView();
-        if (m === 'grid') renderGridRuler();
+        if (m === 'continuous') {
+            // Activate the button immediately for responsiveness, but hold the
+            // container swap until the fetch completes so the grid stays visible
+            // instead of revealing an empty piano roll.
+            document.querySelectorAll('.seq-view-btn').forEach(function(b) { b.classList.remove('active'); });
+            var activeBtn = document.querySelector('.seq-view-btn--continuous');
+            if (activeBtn) activeBtn.classList.add('active');
+            loadContinuousView(true);
+        } else {
+            restoreViewLayout();
+            if (m === 'grid') renderGridRuler();
+        }
         // Re-init playhead for the active view.
         if (playing) initPlayhead();
         SequenceEditor.restoreSnapBtn();
@@ -965,7 +980,6 @@ const SequenceEditor = (function() {
 
     // --- drag state ---
     var drag = null; // { pad, step, bar, el }
-    var dragGhost = null;
     var dragOverCell = null;
 
     // --- grid insert drag state ---
@@ -1146,16 +1160,24 @@ const SequenceEditor = (function() {
                 // Defer DOM write to the next animation frame so the audio scheduler
                 // can fire in between (reduces insert-during-playback stutter).
                 requestAnimationFrame(function() {
+                    // In piano roll mode, preserve the existing rendered content so
+                    // restoreViewLayout never reveals an empty container. The content
+                    // is replaced once refreshEvents()'s fetch completes.
+                    var savedContHtml = null;
+                    if (SequencePlayer.getViewMode() === 'continuous') {
+                        var prevCont = document.getElementById('seq-continuous-view');
+                        if (prevCont) savedContHtml = prevCont.innerHTML;
+                    }
+
                     grid.innerHTML = html;
                     if (window.htmx) htmx.process(grid);
-                    clearSelection();
-                    SequenceEditor.restoreModeButtons();
-                    restoreSnapBtn();
-                    SequencePlayer.restoreBankState();
-                    SequencePlayer.restoreViewLayout();
-                    SequencePlayer.syncLoop();
-                    if (SequencePlayer.isPlaying()) SequencePlayer.resetStepHighlight();
-                    SequencePlayer.refreshEvents();
+
+                    if (savedContHtml !== null) {
+                        var newCont = document.getElementById('seq-continuous-view');
+                        if (newCont) newCont.innerHTML = savedContHtml;
+                    }
+
+                    SequencePlayer.afterDetailSwap();
                 });
             })
             .catch(function(err) { console.error('seq edit fetch failed:', err); });
@@ -1225,11 +1247,6 @@ const SequenceEditor = (function() {
                     el: insertCell,
                     moved: false
                 };
-                dragGhost = document.createElement('div');
-                dragGhost.className = 'step-drag-ghost';
-                dragGhost.style.left = (e.clientX + 14) + 'px';
-                dragGhost.style.top = (e.clientY - 14) + 'px';
-                document.body.appendChild(dragGhost);
                 return;
             }
         }
@@ -1261,24 +1278,11 @@ const SequenceEditor = (function() {
             el: cell
         };
         cell.classList.add('step-dragging');
-
-        dragGhost = document.createElement('div');
-        dragGhost.className = 'step-drag-ghost';
-        // Offset ghost from cursor so it never sits on top of the cursor position.
-        // This keeps elementFromPoint reliable without depending on pointer-events:none.
-        dragGhost.style.left = (e.clientX + 14) + 'px';
-        dragGhost.style.top = (e.clientY - 14) + 'px';
-        document.body.appendChild(dragGhost);
     });
 
     document.addEventListener('mousemove', function(e) {
         if (!_editorActive) return;
         if (!drag && !contDrag && !contInsert && !gridInsert) return;
-
-        if (dragGhost) {
-            dragGhost.style.left = (e.clientX + 14) + 'px';
-            dragGhost.style.top = (e.clientY - 14) + 'px';
-        }
 
         if (gridInsert) {
             var elgi = document.elementFromPoint(e.clientX, e.clientY);
@@ -1383,7 +1387,6 @@ const SequenceEditor = (function() {
             var deltaTicks = newTick - fromTick;
 
             // Resolve target pad from the row under the cursor.
-            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
             var targetEl = document.elementFromPoint(e.clientX, e.clientY);
             var targetRow = targetEl ? targetEl.closest('.seq-cont-track') : null;
             var toPad = targetRow ? parseInt(targetRow.dataset.pad) : contDrag.pad;
@@ -1443,7 +1446,6 @@ const SequenceEditor = (function() {
 
         // Grid insert drag commit
         if (gridInsert) {
-            if (dragGhost) { dragGhost.remove(); dragGhost = null; }
             if (gridInsertOverCell) { gridInsertOverCell.classList.remove('step-drop-target'); }
             var destCell = (gridInsert.moved && gridInsertOverCell) ? gridInsertOverCell : null;
             var savedGI = gridInsert;
@@ -1480,9 +1482,6 @@ const SequenceEditor = (function() {
         var fromGs = drag.globalStep;
         var isMulti = drag.isMulti;
         var sourceEl = drag.el;
-
-        // Remove ghost first so it cannot interfere with elementFromPoint below.
-        if (dragGhost) { dragGhost.remove(); dragGhost = null; }
 
         // Always use elementFromPoint at the release position as the source of truth.
         var target = null;
@@ -1793,11 +1792,6 @@ const SequenceEditor = (function() {
             isMulti: isMulti
         };
         evDiv.classList.add('seq-cont-event-dragging');
-        dragGhost = document.createElement('div');
-        dragGhost.className = 'step-drag-ghost';
-        dragGhost.style.left = (e.clientX + 14) + 'px';
-        dragGhost.style.top = (e.clientY - 14) + 'px';
-        document.body.appendChild(dragGhost);
     });
 
     // ---- pad / step preview ----
@@ -1853,11 +1847,10 @@ const SequenceEditor = (function() {
         inp.dispatchEvent(new Event('change', {bubbles: true}));
     }
 
-    // Cancel all active drag operations and remove any ghost elements.
+    // Cancel all active drag operations.
     // Called on window blur (mouse released outside window) and on HTMX grid
     // swaps so drag state never outlives the DOM elements it references.
     function cancelAllDrags() {
-        if (dragGhost) { dragGhost.remove(); dragGhost = null; }
         if (gridInsert) {
             if (gridInsertOverCell) { gridInsertOverCell.classList.remove('step-drop-target'); gridInsertOverCell = null; }
             gridInsert = null;

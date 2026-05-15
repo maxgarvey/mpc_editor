@@ -1886,10 +1886,28 @@ tr.pad-row:not(.has-events) .step-cell {
 
 .step-cell.step-dragging {
     opacity: 0.4;
+    outline: 2px solid rgba(255, 255, 255, 0.85);
+    outline-offset: -2px;
+    z-index: 1;
+    position: relative;
 }
 .step-cell.step-drop-target {
-    border-color: #ffcc00 !important;
-    box-shadow: inset 0 0 8px rgba(255, 204, 0, 0.5) !important;
+    background-color: rgba(204, 68, 68, 0.3) !important;
+    border-color: rgba(204, 68, 68, 0.7) !important;
+    box-shadow: none !important;
+}
+.step-cell.step-drop-target::after {
+    content: '';
+    display: block;
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
 }
 .step-cell.step-selected {
     outline: 2px solid #a0c840;
@@ -1897,22 +1915,6 @@ tr.pad-row:not(.has-events) .step-cell {
     z-index: 1;
     position: relative;
 }
-.step-drag-ghost {
-    position: fixed;
-    pointer-events: none;
-    z-index: 9999;
-    width: 20px;
-    height: 20px;
-    background: #cc2020;
-    border-radius: 50%;
-    opacity: 0.85;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: #fff;
-}
-
 /* Event detail popover */
 .seq-event-detail {
     position: fixed;
@@ -2300,6 +2302,8 @@ tr.pad-row:not(.has-events) .step-cell {
 
 .seq-cont-event-dragging {
     opacity: 0.4;
+    outline: 2px solid rgba(255, 255, 255, 0.85);
+    outline-offset: -2px;
 }
 
 .seq-cont-event-drag-preview {
@@ -2687,6 +2691,169 @@ tr.pad-row:not(.has-events) .step-cell {
 
 .tag-input {
     width: 200px;
+}
+
+/* --- Sample color picker --- */
+
+.wav-color-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #2a2a2a;
+    margin-bottom: 8px;
+}
+
+.color-picker-label {
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+}
+
+.color-swatch-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.color-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.1s, border-color 0.1s;
+}
+
+.color-swatch:hover {
+    transform: scale(1.2);
+    border-color: #fff;
+}
+
+.color-swatch.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 1px #888;
+}
+
+.color-swatch-none {
+    background: #222;
+    color: #666;
+    font-size: 12px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #444;
+}
+
+.color-swatch-none:hover {
+    border-color: #fff;
+    color: #ccc;
+}
+
+.color-swatch-none.active {
+    border-color: #888;
+}
+
+/* --- Label picker --- */
+
+.wav-label-picker {
+    padding: 8px 0 4px;
+}
+
+.label-picker-heading {
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.label-category-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+.label-category {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.label-cat-btn {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    color: #bbb;
+    border-radius: 3px;
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.label-cat-btn:hover {
+    background: #333;
+    color: #fff;
+}
+
+.label-cat-btn.active {
+    background: #3a3a3a;
+    border-color: #666;
+    color: #fff;
+}
+
+.label-subcat-row {
+    display: none;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 2px;
+}
+
+.label-subcat-row.visible {
+    display: flex;
+}
+
+.label-subcat-btn {
+    background: #222;
+    border: 1px solid #3a3a3a;
+    color: #999;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.label-subcat-btn:hover {
+    background: #2c2c2c;
+    color: #ccc;
+    border-color: #555;
+}
+
+.label-subcat-btn.active {
+    background: #2a3a2a;
+    border-color: #4aaf4a;
+    color: #4aaf4a;
+}
+
+.label-clear-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    align-self: center;
+}
+
+.label-clear-btn:hover {
+    color: #e05555;
 }
 
 /* --- Toolbar status --- */

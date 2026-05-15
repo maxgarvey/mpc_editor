@@ -9,12 +9,15 @@ import (
 )
 
 type File struct {
-	ID        int64
-	Path      string
-	FileType  string
-	Size      int64
-	ModTime   int64
-	ScannedAt int64
+	ID          int64
+	Path        string
+	FileType    string
+	Size        int64
+	ModTime     int64
+	ScannedAt   int64
+	Color       string
+	Category    string
+	Subcategory string
 }
 
 type FileTag struct {

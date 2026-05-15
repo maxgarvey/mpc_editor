@@ -5,11 +5,227 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
 )
+
+// ColorPreset is a named color preset for sample display.
+type ColorPreset struct {
+	Name string
+	CSS  string
+}
+
+var colorPresets = []ColorPreset{
+	{"red", "#e05555"},
+	{"orange", "#e07830"},
+	{"yellow", "#c8b822"},
+	{"green", "#4aaf4a"},
+	{"cyan", "#26aaaa"},
+	{"blue", "#4888e0"},
+	{"purple", "#8855cc"},
+	{"pink", "#e05090"},
+	{"white", "#cccccc"},
+	{"gray", "#777777"},
+}
+
+// colorToCSS returns the CSS hex for a preset name, or "" if not found.
+func colorToCSS(name string) string {
+	for _, p := range colorPresets {
+		if p.Name == name {
+			return p.CSS
+		}
+	}
+	return ""
+}
+
+// sampleKey returns the lookup key for a sample name: lowercase basename without extension.
+// This matches the MPC's 16-char-max truncated sample name storage format.
+func sampleKey(sampleName string) string {
+	base := filepath.Base(sampleName)
+	ext := filepath.Ext(base)
+	return strings.ToLower(strings.TrimSuffix(base, ext))
+}
+
+// sampleColorMap builds a map from sampleKey → CSS color for all colored WAV files.
+func (s *Server) sampleColorMap(ctx context.Context) map[string]string {
+	rows, err := s.queries.ListWavColored(ctx)
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	m := make(map[string]string, len(rows))
+	for _, r := range rows {
+		css := colorToCSS(r.Color)
+		if css != "" {
+			m[sampleKey(r.Path)] = css
+		}
+	}
+	return m
+}
+
+// handleFileColor sets the display color for a WAV file in the catalog.
+// POST /file/color — form params: id (file_id), color (preset name or "" to clear)
+func (s *Server) handleFileColor(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	fileID, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid file id", http.StatusBadRequest)
+		return
+	}
+
+	color := r.FormValue("color")
+	if color != "" && colorToCSS(color) == "" {
+		http.Error(w, "invalid color", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+	if err := s.queries.SetFileColor(ctx, db.SetFileColorParams{
+		Color: color,
+		ID:    fileID,
+	}); err != nil {
+		http.Error(w, "failed to set color", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]any{
+		"FileID":  fileID,
+		"Color":   color,
+		"Presets": colorPresets,
+	}
+	s.renderTemplate(w, "wav_color_picker.html", data)
+}
+
+// LabelSubcat is a subcategory entry in the label taxonomy.
+type LabelSubcat struct {
+	Name  string
+	Color string // preset color name assigned to this subcategory
+}
+
+// LabelCategory groups subcategories under a high-level category.
+type LabelCategory struct {
+	Name    string
+	Subcats []LabelSubcat
+}
+
+// labelTaxonomy defines the structured label hierarchy for sample classification.
+// 8 preset colors are reused across subcategories.
+var labelTaxonomy = []LabelCategory{
+	{Name: "drum", Subcats: []LabelSubcat{
+		{"kick", "red"},
+		{"hihat", "orange"},
+		{"snare", "yellow"},
+		{"crash", "orange"},
+		{"clap", "yellow"},
+		{"perc", "gray"},
+	}},
+	{Name: "bass", Subcats: []LabelSubcat{
+		{"acoustic", "green"},
+		{"electric", "cyan"},
+		{"slap", "green"},
+		{"synth", "cyan"},
+	}},
+	{Name: "instrument", Subcats: []LabelSubcat{
+		{"strings", "blue"},
+		{"guitar", "blue"},
+		{"piano", "purple"},
+		{"keys", "purple"},
+		{"brass", "orange"},
+		{"wind", "cyan"},
+	}},
+	{Name: "loop", Subcats: []LabelSubcat{
+		{"drum", "red"},
+		{"bass", "green"},
+		{"melody", "blue"},
+		{"full", "pink"},
+	}},
+	{Name: "other", Subcats: []LabelSubcat{
+		{"vocal", "pink"},
+		{"band", "white"},
+		{"retro", "gray"},
+		{"live", "white"},
+		{"sfx", "gray"},
+	}},
+}
+
+// labelColor returns the preset color name for a given category+subcategory pair.
+// Returns "" if not found.
+func labelColor(category, subcategory string) (string, bool) {
+	for _, cat := range labelTaxonomy {
+		if cat.Name == category {
+			for _, sub := range cat.Subcats {
+				if sub.Name == subcategory {
+					return sub.Color, true
+				}
+			}
+			return "", false
+		}
+	}
+	return "", false
+}
+
+// handleFileLabel sets the category/subcategory label for a WAV file and auto-assigns
+// the corresponding preset color.
+// POST /file/label — form params: id (file_id), category, subcategory
+func (s *Server) handleFileLabel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	fileID, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid file id", http.StatusBadRequest)
+		return
+	}
+
+	category := r.FormValue("category")
+	subcategory := r.FormValue("subcategory")
+
+	var color string
+	if category != "" || subcategory != "" {
+		var ok bool
+		color, ok = labelColor(category, subcategory)
+		if !ok {
+			http.Error(w, "invalid label", http.StatusBadRequest)
+			return
+		}
+	}
+
+	ctx := r.Context()
+	if err := s.queries.SetFileLabel(ctx, db.SetFileLabelParams{
+		Category: category, Subcategory: subcategory, ID: fileID,
+	}); err != nil {
+		http.Error(w, "failed to set label", http.StatusInternalServerError)
+		return
+	}
+	if err := s.queries.SetFileColor(ctx, db.SetFileColorParams{
+		Color: color, ID: fileID,
+	}); err != nil {
+		http.Error(w, "failed to set color", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]any{
+		"FileID":      fileID,
+		"Category":    category,
+		"Subcategory": subcategory,
+		"Taxonomy":    labelTaxonomy,
+		"Color":       color,
+		"Presets":     colorPresets,
+	}
+	// Main swap: label picker
+	s.renderTemplate(w, "wav_label_picker.html", data)
+	// OOB swap: color picker (template checks .OOB to add hx-swap-oob attribute)
+	data["OOB"] = true
+	s.renderTemplate(w, "wav_color_picker.html", data)
+}
 
 // FileDetailData holds template data for the file detail page.
 type FileDetailData struct {

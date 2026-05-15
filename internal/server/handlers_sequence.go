@@ -84,6 +84,36 @@ func (s *Server) allPadSampleNames(pgmRelPath string) []string {
 	return s.padSampleNamesSlice(pgmRelPath, 64)
 }
 
+// allPadColors returns a CSS color string for each of the 64 pads of the program
+// at pgmRelPath. Entry is "" when the pad has no assigned color.
+func (s *Server) allPadColors(ctx context.Context, pgmRelPath string) []string {
+	colors := make([]string, 64)
+	if pgmRelPath == "" {
+		return colors
+	}
+	prog, _ := pgm.OpenProgram(s.resolvePath(pgmRelPath))
+	if prog == nil {
+		return colors
+	}
+	colorMap := s.sampleColorMap(ctx)
+	if len(colorMap) == 0 {
+		return colors
+	}
+	for i := range min(prog.PadCount(), 64) {
+		pad := prog.Pad(i)
+		for j := range 4 {
+			name := pad.Layer(j).GetSampleName()
+			if name != "" {
+				if css := colorMap[sampleKey(name)]; css != "" {
+					colors[i] = css
+					break
+				}
+			}
+		}
+	}
+	return colors
+}
+
 func (s *Server) padSampleNames(pgmRelPath string) [16]string {
 	var arr [16]string
 	copy(arr[:], s.padSampleNamesSlice(pgmRelPath, 16))
@@ -281,17 +311,18 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		division = "24"
 	}
 	data := SequenceViewData{
-		Path:     seqPath,
-		FileName: filepath.Base(seqPath),
-		BPM:      sequence.BPM,
-		Bars:     sequence.Bars,
-		Loop:     sequence.Loop,
-		Version:  sequence.Version,
-		Grid:     grid,
-		PGMPath:  pgmRelPath,
-		PGMFiles: s.pgmFilesInWorkspace(),
-		TSig:     tsig,
-		Division: division,
+		Path:      seqPath,
+		FileName:  filepath.Base(seqPath),
+		BPM:       sequence.BPM,
+		Bars:      sequence.Bars,
+		Loop:      sequence.Loop,
+		Version:   sequence.Version,
+		Grid:      grid,
+		PadColors: s.padColorsFor(r.Context(), pgmRelPath),
+		PGMPath:   pgmRelPath,
+		PGMFiles:  s.pgmFilesInWorkspace(),
+		TSig:      tsig,
+		Division:  division,
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
 }
@@ -317,21 +348,48 @@ func (s *Server) pgmFilesInWorkspace() []string {
 
 // SequenceViewData holds template data for the sequence step grid page.
 type SequenceViewData struct {
-	Path     string
-	FileName string // base name only, e.g. "Sequence01.SEQ"
-	Error    string
-	BPM      float64
-	Bars     int
-	Loop     bool
-	Version  string
-	Grid     *seq.StepGrid
-	FileID   int64
-	Tags     []db.FileTag
-	OOBSwap  bool     // true when this data is used for an HTMX out-of-band swap
-	PGMPath  string   // currently selected program for note mapping
-	PGMFiles []string // all PGM files in workspace for the picker
-	TSig     string   // time signature, e.g. "4_4"
-	Division string   // step division in ticks, e.g. "24" for 16th notes
+	Path      string
+	FileName  string // base name only, e.g. "Sequence01.SEQ"
+	Error     string
+	BPM       float64
+	Bars      int
+	Loop      bool
+	Version   string
+	Grid      *seq.StepGrid
+	FileID    int64
+	Tags      []db.FileTag
+	OOBSwap   bool     // true when this data is used for an HTMX out-of-band swap
+	PadColors [16]string // CSS colors indexed by Bank A pad index (0-15), "" if none
+	PGMPath   string   // currently selected program for note mapping
+	PGMFiles  []string // all PGM files in workspace for the picker
+	TSig      string   // time signature, e.g. "4_4"
+	Division  string   // step division in ticks, e.g. "24" for 16th notes
+}
+
+// padColorsFor builds a [16]string of CSS colors for Bank A pads of the program at pgmRelPath.
+func (s *Server) padColorsFor(ctx context.Context, pgmRelPath string) [16]string {
+	var colors [16]string
+	prog := s.loadProgramFor(pgmRelPath)
+	if prog == nil {
+		return colors
+	}
+	colorMap := s.sampleColorMap(ctx)
+	if len(colorMap) == 0 {
+		return colors
+	}
+	for i := range min(prog.PadCount(), 16) {
+		pad := prog.Pad(i)
+		for j := range 4 {
+			name := pad.Layer(j).GetSampleName()
+			if name != "" {
+				if css := colorMap[sampleKey(name)]; css != "" {
+					colors[i] = css
+					break
+				}
+			}
+		}
+	}
+	return colors
 }
 
 // parseGridParams extracts time signature and step division from the request.
@@ -389,17 +447,18 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 		division = "24"
 	}
 	data := SequenceViewData{
-		Path:     path,
-		FileName: filepath.Base(path),
-		BPM:      sequence.BPM,
-		Bars:     sequence.Bars,
-		Loop:     sequence.Loop,
-		Version:  sequence.Version,
-		Grid:     grid,
-		PGMPath:  pgmRelPath,
-		PGMFiles: s.pgmFilesInWorkspace(),
-		TSig:     tsig,
-		Division: division,
+		Path:      path,
+		FileName:  filepath.Base(path),
+		BPM:       sequence.BPM,
+		Bars:      sequence.Bars,
+		Loop:      sequence.Loop,
+		Version:   sequence.Version,
+		Grid:      grid,
+		PadColors: s.padColorsFor(r.Context(), pgmRelPath),
+		PGMPath:   pgmRelPath,
+		PGMFiles:  s.pgmFilesInWorkspace(),
+		TSig:      tsig,
+		Division:  division,
 	}
 
 	// If HTMX request, render just the grid partial.
@@ -434,6 +493,7 @@ type sequenceEventsResponse struct {
 	TotalTicks     int                 `json:"totalTicks"`
 	Events         []sequenceEventJSON `json:"events"`
 	PadSampleNames []string            `json:"padSampleNames,omitempty"`
+	PadColors      []string            `json:"padColors,omitempty"`
 }
 
 func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
@@ -519,6 +579,7 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		TotalTicks:     int(tickEnd - tickStart),
 		Events:         events,
 		PadSampleNames: s.allPadSampleNames(r.FormValue("pgm")),
+		PadColors:      s.allPadColors(r.Context(), r.FormValue("pgm")),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -616,19 +677,20 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := SequenceViewData{
-		Path:     path,
-		FileName: filepath.Base(path),
-		BPM:      sequence.BPM,
-		Bars:     sequence.Bars,
-		Loop:     sequence.Loop,
-		Version:  sequence.Version,
-		Grid:     grid,
-		FileID:   fileID,
-		Tags:     tags,
-		PGMPath:  pgmRelPath,
-		PGMFiles: s.pgmFilesInWorkspace(),
-		TSig:     tsig,
-		Division: division,
+		Path:      path,
+		FileName:  filepath.Base(path),
+		BPM:       sequence.BPM,
+		Bars:      sequence.Bars,
+		Loop:      sequence.Loop,
+		Version:   sequence.Version,
+		Grid:      grid,
+		FileID:    fileID,
+		Tags:      tags,
+		PadColors: s.padColorsFor(r.Context(), pgmRelPath),
+		PGMPath:   pgmRelPath,
+		PGMFiles:  s.pgmFilesInWorkspace(),
+		TSig:      tsig,
+		Division:  division,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

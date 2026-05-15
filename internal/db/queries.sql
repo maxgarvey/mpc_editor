@@ -19,16 +19,16 @@ ON CONFLICT(path) DO UPDATE SET
 RETURNING id;
 
 -- name: GetFileByPath :one
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE path = ?;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE path = ?;
 
 -- name: GetFileByID :one
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE id = ?;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE id = ?;
 
 -- name: ListFilesByType :many
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files WHERE file_type = ? ORDER BY path;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE file_type = ? ORDER BY path;
 
 -- name: ListAllFiles :many
-SELECT id, path, file_type, size, mod_time, scanned_at FROM files ORDER BY path;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files ORDER BY path;
 
 -- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?;
@@ -167,6 +167,21 @@ DELETE FROM file_tags WHERE file_id = ? AND tag_key = ? AND tag_value = ? AND au
 
 -- name: RemoveAutoTags :exec
 DELETE FROM file_tags WHERE file_id = ? AND auto = 1;
+
+-- name: SetFileColor :exec
+UPDATE files SET color = ? WHERE id = ?;
+
+-- name: GetFileColor :one
+SELECT color FROM files WHERE id = ?;
+
+-- name: ListWavColored :many
+SELECT id, path, color FROM files WHERE file_type = 'wav' AND color != '' ORDER BY path;
+
+-- name: SetFileLabel :exec
+UPDATE files SET category = ?, subcategory = ? WHERE id = ?;
+
+-- name: GetFileLabel :one
+SELECT category, subcategory FROM files WHERE id = ?;
 
 -- name: ListFilesByTag :many
 SELECT DISTINCT f.id, f.path, f.file_type, f.size

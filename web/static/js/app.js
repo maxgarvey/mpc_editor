@@ -475,3 +475,24 @@ const WorkspacePanel = (function() {
 
     return { toggle: toggle };
 })();
+
+const LabelPicker = (() => {
+    function toggleCategory(cat, btn) {
+        const picker = btn.closest('#wav-label-picker');
+        if (!picker) return;
+        const allSubcatRows = picker.querySelectorAll('.label-subcat-row');
+        const allCatBtns = picker.querySelectorAll('.label-cat-btn');
+        const targetRow = picker.querySelector('#label-subcats-' + cat);
+        const isOpen = targetRow && targetRow.classList.contains('visible');
+
+        allSubcatRows.forEach(r => r.classList.remove('visible'));
+        allCatBtns.forEach(b => b.classList.remove('active'));
+
+        if (!isOpen && targetRow) {
+            targetRow.classList.add('visible');
+            btn.classList.add('active');
+        }
+    }
+
+    return { toggleCategory };
+})();

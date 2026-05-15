@@ -27,8 +27,9 @@
             </tr>
             {{range .Grid.BankAPadRows}}
             {{$padIdx := .PadIndex}}
+            {{$padColor := index $.PadColors $padIdx}}
             <tr class="pad-row bank-a-row" data-pad="{{$padIdx}}">
-                <td class="track-name-cell">
+                <td class="track-name-cell"{{if $padColor}} style="border-left: 3px solid {{$padColor}}"{{end}}>
                     <div class="track-name-inner">
                         <span class="track-controls">
                             <button class="track-preview-btn" onclick="SequenceEditor.previewPad({{$padIdx}})" title="Preview pad">&#9654;</button>
@@ -48,7 +49,7 @@
                     data-vel="{{$step.Velocity}}"
                     data-dur="{{$step.Duration}}"
                     data-tick="{{$step.Tick}}"
-                    title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"
+                    title="vel:{{$step.Velocity}}" style="background-color: {{if $padColor}}{{$padColor}}{{else}}{{velocityColor $step.Velocity}}{{end}}; opacity: {{velocityOpacity $step.Velocity}}"
                     {{end}}>
                     {{if $step.Active}}<span class="step-dot"></span>{{end}}
                 </td>

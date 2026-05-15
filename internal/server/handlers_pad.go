@@ -209,7 +209,7 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePadGrid(w http.ResponseWriter, r *http.Request) {
 	bank := parseIntParam(r, "bank", s.session.SelectedPad/16)
-	s.renderTemplate(w, "pad_grid.html", s.padGridData(bank))
+	s.renderTemplate(w, "pad_grid.html", s.padGridData(r.Context(), bank))
 }
 
 func (s *Server) handlePadParamsPartial(w http.ResponseWriter, r *http.Request) {

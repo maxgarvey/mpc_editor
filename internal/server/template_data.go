@@ -1,6 +1,9 @@
 package server
 
-import "encoding/json"
+import (
+	"context"
+	"encoding/json"
+)
 
 // PadInfo holds display data for a single pad in the grid.
 type PadInfo struct {
@@ -10,12 +13,14 @@ type PadInfo struct {
 	Display    int
 	HasSample  bool
 	LayerCount int
+	Color      string // CSS color from sample catalog, "" if none
 }
 
 // padGridData builds template data for the pad grid.
 // Pads are ordered top-to-bottom to match the MPC1000 physical layout:
 // row 4 (pads 13-16) at top, row 1 (pads 1-4) at bottom.
-func (s *Server) padGridData(bank int) map[string]any {
+func (s *Server) padGridData(ctx context.Context, bank int) map[string]any {
+	colorMap := s.sampleColorMap(ctx)
 	start := bank * 16
 	pads := make([]PadInfo, 16)
 	for uiPos := range pads {
@@ -25,10 +30,14 @@ func (s *Server) padGridData(bank int) map[string]any {
 		idx := start + i
 		name := s.session.PadName(idx)
 		layerCount := 0
+		var padColor string
 		for j := range 4 {
 			layerName := s.session.Program.Pad(idx).Layer(j).GetSampleName()
 			if layerName != "" {
 				layerCount++
+				if padColor == "" {
+					padColor = colorMap[sampleKey(layerName)]
+				}
 			}
 		}
 		pads[uiPos] = PadInfo{
@@ -38,6 +47,7 @@ func (s *Server) padGridData(bank int) map[string]any {
 			Display:    i + 1,
 			HasSample:  name != "",
 			LayerCount: layerCount,
+			Color:      padColor,
 		}
 	}
 

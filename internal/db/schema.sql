@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS files (
     file_type  TEXT NOT NULL,
     size       INTEGER NOT NULL DEFAULT 0,
     mod_time   INTEGER NOT NULL DEFAULT 0,
-    scanned_at INTEGER NOT NULL DEFAULT 0  -- 0 = not yet scanned; otherwise Unix timestamp of last scan
+    scanned_at INTEGER NOT NULL DEFAULT 0,  -- 0 = not yet scanned; otherwise Unix timestamp of last scan
+    color       TEXT NOT NULL DEFAULT '',    -- user-assigned display color preset name, e.g. "red"
+    category    TEXT NOT NULL DEFAULT '',    -- label category, e.g. "drum"
+    subcategory TEXT NOT NULL DEFAULT ''     -- label subcategory, e.g. "hihat"
 );
 CREATE INDEX IF NOT EXISTS idx_files_file_type ON files(file_type);
 

@@ -288,6 +288,171 @@ func TestHandleTagRemove_AutoTagProtected(t *testing.T) {
 	}
 }
 
+func TestHandleFileColor(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "kick.wav", "wav")
+
+	form := url.Values{"id": {itoa(id)}, "color": {"red"}}
+	req := httptest.NewRequest("POST", "/file/color", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "wav-color-picker") {
+		t.Error("response missing wav-color-picker")
+	}
+}
+
+func TestHandleFileColor_Clear(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "snare.wav", "wav")
+
+	form := url.Values{"id": {itoa(id)}, "color": {""}}
+	req := httptest.NewRequest("POST", "/file/color", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+}
+
+func TestHandleFileColor_MethodNotAllowed(t *testing.T) {
+	srv := testServer(t)
+
+	req := httptest.NewRequest("GET", "/file/color", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestHandleFileColor_InvalidID(t *testing.T) {
+	srv := testServer(t)
+
+	form := url.Values{"id": {"abc"}, "color": {"red"}}
+	req := httptest.NewRequest("POST", "/file/color", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleFileColor_InvalidColor(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "hat.wav", "wav")
+
+	form := url.Values{"id": {itoa(id)}, "color": {"ultraviolet"}}
+	req := httptest.NewRequest("POST", "/file/color", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleFileLabel(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "kick.wav", "wav")
+
+	form := url.Values{"id": {itoa(id)}, "category": {"drum"}, "subcategory": {"kick"}}
+	req := httptest.NewRequest("POST", "/file/label", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "wav-label-picker") {
+		t.Error("response missing wav-label-picker")
+	}
+	// Color picker OOB should also be in response
+	if !strings.Contains(w.Body.String(), "wav-color-picker") {
+		t.Error("response missing oob color picker")
+	}
+
+	// Verify label and color were stored
+	ctx := context.Background()
+	f, err := srv.queries.GetFileByID(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Category != "drum" || f.Subcategory != "kick" {
+		t.Errorf("label = %q/%q, want drum/kick", f.Category, f.Subcategory)
+	}
+	if f.Color != "red" {
+		t.Errorf("color = %q, want red (auto-assigned)", f.Color)
+	}
+}
+
+func TestHandleFileLabel_Clear(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "snare.wav", "wav")
+
+	form := url.Values{"id": {itoa(id)}, "category": {""}, "subcategory": {""}}
+	req := httptest.NewRequest("POST", "/file/label", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+}
+
+func TestHandleFileLabel_MethodNotAllowed(t *testing.T) {
+	srv := testServer(t)
+
+	req := httptest.NewRequest("GET", "/file/label", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestHandleFileLabel_InvalidID(t *testing.T) {
+	srv := testServer(t)
+
+	form := url.Values{"id": {"abc"}, "category": {"drum"}, "subcategory": {"kick"}}
+	req := httptest.NewRequest("POST", "/file/label", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleFileLabel_InvalidLabel(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "hat.wav", "wav")
+
+	form := url.Values{"id": {itoa(id)}, "category": {"drum"}, "subcategory": {"tuba"}}
+	req := httptest.NewRequest("POST", "/file/label", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
 func itoa(n int64) string {
 	return fmt.Sprintf("%d", n)
 }

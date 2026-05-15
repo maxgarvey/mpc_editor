@@ -49,6 +49,8 @@ func Open() (*sql.DB, *Queries, error) {
 	migrateAddFileTypeIndex(sqlDB)
 	migrateRenameScannedAt(sqlDB)
 	migrateAddFKIndexes(sqlDB)
+	migrateAddFileColor(sqlDB)
+	migrateAddFileLabel(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -178,6 +180,17 @@ func migrateAddFKIndexes(sqlDB *sql.DB) {
 	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_pgm_samples_sample_file_id ON pgm_samples(sample_file_id)`)
 	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_seq_tracks_pgm_file_id ON seq_tracks(pgm_file_id)`)
 	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_song_steps_seq_file_id ON song_steps(seq_file_id)`)
+}
+
+// migrateAddFileColor adds the color column to existing files tables.
+func migrateAddFileColor(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`ALTER TABLE files ADD COLUMN color TEXT NOT NULL DEFAULT ''`)
+}
+
+// migrateAddFileLabel adds category and subcategory columns to existing files tables.
+func migrateAddFileLabel(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`ALTER TABLE files ADD COLUMN category TEXT NOT NULL DEFAULT ''`)
+	_, _ = sqlDB.Exec(`ALTER TABLE files ADD COLUMN subcategory TEXT NOT NULL DEFAULT ''`)
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

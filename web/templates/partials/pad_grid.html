@@ -7,7 +7,8 @@
             hx-indicator="#pad-section-loading"
             data-pad-index="{{.Index}}"
             onclick="AudioPlayer.playAllPadLayers({{.Index}})"
-            title="{{.Name}}">
+            title="{{.Name}}"
+            {{if .Color}}style="border-top: 3px solid {{.Color}}"{{end}}>
         <span class="pad-number">{{.Display}}</span>
         {{if .HasSample}}<span class="pad-name">{{.Name}}</span>{{end}}
         {{if gt .LayerCount 1}}<span class="pad-layers">{{.LayerCount}}L</span>{{end}}

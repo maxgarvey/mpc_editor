@@ -103,7 +103,7 @@ func (s *Server) renderDetailPGM(w http.ResponseWriter, r *http.Request, path st
 	bank := parseIntParam(r, "bank", 0)
 	data := map[string]any{
 		"Session":   s.session,
-		"PadGrid":   s.padGridData(bank),
+		"PadGrid":   s.padGridData(r.Context(), bank),
 		"PadParams": s.padParamsData(),
 		"Banks":     []int{0, 1, 2, 3},
 		"Bank":      bank,
@@ -128,7 +128,7 @@ func (s *Server) renderCurrentPGMDetail(w http.ResponseWriter, r *http.Request) 
 	bank := parseIntParam(r, "bank", 0)
 	data := map[string]any{
 		"Session":   s.session,
-		"PadGrid":   s.padGridData(bank),
+		"PadGrid":   s.padGridData(r.Context(), bank),
 		"PadParams": s.padParamsData(),
 		"Banks":     []int{0, 1, 2, 3},
 		"Bank":      bank,
@@ -163,6 +163,11 @@ func (s *Server) renderDetailWAV(w http.ResponseWriter, path string) {
 	f, err := s.queries.GetFileByPath(ctx, relPath)
 	if err == nil {
 		data["FileID"] = f.ID
+		data["Color"] = f.Color
+		data["Presets"] = colorPresets
+		data["Category"] = f.Category
+		data["Subcategory"] = f.Subcategory
+		data["Taxonomy"] = labelTaxonomy
 
 		meta, err := s.queries.GetWavMeta(ctx, f.ID)
 		if err == nil {
@@ -224,17 +229,18 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		division = "24"
 	}
 	data := SequenceViewData{
-		Path:     path,
-		FileName: filepath.Base(path),
-		BPM:      sequence.BPM,
-		Bars:     sequence.Bars,
-		Loop:     sequence.Loop,
-		Version:  sequence.Version,
-		Grid:     grid,
-		PGMPath:  pgmRelPath,
-		PGMFiles: s.pgmFilesInWorkspace(),
-		TSig:     tsig,
-		Division: division,
+		Path:      path,
+		FileName:  filepath.Base(path),
+		BPM:       sequence.BPM,
+		Bars:      sequence.Bars,
+		Loop:      sequence.Loop,
+		Version:   sequence.Version,
+		Grid:      grid,
+		PadColors: s.padColorsFor(r.Context(), pgmRelPath),
+		PGMPath:   pgmRelPath,
+		PGMFiles:  s.pgmFilesInWorkspace(),
+		TSig:      tsig,
+		Division:  division,
 	}
 
 	// Look up file ID for tags.
