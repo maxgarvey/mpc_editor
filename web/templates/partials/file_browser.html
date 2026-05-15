@@ -19,7 +19,7 @@
          onclick="selectFile('{{.Path}}', '{{$.Context}}')"
          {{if eq .Ext ".wav"}}draggable="true" ondragstart="event.dataTransfer.setData('text/wav-path', '{{.Path}}')"{{end}}
          {{end}}>
-        <span class="entry-icon">
+        <span class="entry-icon"{{if .Color}} style="color: {{.Color}}"{{end}}>
             {{if and .IsDir .IsProject}}{{template "icon-folder-project" .}}
             {{else if .IsDir}}{{template "icon-folder" .}}
             {{else if eq .Ext ".pgm"}}{{template "icon-pgm" .}}

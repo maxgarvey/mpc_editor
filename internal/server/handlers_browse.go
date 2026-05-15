@@ -45,6 +45,7 @@ type BrowseEntry struct {
 	FileID         int64  // catalog file ID (0 if not cataloged)
 	MissingSamples int64  // for .pgm: number of unresolved sample refs
 	WavInfo        string // for .wav: e.g. "44100Hz 16bit stereo"
+	Color          string // for .wav: CSS hex color from preset (e.g. "#e05555"), empty if unset
 }
 
 // resolveAbsDir converts a (possibly relative) dir string to a validated absolute path.
@@ -307,6 +308,7 @@ func (s *Server) enrichBrowseEntries(entries []BrowseEntry, workspace string) {
 				}
 				e.WavInfo = fmt.Sprintf("%dHz %dbit %s", meta.SampleRate, meta.BitsPerSample, ch)
 			}
+			e.Color = colorToCSS(f.Color)
 		}
 	}
 }

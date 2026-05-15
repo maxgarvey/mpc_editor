@@ -119,11 +119,14 @@ type LabelCategory struct {
 var labelTaxonomy = []LabelCategory{
 	{Name: "drum", Subcats: []LabelSubcat{
 		{"kick", "red"},
-		{"hihat", "orange"},
 		{"snare", "yellow"},
-		{"crash", "orange"},
+		{"hihat", "orange"},
+		{"cymbal", "orange"},
 		{"clap", "yellow"},
+		{"tom", "green"},
+		{"rimshot", "cyan"},
 		{"perc", "gray"},
+		{"fx", "purple"},
 	}},
 	{Name: "bass", Subcats: []LabelSubcat{
 		{"acoustic", "green"},

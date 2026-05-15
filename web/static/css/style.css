@@ -247,6 +247,25 @@ body {
     min-height: 0;
     overflow-x: auto;
     flex-shrink: 0;
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a3a transparent;
+}
+
+.detail-tabs::-webkit-scrollbar {
+    height: 3px;
+}
+
+.detail-tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.detail-tabs::-webkit-scrollbar-thumb {
+    background: #3a3a3a;
+    border-radius: 2px;
+}
+
+.detail-tabs::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
 .detail-tabs:empty {
