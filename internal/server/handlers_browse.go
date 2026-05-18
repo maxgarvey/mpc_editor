@@ -38,7 +38,7 @@ type BrowseEntry struct {
 	Path           string // absolute path
 	RelPath        string // relative path from workspace (set in search results)
 	IsDir          bool
-	IsProject      bool // true if directory contains a .pgm file (self-contained beat)
+	IsProject      bool   // true if directory contains a .pgm file (self-contained beat)
 	Divider        bool   // true for synthetic label-group divider rows (no file)
 	DividerLabel   string // label text for divider rows
 	Ext            string
@@ -738,7 +738,7 @@ func (s *Server) searchCatalog(ctx context.Context, q string, favoritesOnly bool
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var files []db.File
 	for rows.Next() {
 		var f db.File
