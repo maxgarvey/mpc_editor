@@ -372,6 +372,14 @@ body {
 .nav-mkdir {
     padding: 8px 12px;
     border-top: 1px solid #333;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.btn-organize {
+    color: #a0c840;
+    border-color: #3a4a20;
 }
 
 .browser-entry.active {

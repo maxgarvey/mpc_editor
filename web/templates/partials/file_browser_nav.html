@@ -56,6 +56,9 @@
 {{if not .SearchQuery}}
 <div class="nav-mkdir">
     <button class="btn-sm" onclick="openMkdirModal('{{.RelDir}}', 'browse', '#file-nav')">New Folder</button>
+    {{if .HasLabeledWAVs}}
+    <button class="btn-sm btn-organize" onclick="openOrganizeConfirm('{{.CurrentDir}}')">Organize by label</button>
+    {{end}}
 </div>
 <input type="hidden" id="browser-current-dir" value="{{.CurrentDir}}" data-workspace="{{.Workspace}}">
 {{end}}

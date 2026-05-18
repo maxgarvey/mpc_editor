@@ -16,15 +16,16 @@ import (
 
 // BrowseData holds template data for the file browser.
 type BrowseData struct {
-	Context      string
-	CurrentDir   string
-	RelDir       string
-	Breadcrumbs  []BreadcrumbItem
-	Entries      []BrowseEntry
-	Workspace    string
-	SelectedPath string // absolute path of the currently selected file (for highlighting)
-	SearchQuery  string // non-empty when showing search results
-	SortMode     string // "name" or "label"; empty defaults to "name"
+	Context        string
+	CurrentDir     string
+	RelDir         string
+	Breadcrumbs    []BreadcrumbItem
+	Entries        []BrowseEntry
+	Workspace      string
+	SelectedPath   string // absolute path of the currently selected file (for highlighting)
+	SearchQuery    string // non-empty when showing search results
+	SortMode       string // "name" or "label"; empty defaults to "name"
+	HasLabeledWAVs bool   // true when the current dir contains at least one labeled WAV (show Organize button)
 }
 
 // BreadcrumbItem represents a segment in the breadcrumb path.
@@ -217,15 +218,23 @@ func (s *Server) buildBrowseData(dir, filterCtx, selectedPath, sortMode string) 
 	relDir, breadcrumbs := buildBreadcrumbs(workspace, absDir)
 	s.enrichBrowseEntries(entries, workspace)
 	entries = sortBrowseEntries(entries, sortMode)
+	var hasLabeled bool
+	for _, e := range entries {
+		if !e.IsDir && e.Subcategory != "" {
+			hasLabeled = true
+			break
+		}
+	}
 	return BrowseData{
-		Context:      filterCtx,
-		CurrentDir:   absDir,
-		RelDir:       relDir,
-		Breadcrumbs:  breadcrumbs,
-		Entries:      entries,
-		Workspace:    workspace,
-		SelectedPath: selectedPath,
-		SortMode:     sortMode,
+		Context:        filterCtx,
+		CurrentDir:     absDir,
+		RelDir:         relDir,
+		Breadcrumbs:    breadcrumbs,
+		Entries:        entries,
+		Workspace:      workspace,
+		SelectedPath:   selectedPath,
+		SortMode:       sortMode,
+		HasLabeledWAVs: hasLabeled,
 	}, nil
 }
 
@@ -685,6 +694,91 @@ func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
 			}
 		}
 	}
+}
+
+// handleWorkspaceOrganize moves labeled WAV files in a flat directory into
+// per-subcategory subdirectories. POST /workspace/organize?dir=<absDir>.
+func (s *Server) handleWorkspaceOrganize(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	absDir := r.FormValue("dir")
+	if absDir == "" {
+		absDir = s.session.WorkspacePath
+	}
+
+	if err := s.validateWithinWorkspace(absDir); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
+
+	dirInfo, err := os.Stat(absDir)
+	if err != nil || !dirInfo.IsDir() {
+		http.Error(w, "dir must be an existing directory", http.StatusBadRequest)
+		return
+	}
+
+	rawEntries, err := os.ReadDir(absDir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	workspace := s.session.WorkspacePath
+	ctx := r.Context()
+
+	var moved int
+	for _, de := range rawEntries {
+		if de.IsDir() || strings.HasPrefix(de.Name(), ".") {
+			continue
+		}
+		if !strings.EqualFold(filepath.Ext(de.Name()), ".wav") {
+			continue
+		}
+		srcAbs := filepath.Join(absDir, de.Name())
+		srcRel, err := filepath.Rel(workspace, srcAbs)
+		if err != nil {
+			continue
+		}
+
+		dbFile, err := s.queries.GetFileByPath(ctx, srcRel)
+		if err != nil || dbFile.Subcategory == "" {
+			continue
+		}
+
+		destSubdir := filepath.Join(absDir, dbFile.Subcategory)
+		if err := os.MkdirAll(destSubdir, 0o755); err != nil {
+			log.Printf("organize mkdir %q: %v", destSubdir, err)
+			continue
+		}
+
+		destAbs := filepath.Join(destSubdir, de.Name())
+		if _, err := os.Stat(destAbs); err == nil {
+			continue
+		}
+
+		if err := os.Rename(srcAbs, destAbs); err != nil {
+			log.Printf("organize rename %q: %v", srcAbs, err)
+			continue
+		}
+
+		s.updateCatalogPath(ctx, srcAbs, destAbs)
+		s.patchMatrixForPath(srcAbs, destAbs)
+		moved++
+	}
+
+	if moved > 0 && s.session.FilePath != "" {
+		_ = s.session.Program.Save(s.session.FilePath)
+	}
+
+	relDir, _ := filepath.Rel(workspace, absDir)
+	if relDir == "." {
+		relDir = ""
+	}
+	r.Form.Set("dir", relDir)
+	s.handleBrowseNav(w, r)
 }
 
 // handleWorkspaceDelete deletes a file or directory from disk and/or the catalog.

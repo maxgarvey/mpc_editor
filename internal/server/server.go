@@ -206,6 +206,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/workspace/import/dir", s.handleImportDirExecute)
 	s.mux.HandleFunc("/workspace/import", s.handleWorkspaceImport)
 	s.mux.HandleFunc("/workspace/delete", s.handleWorkspaceDelete)
+	s.mux.HandleFunc("/workspace/organize", s.handleWorkspaceOrganize)
 	s.mux.HandleFunc("/file/tags/add", s.handleTagAdd)
 	s.mux.HandleFunc("/file/tags/remove", s.handleTagRemove)
 	s.mux.HandleFunc("/file/color", s.handleFileColor)

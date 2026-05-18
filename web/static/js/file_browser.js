@@ -306,6 +306,41 @@
         });
     }
 
+    function openOrganizeConfirm(dir) {
+        var overlay = document.createElement('div');
+        overlay.id = 'organize-overlay';
+        overlay.className = 'file-browser-overlay';
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        var dirName = dir.split('/').pop() || dir;
+        var modal = document.createElement('div');
+        modal.className = 'save-confirm-modal';
+        modal.innerHTML =
+            '<div class="save-confirm-header">Organize by label</div>' +
+            '<div class="save-confirm-body" style="font-size:13px;line-height:1.5">' +
+                'Move labeled WAV files in <strong>' + escapeHtml(dirName) + '</strong> into ' +
+                'subcategory subfolders (kick/, snare/, hihat/, …).<br>' +
+                'Unlabeled files are not moved.' +
+            '</div>' +
+            '<div class="save-confirm-actions">' +
+                '<button class="btn-primary" id="organize-confirm-btn">Organize</button>' +
+                '<button class="btn-sm" onclick="document.getElementById(\'organize-overlay\').remove()">Cancel</button>' +
+            '</div>';
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        document.getElementById('organize-confirm-btn').addEventListener('click', function() {
+            overlay.remove();
+            htmx.ajax('POST', '/workspace/organize', {
+                target: '#file-nav',
+                values: { dir: dir }
+            });
+        });
+    }
+
     // Expose public API (called from onclick attributes and app.js)
     window.openDeleteModal = openDeleteModal;
     window.closeDeleteModal = closeDeleteModal;
@@ -315,4 +350,5 @@
     window.loadMoveDirs = loadMoveDirs;
     window.attachMoveDirClickSelection = attachMoveDirClickSelection;
     window.confirmMove = confirmMove;
+    window.openOrganizeConfirm = openOrganizeConfirm;
 })();
