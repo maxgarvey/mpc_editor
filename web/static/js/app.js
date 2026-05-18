@@ -505,7 +505,11 @@ const WorkspacePanel = (function() {
         apply();
     });
 
-    return { toggle: toggle };
+    function headerClick() {
+        if (collapsed) toggle();
+    }
+
+    return { toggle: toggle, headerClick: headerClick };
 })();
 
 // --- Browse Sort ---

@@ -111,7 +111,7 @@ body {
 }
 
 .browser-layout.panel-collapsed {
-    grid-template-columns: 28px 1fr;
+    grid-template-columns: 32px 1fr;
 }
 
 .browser-panel {
@@ -158,7 +158,6 @@ body {
     text-overflow: ellipsis;
 }
 
-.browser-layout.panel-collapsed .browser-panel-label,
 .browser-layout.panel-collapsed .browser-search-box,
 .browser-layout.panel-collapsed .filter-chips,
 .browser-layout.panel-collapsed #file-nav {
@@ -166,8 +165,33 @@ body {
 }
 
 .browser-layout.panel-collapsed .browser-panel-header {
-    justify-content: center;
-    padding: 10px 4px;
+    flex: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 8px 0 12px;
+    gap: 10px;
+    border-bottom: none;
+    cursor: pointer;
+}
+
+.browser-layout.panel-collapsed .browser-panel-label {
+    display: block;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 9px;
+    font-weight: normal;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #555;
+    overflow: visible;
+    white-space: nowrap;
+    flex: 0;
+}
+
+.browser-layout.panel-collapsed .panel-collapse-btn {
+    color: #666;
+    font-size: 10px;
 }
 
 .browser-search-box {

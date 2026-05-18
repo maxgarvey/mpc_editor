@@ -37,11 +37,11 @@
 
     <main class="browser-layout" id="browser-layout">
         <aside class="browser-panel">
-            <div class="browser-panel-header">
+            <div class="browser-panel-header" onclick="WorkspacePanel.headerClick()">
                 <span class="browser-panel-label">Workspace</span>
                 <span id="file-nav-spinner" class="htmx-indicator nav-spinner"></span>
                 <button class="panel-collapse-btn" id="panel-collapse-btn"
-                        onclick="WorkspacePanel.toggle()" title="Collapse panel">&#x25C4;</button>
+                        onclick="event.stopPropagation(); WorkspacePanel.toggle()" title="Collapse panel">&#x25C4;</button>
             </div>
             <div class="browser-search-box">
                 <input type="search" id="workspace-search" class="browser-search-input"
