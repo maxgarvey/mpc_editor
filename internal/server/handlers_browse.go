@@ -24,6 +24,7 @@ type BrowseData struct {
 	Workspace    string
 	SelectedPath string // absolute path of the currently selected file (for highlighting)
 	SearchQuery  string // non-empty when showing search results
+	SortMode     string // "name" or "label"; empty defaults to "name"
 }
 
 // BreadcrumbItem represents a segment in the breadcrumb path.
@@ -98,14 +99,72 @@ func readDirEntries(absDir, filterCtx string) ([]BrowseEntry, error) {
 	return out, nil
 }
 
-// sortBrowseEntries sorts entries: directories first, then files; both alphabetical.
-func sortBrowseEntries(entries []BrowseEntry) {
+// sortBrowseEntries sorts entries in place according to mode.
+// "label": directories first, then WAVs grouped by subcategory with divider rows, unlabeled last.
+// "name" (default): directories first, then files, both alphabetical.
+// Returns the (possibly expanded) slice; caller must use the returned value when mode=="label".
+func sortBrowseEntries(entries []BrowseEntry, mode string) []BrowseEntry {
+	if mode == "label" {
+		return sortByLabel(entries)
+	}
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].IsDir != entries[j].IsDir {
 			return entries[i].IsDir
 		}
 		return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
 	})
+	return entries
+}
+
+// sortByLabel groups non-directory entries by subcategory, inserts divider rows between groups,
+// and places unlabeled files at the end. Directories stay at the top, alphabetical.
+func sortByLabel(entries []BrowseEntry) []BrowseEntry {
+	var dirs, labeled, unlabeled []BrowseEntry
+	groups := map[string][]BrowseEntry{}
+	var groupOrder []string
+	seen := map[string]bool{}
+
+	for _, e := range entries {
+		if e.IsDir {
+			dirs = append(dirs, e)
+			continue
+		}
+		if e.Subcategory == "" {
+			unlabeled = append(unlabeled, e)
+			continue
+		}
+		if !seen[e.Subcategory] {
+			seen[e.Subcategory] = true
+			groupOrder = append(groupOrder, e.Subcategory)
+		}
+		groups[e.Subcategory] = append(groups[e.Subcategory], e)
+	}
+
+	sort.Slice(dirs, func(i, j int) bool {
+		return strings.ToLower(dirs[i].Name) < strings.ToLower(dirs[j].Name)
+	})
+	sort.Strings(groupOrder)
+	sort.Slice(unlabeled, func(i, j int) bool {
+		return strings.ToLower(unlabeled[i].Name) < strings.ToLower(unlabeled[j].Name)
+	})
+
+	out := append([]BrowseEntry{}, dirs...)
+	for _, sub := range groupOrder {
+		g := groups[sub]
+		sort.Slice(g, func(i, j int) bool {
+			return strings.ToLower(g[i].Name) < strings.ToLower(g[j].Name)
+		})
+		out = append(out, BrowseEntry{Divider: true, DividerLabel: sub})
+		out = append(out, g...)
+		labeled = append(labeled, g...)
+	}
+	if len(unlabeled) > 0 {
+		if len(labeled) > 0 {
+			out = append(out, BrowseEntry{Divider: true, DividerLabel: "other"})
+		}
+		out = append(out, unlabeled...)
+	}
+	return out
 }
 
 // buildBreadcrumbs returns the workspace-relative dir string and breadcrumb items for absDir.
@@ -134,7 +193,7 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	if ctx == "" {
 		ctx = "open-pgm"
 	}
-	data, err := s.buildBrowseData(r.FormValue("dir"), ctx, "")
+	data, err := s.buildBrowseData(r.FormValue("dir"), ctx, "", "")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -143,7 +202,8 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildBrowseData builds BrowseData for the given directory and filter context.
-func (s *Server) buildBrowseData(dir, filterCtx, selectedPath string) (BrowseData, error) {
+// sortMode is "label" or "" / "name" (default alphabetical).
+func (s *Server) buildBrowseData(dir, filterCtx, selectedPath, sortMode string) (BrowseData, error) {
 	workspace := s.session.WorkspacePath
 	absDir, err := s.resolveAbsDir(workspace, dir)
 	if err != nil {
@@ -153,9 +213,10 @@ func (s *Server) buildBrowseData(dir, filterCtx, selectedPath string) (BrowseDat
 	if err != nil {
 		return BrowseData{}, err
 	}
-	sortBrowseEntries(entries)
+	// Enrich before sort so label-sort can use Subcategory populated by enrich.
 	relDir, breadcrumbs := buildBreadcrumbs(workspace, absDir)
 	s.enrichBrowseEntries(entries, workspace)
+	entries = sortBrowseEntries(entries, sortMode)
 	return BrowseData{
 		Context:      filterCtx,
 		CurrentDir:   absDir,
@@ -164,6 +225,7 @@ func (s *Server) buildBrowseData(dir, filterCtx, selectedPath string) (BrowseDat
 		Entries:      entries,
 		Workspace:    workspace,
 		SelectedPath: selectedPath,
+		SortMode:     sortMode,
 	}, nil
 }
 
@@ -176,7 +238,8 @@ func (s *Server) handleBrowseNav(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dir := r.FormValue("dir")
-	data, err := s.buildBrowseData(dir, "browse", s.session.SelectedDetailPath)
+	sortMode := r.FormValue("sort")
+	data, err := s.buildBrowseData(dir, "browse", s.session.SelectedDetailPath, sortMode)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -765,7 +828,7 @@ func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
 	favoritesOnly := r.FormValue("favorites") == "1"
 
 	if q == "" && !favoritesOnly {
-		data, err := s.buildBrowseData("", "browse", s.session.SelectedDetailPath)
+		data, err := s.buildBrowseData("", "browse", s.session.SelectedDetailPath, "")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

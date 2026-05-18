@@ -37,7 +37,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build browse data for the left panel.
-	browseData, err := s.buildBrowseData("", "browse", s.session.SelectedDetailPath)
+	browseData, err := s.buildBrowseData("", "browse", s.session.SelectedDetailPath, "")
 	if err != nil {
 		log.Printf("build browse data: %v", err)
 		browseData = BrowseData{}

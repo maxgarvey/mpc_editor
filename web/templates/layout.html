@@ -51,6 +51,10 @@
                        hx-target="#file-nav"
                        hx-indicator="#file-nav-spinner"
                        name="q">
+                <div class="sort-toggle" id="sort-toggle">
+                    <button class="sort-btn active" data-sort="name" onclick="BrowseSort.set('name', this)">Name</button>
+                    <button class="sort-btn" data-sort="label" onclick="BrowseSort.set('label', this)">Label</button>
+                </div>
             </div>
             <div class="filter-chips" id="filter-chips">
                 {{range .FilterChips}}

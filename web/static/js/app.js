@@ -425,7 +425,8 @@ function refreshBrowserNav(dir) {
     if (query) {
         htmx.ajax('GET', '/browse/search?q=' + encodeURIComponent(query), { target: '#file-nav' });
     } else {
-        var url = '/browse/nav' + (dir ? '?dir=' + encodeURIComponent(dir) : '');
+        var sortMode = typeof BrowseSort !== 'undefined' ? BrowseSort.getMode() : 'name';
+        var url = '/browse/nav?sort=' + encodeURIComponent(sortMode) + (dir ? '&dir=' + encodeURIComponent(dir) : '');
         htmx.ajax('GET', url, { target: '#file-nav' });
     }
 }
@@ -505,6 +506,43 @@ const WorkspacePanel = (function() {
     });
 
     return { toggle: toggle };
+})();
+
+// --- Browse Sort ---
+
+const BrowseSort = (function() {
+    var mode = 'name';
+
+    function apply() {
+        var btns = document.querySelectorAll('#sort-toggle .sort-btn');
+        btns.forEach(function(b) {
+            b.classList.toggle('active', b.dataset.sort === mode);
+        });
+    }
+
+    function set(newMode, btn) {
+        mode = newMode;
+        localStorage.setItem('browse-sort-mode', mode);
+        apply();
+        htmx.ajax('GET', '/browse/nav?sort=' + encodeURIComponent(mode), { target: '#file-nav' });
+    }
+
+    function getMode() { return mode; }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        mode = localStorage.getItem('browse-sort-mode') || 'name';
+        apply();
+    });
+
+    // Inject sort param into all /browse/nav requests.
+    document.body.addEventListener('htmx:configRequest', function(e) {
+        var path = e.detail.path || '';
+        if (path.startsWith('/browse/nav') && !e.detail.parameters.sort) {
+            e.detail.parameters.sort = mode;
+        }
+    });
+
+    return { set: set, getMode: getMode };
 })();
 
 const LabelPicker = (() => {
