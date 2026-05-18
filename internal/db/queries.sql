@@ -19,16 +19,16 @@ ON CONFLICT(path) DO UPDATE SET
 RETURNING id;
 
 -- name: GetFileByPath :one
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE path = ?;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE path = ?;
 
 -- name: GetFileByID :one
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE id = ?;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE id = ?;
 
 -- name: ListFilesByType :many
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE file_type = ? ORDER BY path;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE file_type = ? ORDER BY path;
 
 -- name: ListAllFiles :many
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files ORDER BY path;
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files ORDER BY path;
 
 -- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?;
@@ -182,6 +182,15 @@ UPDATE files SET category = ?, subcategory = ? WHERE id = ?;
 
 -- name: GetFileLabel :one
 SELECT category, subcategory FROM files WHERE id = ?;
+
+-- name: SetFileFavorite :exec
+UPDATE files SET favorite = ? WHERE id = ?;
+
+-- name: GetFileFavorite :one
+SELECT favorite FROM files WHERE id = ?;
+
+-- name: ListFavorites :many
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE favorite = 1 ORDER BY path;
 
 -- name: ListFilesByTag :many
 SELECT DISTINCT f.id, f.path, f.file_type, f.size

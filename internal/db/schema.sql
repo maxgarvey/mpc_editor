@@ -20,8 +20,10 @@ CREATE TABLE IF NOT EXISTS files (
     scanned_at INTEGER NOT NULL DEFAULT 0,  -- 0 = not yet scanned; otherwise Unix timestamp of last scan
     color       TEXT NOT NULL DEFAULT '',    -- user-assigned display color preset name, e.g. "red"
     category    TEXT NOT NULL DEFAULT '',    -- label category, e.g. "drum"
-    subcategory TEXT NOT NULL DEFAULT ''     -- label subcategory, e.g. "hihat"
+    subcategory TEXT NOT NULL DEFAULT '',    -- label subcategory, e.g. "hihat"
+    favorite    INTEGER NOT NULL DEFAULT 0  -- 1 if starred by user
 );
+CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(favorite);
 CREATE INDEX IF NOT EXISTS idx_files_file_type ON files(file_type);
 
 -- Metadata extracted from .pgm files.

@@ -11,7 +11,10 @@
     <div class="browser-empty">{{if .SearchQuery}}No results{{else}}Empty directory{{end}}</div>
     {{end}}
     {{range .Entries}}
-    <div class="browser-entry {{if .IsDir}}is-dir{{end}} {{if .IsProject}}is-project{{end}}" data-path="{{.Path}}"
+    {{if .Divider}}
+    <div class="nav-divider">{{.DividerLabel}}</div>
+    {{else}}
+    <div class="browser-entry {{if .IsDir}}is-dir{{end}} {{if .IsProject}}is-project{{end}}{{if .Favorite}} is-favorite{{end}}" data-path="{{.Path}}" data-file-id="{{.FileID}}"
          title="{{if .RelPath}}{{.RelPath}}{{else}}{{.Name}}{{end}}{{if .WavInfo}} — {{.WavInfo}}{{end}}{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}} — {{.MissingSamples}} missing{{end}}"
          {{if .IsDir}}
          hx-get="/browse/nav?dir={{.Path}}"
@@ -35,10 +38,19 @@
         </span>
         <span class="entry-body">
             <span class="entry-name">{{if .RelPath}}{{.RelPath}}{{else}}{{.Name}}{{end}}</span>{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}
-            {{if .WavInfo}}<span class="entry-meta">{{.WavInfo}}</span>{{end}}
+            <span class="entry-meta-row">
+                {{if .WavInfo}}<span class="entry-meta">{{.WavInfo}}</span>{{end}}
+                {{if .Subcategory}}<span class="entry-label-chip"{{if .Color}} style="color:{{.Color}};border-color:{{.Color}}"{{end}}>{{.Subcategory}}</span>{{end}}
+            </span>
         </span>
-        {{if eq .Ext ".wav"}}<button class="entry-preview-btn" title="Preview" onclick="event.stopPropagation(); previewWavInBrowser('{{.Path}}', this)">&#9654;</button>{{end}}
+        {{if eq .Ext ".wav"}}
+        <button class="entry-fav-btn{{if .Favorite}} is-fav{{end}}" title="{{if .Favorite}}Unfavorite{{else}}Favorite{{end}}"
+                hx-post="/file/favorite" hx-vals='{"id":"{{.FileID}}"}' hx-swap="outerHTML"
+                onclick="event.stopPropagation()">{{if .Favorite}}★{{else}}☆{{end}}</button>
+        <button class="entry-preview-btn" title="Preview" onclick="event.stopPropagation(); previewWavInBrowser('{{.Path}}', this)">&#9654;</button>
+        {{end}}
     </div>
+    {{end}}
     {{end}}
 </div>
 {{if not .SearchQuery}}

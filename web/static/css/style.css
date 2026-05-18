@@ -160,6 +160,7 @@ body {
 
 .browser-layout.panel-collapsed .browser-panel-label,
 .browser-layout.panel-collapsed .browser-search-box,
+.browser-layout.panel-collapsed .filter-chips,
 .browser-layout.panel-collapsed #file-nav {
     display: none;
 }
@@ -197,6 +198,121 @@ body {
     color: #888;
     background: #0f0f0f;
     border-bottom: 1px solid #333;
+}
+
+/* ── Filter chips ── */
+
+.filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px;
+    border-bottom: 1px solid #282828;
+    background: #111;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    font-size: 11px;
+    border-radius: 10px;
+    border: 1px solid #3a3a3a;
+    background: #1a1a1a;
+    color: #888;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    white-space: nowrap;
+}
+
+.filter-chip:hover {
+    background: #252525;
+    color: #ccc;
+    border-color: #555;
+}
+
+.filter-chip.active {
+    background: #252525;
+    color: #d4d4d4;
+    border-color: #666;
+}
+
+.filter-chip-fav.active {
+    color: #e0b030;
+    border-color: #e0b030;
+}
+
+.filter-chip-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── Star/favorite button in browser entries ── */
+
+.entry-fav-btn {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: #444;
+    font-size: 12px;
+    padding: 1px 3px;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.1s, color 0.1s;
+    align-self: flex-start;
+    margin-top: 2px;
+}
+
+.browser-entry:hover .entry-fav-btn {
+    opacity: 1;
+}
+
+.entry-fav-btn.is-fav {
+    opacity: 1;
+    color: #e0b030;
+}
+
+.entry-fav-btn:hover {
+    color: #e0b030;
+}
+
+/* ── Subcategory label chip inside entry ── */
+
+.entry-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 1px;
+}
+
+.entry-label-chip {
+    font-size: 9px;
+    padding: 0 4px;
+    border-radius: 3px;
+    border: 1px solid currentColor;
+    opacity: 0.7;
+    white-space: nowrap;
+    line-height: 14px;
+}
+
+/* ── Label-sort group divider ── */
+
+.nav-divider {
+    padding: 4px 12px 2px;
+    font-size: 9px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #555;
+    border-top: 1px solid #222;
+    margin-top: 2px;
+    pointer-events: none;
 }
 
 #file-nav {

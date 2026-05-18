@@ -416,6 +416,12 @@ function previewWavInBrowser(absPath, btn) {
 function refreshBrowserNav(dir) {
     var searchInput = document.getElementById('workspace-search');
     var query = searchInput ? searchInput.value.trim() : '';
+    var activeChip = document.querySelector('#filter-chips .filter-chip.active');
+    if (activeChip && activeChip.dataset.chip !== 'all') {
+        // Re-run chip filter
+        activeChip.dispatchEvent(new Event('htmx:trigger'));
+        return;
+    }
     if (query) {
         htmx.ajax('GET', '/browse/search?q=' + encodeURIComponent(query), { target: '#file-nav' });
     } else {
@@ -423,6 +429,31 @@ function refreshBrowserNav(dir) {
         htmx.ajax('GET', url, { target: '#file-nav' });
     }
 }
+
+// setActiveChip marks the clicked chip as active and clears the others.
+function setActiveChip(btn) {
+    document.querySelectorAll('#filter-chips .filter-chip').forEach(function(c) {
+        c.classList.remove('active');
+    });
+    btn.classList.add('active');
+}
+
+// Deactivate chips and clear "All" active when user types in search box.
+document.addEventListener('DOMContentLoaded', function() {
+    var search = document.getElementById('workspace-search');
+    if (search) {
+        search.addEventListener('input', function() {
+            if (search.value.trim()) {
+                document.querySelectorAll('#filter-chips .filter-chip').forEach(function(c) {
+                    c.classList.remove('active');
+                });
+            } else {
+                var allChip = document.querySelector('#filter-chips .filter-chip-all');
+                if (allChip) setActiveChip(allChip);
+            }
+        });
+    }
+});
 
 document.addEventListener('refreshBrowser', function() {
     refreshBrowserNav();

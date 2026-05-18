@@ -52,6 +52,25 @@
                        hx-indicator="#file-nav-spinner"
                        name="q">
             </div>
+            <div class="filter-chips" id="filter-chips">
+                {{range .FilterChips}}
+                {{if .Fav}}
+                <button class="filter-chip filter-chip-fav" data-chip="★"
+                        hx-get="/browse/search?favorites=1" hx-target="#file-nav" hx-indicator="#file-nav-spinner"
+                        onclick="setActiveChip(this)">★</button>
+                {{else if eq .Query ""}}
+                <button class="filter-chip filter-chip-all active" data-chip="all"
+                        hx-get="/browse/nav" hx-target="#file-nav" hx-indicator="#file-nav-spinner"
+                        onclick="setActiveChip(this); document.getElementById('workspace-search').value=''">All</button>
+                {{else}}
+                <button class="filter-chip" data-chip="{{.Query}}"
+                        hx-get="/browse/search?q={{.Query}}" hx-target="#file-nav" hx-indicator="#file-nav-spinner"
+                        onclick="setActiveChip(this); document.getElementById('workspace-search').value=''">
+                    {{if .CSS}}<span class="filter-chip-dot" style="background:{{.CSS}}"></span>{{end}}{{.Label}}
+                </button>
+                {{end}}
+                {{end}}
+            </div>
             <div id="file-nav">
                 {{template "file_browser_nav.html" .BrowseData}}
             </div>

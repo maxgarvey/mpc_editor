@@ -18,6 +18,7 @@ type File struct {
 	Color       string
 	Category    string
 	Subcategory string
+	Favorite    int64
 }
 
 type FileTag struct {

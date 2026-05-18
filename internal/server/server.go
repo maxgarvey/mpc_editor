@@ -30,6 +30,7 @@ type Server struct {
 	mu              sync.Mutex // serializes all session-touching handlers
 	session         *Session
 	queries         *db.Queries
+	sqlDB           *sql.DB
 	scanner         *scanner.Scanner
 	detector        *device.Detector
 	templates       *template.Template
@@ -44,6 +45,7 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 	s := &Server{
 		session:         NewSession(queries),
 		queries:         queries,
+		sqlDB:           sqlDB,
 		scanner:         scanner.New(sqlDB, queries),
 		detector:        device.New(),
 		mux:             http.NewServeMux(),
@@ -208,6 +210,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/file/tags/remove", s.handleTagRemove)
 	s.mux.HandleFunc("/file/color", s.handleFileColor)
 	s.mux.HandleFunc("/file/label", s.handleFileLabel)
+	s.mux.HandleFunc("/file/favorite", s.handleFileFavorite)
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)
 	s.mux.HandleFunc("/file/", s.handleFileDetail)
 

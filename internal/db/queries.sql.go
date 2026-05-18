@@ -96,7 +96,7 @@ func (q *Queries) DeleteSongSteps(ctx context.Context, songFileID int64) error {
 }
 
 const getFileByID = `-- name: GetFileByID :one
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE id = ?
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE id = ?
 `
 
 func (q *Queries) GetFileByID(ctx context.Context, id int64) (File, error) {
@@ -112,12 +112,13 @@ func (q *Queries) GetFileByID(ctx context.Context, id int64) (File, error) {
 		&i.Color,
 		&i.Category,
 		&i.Subcategory,
+		&i.Favorite,
 	)
 	return i, err
 }
 
 const getFileByPath = `-- name: GetFileByPath :one
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE path = ?
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE path = ?
 `
 
 func (q *Queries) GetFileByPath(ctx context.Context, path string) (File, error) {
@@ -133,6 +134,7 @@ func (q *Queries) GetFileByPath(ctx context.Context, path string) (File, error) 
 		&i.Color,
 		&i.Category,
 		&i.Subcategory,
+		&i.Favorite,
 	)
 	return i, err
 }
@@ -146,6 +148,17 @@ func (q *Queries) GetFileColor(ctx context.Context, id int64) (string, error) {
 	var color string
 	err := row.Scan(&color)
 	return color, err
+}
+
+const getFileFavorite = `-- name: GetFileFavorite :one
+SELECT favorite FROM files WHERE id = ?
+`
+
+func (q *Queries) GetFileFavorite(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getFileFavorite, id)
+	var favorite int64
+	err := row.Scan(&favorite)
+	return favorite, err
 }
 
 const getFileLabel = `-- name: GetFileLabel :one
@@ -304,7 +317,7 @@ func (q *Queries) InsertSongStep(ctx context.Context, arg InsertSongStepParams) 
 }
 
 const listAllFiles = `-- name: ListAllFiles :many
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files ORDER BY path
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files ORDER BY path
 `
 
 func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
@@ -326,6 +339,45 @@ func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
 			&i.Color,
 			&i.Category,
 			&i.Subcategory,
+			&i.Favorite,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFavorites = `-- name: ListFavorites :many
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE favorite = 1 ORDER BY path
+`
+
+func (q *Queries) ListFavorites(ctx context.Context) ([]File, error) {
+	rows, err := q.db.QueryContext(ctx, listFavorites)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []File
+	for rows.Next() {
+		var i File
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.FileType,
+			&i.Size,
+			&i.ModTime,
+			&i.ScannedAt,
+			&i.Color,
+			&i.Category,
+			&i.Subcategory,
+			&i.Favorite,
 		); err != nil {
 			return nil, err
 		}
@@ -425,7 +477,7 @@ func (q *Queries) ListFilesByTag(ctx context.Context, arg ListFilesByTagParams) 
 }
 
 const listFilesByType = `-- name: ListFilesByType :many
-SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory FROM files WHERE file_type = ? ORDER BY path
+SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE file_type = ? ORDER BY path
 `
 
 func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File, error) {
@@ -447,6 +499,7 @@ func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File,
 			&i.Color,
 			&i.Category,
 			&i.Subcategory,
+			&i.Favorite,
 		); err != nil {
 			return nil, err
 		}
@@ -723,6 +776,20 @@ type SetFileColorParams struct {
 
 func (q *Queries) SetFileColor(ctx context.Context, arg SetFileColorParams) error {
 	_, err := q.db.ExecContext(ctx, setFileColor, arg.Color, arg.ID)
+	return err
+}
+
+const setFileFavorite = `-- name: SetFileFavorite :exec
+UPDATE files SET favorite = ? WHERE id = ?
+`
+
+type SetFileFavoriteParams struct {
+	Favorite int64
+	ID       int64
+}
+
+func (q *Queries) SetFileFavorite(ctx context.Context, arg SetFileFavoriteParams) error {
+	_, err := q.db.ExecContext(ctx, setFileFavorite, arg.Favorite, arg.ID)
 	return err
 }
 

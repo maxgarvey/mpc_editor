@@ -68,6 +68,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		"DetailHTML":        detailHTML,
 		"LastDetailRelPath": lastDetailRelPath,
 		"Device":            s.detector.Current(),
+		"FilterChips":       drumFilterChips(),
 	}
 	s.renderTemplate(w, "layout.html", data)
 }

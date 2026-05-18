@@ -51,6 +51,7 @@ func Open() (*sql.DB, *Queries, error) {
 	migrateAddFKIndexes(sqlDB)
 	migrateAddFileColor(sqlDB)
 	migrateAddFileLabel(sqlDB)
+	migrateAddFileFavorite(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -191,6 +192,12 @@ func migrateAddFileColor(sqlDB *sql.DB) {
 func migrateAddFileLabel(sqlDB *sql.DB) {
 	_, _ = sqlDB.Exec(`ALTER TABLE files ADD COLUMN category TEXT NOT NULL DEFAULT ''`)
 	_, _ = sqlDB.Exec(`ALTER TABLE files ADD COLUMN subcategory TEXT NOT NULL DEFAULT ''`)
+}
+
+// migrateAddFileFavorite adds the favorite column to the files table.
+func migrateAddFileFavorite(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`ALTER TABLE files ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`)
+	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(favorite)`)
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

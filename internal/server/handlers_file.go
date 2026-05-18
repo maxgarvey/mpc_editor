@@ -157,6 +157,35 @@ var labelTaxonomy = []LabelCategory{
 	}},
 }
 
+// FilterChip holds display data for a category quick-filter chip.
+type FilterChip struct {
+	Label string
+	Query string // search query param value; empty string means "All" (clear search)
+	Fav   bool   // true for the favorites chip
+	CSS   string // CSS hex color for the dot, empty if none
+}
+
+// drumFilterChips returns the ordered list of filter chips for the workspace panel.
+func drumFilterChips() []FilterChip {
+	chips := []FilterChip{
+		{Label: "All", Query: ""},
+		{Label: "★", Query: "", Fav: true},
+	}
+	for _, cat := range labelTaxonomy {
+		if cat.Name != "drum" {
+			continue
+		}
+		for _, sub := range cat.Subcats {
+			chips = append(chips, FilterChip{
+				Label: sub.Name,
+				Query: sub.Name,
+				CSS:   colorToCSS(sub.Color),
+			})
+		}
+	}
+	return chips
+}
+
 // labelColor returns the preset color name for a given category+subcategory pair.
 // Returns "" if not found.
 func labelColor(category, subcategory string) (string, bool) {
@@ -228,6 +257,50 @@ func (s *Server) handleFileLabel(w http.ResponseWriter, r *http.Request) {
 	// OOB swap: color picker (template checks .OOB to add hx-swap-oob attribute)
 	data["OOB"] = true
 	s.renderTemplate(w, "wav_color_picker.html", data)
+}
+
+// handleFileFavorite toggles the favorite flag for a WAV file and returns the updated star button.
+// POST /file/favorite — form param: id (file_id)
+func (s *Server) handleFileFavorite(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	fileID, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid file id", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	cur, err := s.queries.GetFileFavorite(ctx, fileID)
+	if err != nil {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+	newVal := int64(1)
+	if cur != 0 {
+		newVal = 0
+	}
+	if err := s.queries.SetFileFavorite(ctx, db.SetFileFavoriteParams{
+		Favorite: newVal,
+		ID:       fileID,
+	}); err != nil {
+		http.Error(w, "failed to set favorite", http.StatusInternalServerError)
+		return
+	}
+	isFav := newVal != 0
+	title := "Favorite"
+	star := "☆"
+	cls := "entry-fav-btn"
+	if isFav {
+		title = "Unfavorite"
+		star = "★"
+		cls = "entry-fav-btn is-fav"
+	}
+	fmt.Fprintf(w,
+		`<button class="%s" title="%s" hx-post="/file/favorite" hx-vals='{"id":"%d"}' hx-swap="outerHTML" onclick="event.stopPropagation()">%s</button>`,
+		cls, title, fileID, star,
+	)
 }
 
 // FileDetailData holds template data for the file detail page.
