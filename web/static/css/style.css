@@ -1199,7 +1199,7 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    padding: 6px 16px;
+    padding: 4px 16px;
     cursor: pointer;
     font-size: 13px;
     color: #d4d4d4;
@@ -1271,6 +1271,15 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.entry-dir-path {
+    font-size: 10px;
+    color: #4a4a4a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 120px;
 }
 
 .entry-preview-btn {

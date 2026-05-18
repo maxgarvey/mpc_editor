@@ -37,8 +37,9 @@
             {{end}}
         </span>
         <span class="entry-body">
-            <span class="entry-name">{{if .RelPath}}{{.RelPath}}{{else}}{{.Name}}{{end}}</span>{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}
+            <span class="entry-name">{{.Name}}</span>{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}
             <span class="entry-meta-row">
+                {{if .RelDirPath}}<span class="entry-dir-path">{{.RelDirPath}}</span>{{end}}
                 {{if .WavInfo}}<span class="entry-meta">{{.WavInfo}}</span>{{end}}
                 {{if .Subcategory}}<span class="entry-label-chip"{{if .Color}} style="color:{{.Color}};border-color:{{.Color}}"{{end}}>{{.Subcategory}}</span>{{end}}
             </span>

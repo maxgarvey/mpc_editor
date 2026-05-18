@@ -39,6 +39,7 @@ type BrowseEntry struct {
 	Name           string
 	Path           string // absolute path
 	RelPath        string // relative path from workspace (set in search results)
+	RelDirPath     string // directory portion of RelPath (set in search results, for display)
 	IsDir          bool
 	IsProject      bool   // true if directory contains a .pgm file (self-contained beat)
 	Divider        bool   // true for synthetic label-group divider rows (no file)
@@ -943,10 +944,15 @@ func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
 		relPath := f.Path
 		absPath := filepath.Join(workspace, relPath)
 		ext := strings.ToLower(filepath.Ext(f.Path))
+		dir := filepath.Dir(relPath)
+		if dir == "." {
+			dir = ""
+		}
 		entries = append(entries, BrowseEntry{
 			Name:        filepath.Base(f.Path),
 			Path:        absPath,
 			RelPath:     relPath,
+			RelDirPath:  dir,
 			Ext:         ext,
 			FileID:      f.ID,
 			Color:       colorToCSS(f.Color),
