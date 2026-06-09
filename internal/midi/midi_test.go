@@ -222,3 +222,22 @@ func TestJavaParityTicks(t *testing.T) {
 
 	t.Logf("tempoBPS=%.4f, tick(21418)=%d", tempoBPS, tick)
 }
+
+func TestParseMIDI_Malformed(t *testing.T) {
+	cases := map[string][]byte{
+		"empty":            {},
+		"bad magic":        []byte("NOPE"),
+		"truncated header": []byte("MThd\x00\x00\x00\x06\x00\x00"),
+	}
+	for name, data := range cases {
+		if _, err := ParseMIDI(bytes.NewReader(data)); err == nil {
+			t.Errorf("%s: ParseMIDI should return an error", name)
+		}
+	}
+}
+
+func TestReadMIDI_Missing(t *testing.T) {
+	if _, err := ReadMIDI(filepath.Join(t.TempDir(), "missing.mid")); err == nil {
+		t.Error("ReadMIDI on missing file should return an error")
+	}
+}

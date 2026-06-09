@@ -276,37 +276,90 @@ body {
     flex-shrink: 0;
 }
 
-/* ── Sort toggle (Name / Label) ── */
+/* ── Active filter chip remove button ── */
 
-.sort-toggle {
-    display: flex;
-    gap: 2px;
-    margin-top: 4px;
-}
-
-.sort-btn {
-    flex: 1;
-    padding: 2px 6px;
+.chip-remove {
+    opacity: 0.5;
     font-size: 10px;
-    border-radius: 3px;
-    border: 1px solid #333;
-    background: #1a1a1a;
-    color: #666;
-    cursor: pointer;
-    text-align: center;
-    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    margin-left: 1px;
+    line-height: 1;
 }
 
-.sort-btn:hover {
-    background: #252525;
-    color: #aaa;
-    border-color: #444;
+.filter-chip-active:hover .chip-remove {
+    opacity: 1;
 }
 
-.sort-btn.active {
-    background: #222;
-    color: #d4d4d4;
+/* ── "+ Add Filter" chip ── */
+
+.filter-chip-add {
+    color: #555;
+    border-style: dashed;
+    border-color: #2e2e2e;
+}
+
+.filter-chip-add:hover {
+    color: #999;
     border-color: #555;
+    border-style: dashed;
+}
+
+/* ── Filter dropdown ── */
+
+.chip-dropdown {
+    position: fixed;
+    z-index: 1000;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    min-width: 160px;
+    max-width: 220px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.7);
+    padding: 6px 0 4px;
+}
+
+.chip-dropdown-search {
+    display: block;
+    width: calc(100% - 12px);
+    margin: 0 6px 4px;
+    padding: 4px 8px;
+    background: #252525;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    color: #d4d4d4;
+    font-size: 11px;
+    outline: none;
+}
+
+.chip-dropdown-search:focus {
+    border-color: #555;
+}
+
+.chip-dropdown-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.chip-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: #aaa;
+    cursor: pointer;
+    user-select: none;
+}
+
+.chip-dropdown-item:hover {
+    background: #252525;
+    color: #d4d4d4;
+}
+
+.chip-dropdown-empty {
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #555;
+    font-style: italic;
 }
 
 /* ── Star/favorite button in browser entries ── */
@@ -370,6 +423,30 @@ body {
     border-top: 1px solid #222;
     margin-top: 2px;
     pointer-events: none;
+}
+
+.nav-divider.collapsible {
+    pointer-events: auto;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nav-divider.collapsible:hover {
+    color: #888;
+}
+
+.group-toggle-icon {
+    display: inline-block;
+    transition: transform 0.15s;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.nav-divider.collapsible.is-collapsed .group-toggle-icon {
+    transform: rotate(-90deg);
 }
 
 #file-nav {
@@ -736,6 +813,19 @@ body {
     padding: 1px 3px;
     border-radius: 2px;
     line-height: 1;
+}
+
+.pad-lib-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 3px;
+    font-size: 8px;
+    line-height: 1;
+    opacity: 0.7;
+}
+
+.pad-btn.is-linked {
+    border-bottom: 2px solid #4caf80;
 }
 
 /* Params Section */
@@ -1382,6 +1472,46 @@ body {
     color: #888;
 }
 
+.badge-lib {
+    background: #1a3a2a;
+    color: #4caf80;
+    font-size: 9px;
+}
+
+.entry-lib-chip {
+    font-size: 9px;
+    color: #4caf80;
+    background: #1a3a2a;
+    border: 1px solid #2a5a3a;
+    border-radius: 3px;
+    padding: 0 3px;
+    white-space: nowrap;
+}
+
+.entry-lib-chip.lib-chip-outdated {
+    color: #e0a040;
+    background: #3a2a0a;
+    border-color: #5a3a0a;
+}
+
+.entry-lib-chip.lib-chip-missing {
+    color: #e05555;
+    background: #3a1010;
+    border-color: #5a1010;
+}
+
+.browser-entry.is-library-root > .entry-icon {
+    color: #4caf80;
+}
+
+.browser-entry.is-library > .entry-icon {
+    color: #4caf80;
+}
+
+.browser-entry.is-library-copy > .entry-icon {
+    opacity: 0.75;
+}
+
 /* Save confirmation modal */
 .save-confirm-modal {
     background: #1e1e1e;
@@ -1521,6 +1651,59 @@ body {
     padding: 0;
     cursor: pointer;
     font: inherit;
+}
+
+.lib-source-path {
+    color: #4caf80;
+    font-size: 11px;
+    word-break: break-all;
+    flex: 1;
+    min-width: 0;
+}
+
+.lib-sync-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.lib-sync-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.lib-sync-ok {
+    background: #1a3a2a;
+    color: #4caf80;
+}
+
+.lib-sync-outdated {
+    background: #3a2a0a;
+    color: #e0a040;
+}
+
+.lib-sync-missing {
+    background: #3a1010;
+    color: #e05555;
+}
+
+.lib-sync-unknown {
+    background: #2a2a2a;
+    color: #888;
+}
+
+.btn-lib-update {
+    color: #e0a040;
+    border-color: #5a3a0a;
+}
+
+.btn-lib-open {
+    flex-shrink: 0;
+    color: #4caf80;
+    border-color: #2a5a3a;
 }
 
 /* WAV waveform */
@@ -3792,4 +3975,99 @@ tr.pad-row:not(.has-events) .step-cell {
 
 .move-dest-label strong {
     color: #d4d4d4;
+}
+
+/* --- Toast notifications --- */
+
+#toast-container {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    background: #2c2c2c;
+    color: #ddd;
+    border: 1px solid #444;
+    border-left: 3px solid #a0c840;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    max-width: 340px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    opacity: 1;
+    transition: opacity 0.35s ease;
+}
+
+.toast-error {
+    border-left-color: #cc4444;
+    background: #3a2424;
+    color: #f0d6d6;
+}
+
+.toast-hide {
+    opacity: 0;
+}
+
+/* --- Save indicator --- */
+
+#save-indicator {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    z-index: 1200;
+    background: #2c2c2c;
+    border: 1px solid #444;
+    color: #a0c840;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#save-indicator.save-indicator-show {
+    animation: save-pulse 1.4s ease forwards;
+}
+
+@keyframes save-pulse {
+    0%   { opacity: 0; }
+    15%  { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* --- Library sync row busy state (hx-indicator) --- */
+
+.lib-sync-row.htmx-request .btn-sm,
+.lib-sync-row.htmx-request .lib-sync-badge {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.lib-sync-row.htmx-request::after {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #444;
+    border-top-color: #a0c840;
+    border-radius: 50%;
+    animation: detail-spin 0.7s linear infinite;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* --- Search result cap notice --- */
+
+.nav-search-capped {
+    padding: 6px 10px;
+    color: #888;
+    font-size: 11px;
+    font-style: italic;
 }

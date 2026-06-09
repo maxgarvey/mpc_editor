@@ -44,6 +44,42 @@
     </div>
     {{end}}
 
+    {{if .LibrarySource}}
+    <div class="detail-section">
+        <h3>Library Origin</h3>
+        <div class="detail-row">
+            <span class="detail-label">Source:</span>
+            <span class="lib-source-path">{{.LibrarySource}}</span>
+        </div>
+        <div class="detail-row lib-sync-row">
+            {{if eq .LibrarySyncStatus "ok"}}
+            <span class="lib-sync-badge lib-sync-ok">&#10003; Up to date</span>
+            {{else if eq .LibrarySyncStatus "outdated"}}
+            <span class="lib-sync-badge lib-sync-outdated">&#9650; Update available</span>
+            {{else if eq .LibrarySyncStatus "source_missing"}}
+            <span class="lib-sync-badge lib-sync-missing">&#10007; Source missing</span>
+            {{else}}
+            <span class="lib-sync-badge lib-sync-unknown">&#8863; Not checked</span>
+            {{end}}
+            <button class="btn-sm"
+                    hx-post="/library/check"
+                    hx-vals='{"path":"{{.Path}}"}'
+                    hx-target="#detail-tab-content"
+                    hx-swap="innerHTML"
+                    hx-indicator=".lib-sync-row">Check</button>
+            {{if eq .LibrarySyncStatus "outdated"}}
+            <button class="btn-sm btn-lib-update"
+                    hx-post="/library/update"
+                    hx-vals='{"path":"{{.Path}}"}'
+                    hx-target="#detail-tab-content"
+                    hx-swap="innerHTML"
+                    hx-confirm="Update this file from library source? The current copy will be overwritten."
+                    hx-indicator=".lib-sync-row">Update from library</button>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
     {{if .UsedBy}}
     <div class="detail-section">
         <h3>Used by Programs</h3>

@@ -52,7 +52,7 @@ New:    NewProgram() → zero-filled buffer + sensible defaults (level=100, chro
 | Module | Relationship |
 |--------|-------------|
 | [`internal/seq`](../seq/README.md) | Reads `.pgm` to resolve MIDI note → pad mappings for sequence display |
-| [`internal/command`](../command/README.md) | `SimpleAssign`, `MultisampleAssign`, and `ExportProgram` operate on `Program` and `SampleMatrix` |
+| [`internal/command`](../command/README.md) | `SimpleAssign` and `MultisampleAssign` operate on `Program` and `SampleMatrix` |
 | [`internal/server`](../server/README.md) | Owns the active `*Program` in `Session`; handlers call `Pad`, `Layer`, `Envelope`, etc. |
 | [`internal/scanner`](../scanner/README.md) | Extracts `midi_pgm_change` and pad-sample assignments from `.pgm` files for the catalog |
 

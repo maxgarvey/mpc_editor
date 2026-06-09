@@ -983,6 +983,91 @@ func TestHandleWorkspaceMove_MatrixWAVPatch(t *testing.T) {
 	}
 }
 
+func TestGroupBrowseEntries(t *testing.T) {
+	input := []BrowseEntry{
+		{Name: "beats", IsDir: true},
+		{Name: "kick.wav", Ext: ".wav"},
+		{Name: "snare.wav", Ext: ".wav"},
+		{Name: "kit.pgm", Ext: ".pgm"},
+		{Name: "manifest.all", Ext: ".all"},
+		{Name: "notes.txt", Ext: ".txt"},
+		{Name: "groove.seq", Ext: ".seq"},
+		{Name: "track.sng", Ext: ".sng"},
+		{Name: "pattern.mid", Ext: ".mid"},
+	}
+
+	got := groupBrowseEntries(input)
+
+	// Directory first, no group assigned.
+	if got[0].Name != "beats" || got[0].Group != "" {
+		t.Errorf("expected dir first with no group, got %+v", got[0])
+	}
+
+	// Collect dividers and verify order.
+	var divLabels []string
+	for _, e := range got {
+		if e.Divider {
+			divLabels = append(divLabels, e.DividerLabel)
+			if !e.Collapsible {
+				t.Errorf("divider %q should be collapsible", e.DividerLabel)
+			}
+			if e.DividerGroup == "" {
+				t.Errorf("divider %q missing DividerGroup", e.DividerLabel)
+			}
+		}
+	}
+	wantOrder := []string{"Samples", "Programs", "Sequences", "Songs", "Other"}
+	if len(divLabels) != len(wantOrder) {
+		t.Fatalf("dividers = %v, want %v", divLabels, wantOrder)
+	}
+	for i, want := range wantOrder {
+		if divLabels[i] != want {
+			t.Errorf("divider[%d] = %q, want %q", i, divLabels[i], want)
+		}
+	}
+
+	// Verify Group assignment on file entries.
+	groupOf := map[string]string{}
+	for _, e := range got {
+		if !e.Divider && !e.IsDir {
+			groupOf[e.Name] = e.Group
+		}
+	}
+	checks := map[string]string{
+		"kick.wav":     "samples",
+		"snare.wav":    "samples",
+		"kit.pgm":      "programs",
+		"manifest.all": "programs",
+		"notes.txt":    "programs",
+		"groove.seq":   "sequences",
+		"track.sng":    "songs",
+		"pattern.mid":  "other",
+	}
+	for name, wantGroup := range checks {
+		if groupOf[name] != wantGroup {
+			t.Errorf("%s.Group = %q, want %q", name, groupOf[name], wantGroup)
+		}
+	}
+}
+
+func TestGroupBrowseEntries_EmptyGroups(t *testing.T) {
+	// Only wav files — only Samples group should appear.
+	input := []BrowseEntry{
+		{Name: "a.wav", Ext: ".wav"},
+		{Name: "b.wav", Ext: ".wav"},
+	}
+	got := groupBrowseEntries(input)
+	var dividers []BrowseEntry
+	for _, e := range got {
+		if e.Divider {
+			dividers = append(dividers, e)
+		}
+	}
+	if len(dividers) != 1 || dividers[0].DividerLabel != "Samples" {
+		t.Errorf("expected single Samples divider, got %v", dividers)
+	}
+}
+
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -990,5 +1075,124 @@ func writeTestFile(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHandleWorkspaceRename_DirCatalogCascade(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	subDir := filepath.Join(workspace, "kits")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(subDir, "kick.wav"), "wav data")
+	seedFile(t, srv, filepath.Join("kits", "kick.wav"), "wav")
+
+	form := url.Values{"path": {subDir}, "name": {"drums"}}
+	req := httptest.NewRequest("POST", "/workspace/rename", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	// The nested catalog entry must follow the directory rename.
+	if _, err := srv.queries.GetFileByPath(context.Background(), filepath.Join("drums", "kick.wav")); err != nil {
+		t.Errorf("catalog entry should exist at drums/kick.wav: %v", err)
+	}
+	if _, err := srv.queries.GetFileByPath(context.Background(), filepath.Join("kits", "kick.wav")); err == nil {
+		t.Error("catalog entry should no longer exist at kits/kick.wav")
+	}
+}
+
+func TestHandleWorkspaceOrganize(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+	ctx := context.Background()
+
+	// Two labeled WAVs and one unlabeled in the workspace root.
+	kickID := seedFile(t, srv, "kick1.wav", "wav")
+	snareID := seedFile(t, srv, "snare1.wav", "wav")
+	seedFile(t, srv, "plain.wav", "wav")
+	if err := srv.queries.SetFileLabel(ctx, db.SetFileLabelParams{Category: "drum", Subcategory: "kick", ID: kickID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := srv.queries.SetFileLabel(ctx, db.SetFileLabelParams{Category: "drum", Subcategory: "snare", ID: snareID}); err != nil {
+		t.Fatal(err)
+	}
+
+	form := url.Values{"dir": {workspace}}
+	req := httptest.NewRequest("POST", "/workspace/organize", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+	// Labeled files moved into per-subcategory dirs; unlabeled stays put.
+	if _, err := os.Stat(filepath.Join(workspace, "kick", "kick1.wav")); err != nil {
+		t.Error("kick1.wav should be moved to kick/ subdir")
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "snare", "snare1.wav")); err != nil {
+		t.Error("snare1.wav should be moved to snare/ subdir")
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "plain.wav")); err != nil {
+		t.Error("plain.wav (unlabeled) must not move")
+	}
+	// Catalog follows the move.
+	if _, err := srv.queries.GetFileByPath(ctx, filepath.Join("kick", "kick1.wav")); err != nil {
+		t.Errorf("catalog entry should exist at kick/kick1.wav: %v", err)
+	}
+}
+
+func TestHandleWorkspaceOrganize_MethodNotAllowed(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest("GET", "/workspace/organize", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestHandleWorkspaceOrganize_BadDir(t *testing.T) {
+	srv := testServer(t)
+	form := url.Values{"dir": {"/outside/workspace"}}
+	req := httptest.NewRequest("POST", "/workspace/organize", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", w.Code)
+	}
+}
+
+func TestHandleBrowseNav_LabelSort(t *testing.T) {
+	srv := testServer(t)
+	ctx := context.Background()
+
+	kickID := seedFile(t, srv, "kick2.wav", "wav")
+	seedFile(t, srv, "unlabeled.wav", "wav")
+	if err := srv.queries.SetFileLabel(ctx, db.SetFileLabelParams{Category: "drum", Subcategory: "kick", ID: kickID}); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/browse/nav?sort=label", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	body := w.Body.String()
+	// Label sort inserts divider rows: one per subcategory, plus "other" for unlabeled.
+	if !strings.Contains(body, "kick") {
+		t.Error("label-sorted nav should contain the kick group")
+	}
+	if !strings.Contains(body, "other") {
+		t.Error("label-sorted nav should contain the other group for unlabeled files")
 	}
 }

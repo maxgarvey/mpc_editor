@@ -33,6 +33,9 @@ func (s *Server) handleAudioPad(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Resolve the file path under the lock, then stream without it
+	// (this route bypasses the global handler mutex; see Handler()).
+	s.mu.Lock()
 	filePath := ""
 	if pgmRaw := r.FormValue("pgm"); pgmRaw != "" {
 		workspace := s.session.WorkspacePath
@@ -56,12 +59,15 @@ func (s *Server) handleAudioPad(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if filePath == "" {
-		ref := s.session.Matrix.Get(padIdx, layerIdx)
-		if ref == nil || ref.FilePath == "" {
-			http.Error(w, "no sample loaded", http.StatusNotFound)
-			return
+		if ref := s.session.Matrix.Get(padIdx, layerIdx); ref != nil {
+			filePath = ref.FilePath
 		}
-		filePath = ref.FilePath
+	}
+	s.mu.Unlock()
+
+	if filePath == "" {
+		http.Error(w, "no sample loaded", http.StatusNotFound)
+		return
 	}
 
 	w.Header().Set("Content-Type", "audio/wav")
@@ -78,17 +84,21 @@ func (s *Server) handleAudioSlice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract the slice under the lock, then encode without it
+	// (this route bypasses the global handler mutex; see Handler()).
+	s.mu.Lock()
 	if s.session.Slicer == nil {
+		s.mu.Unlock()
 		http.Error(w, "no slicer active", http.StatusNotFound)
 		return
 	}
-
 	if idx >= s.session.Slicer.Markers.Size() {
+		s.mu.Unlock()
 		http.Error(w, "slice index out of range", http.StatusBadRequest)
 		return
 	}
-
 	slice := s.session.Slicer.GetSlice(idx)
+	s.mu.Unlock()
 
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=\"slice_%d.wav\"", idx))
@@ -105,7 +115,9 @@ func (s *Server) handleAudioFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.mu.Lock()
 	path := s.resolvePath(relPath)
+	s.mu.Unlock()
 	if path == "" {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
@@ -129,7 +141,9 @@ func (s *Server) handleAudioWaveform(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.mu.Lock()
 	path := s.resolvePath(relPath)
+	s.mu.Unlock()
 	if path == "" {
 		http.Error(w, "invalid path", http.StatusBadRequest)
 		return
@@ -170,6 +184,7 @@ func (s *Server) handleAudioInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pads []padInfo
+	s.mu.Lock()
 	for i := 0; i < 64; i++ {
 		for j := 0; j < 4; j++ {
 			ref := s.session.Matrix.Get(i, j)
@@ -179,6 +194,7 @@ func (s *Server) handleAudioInfo(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	s.mu.Unlock()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"pads": pads})

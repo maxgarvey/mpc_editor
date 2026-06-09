@@ -4,16 +4,34 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func openTestProgram(t *testing.T, srv *Server) {
+// openTestProgram copies the test fixture into the temp workspace and opens
+// that copy, so handlers that auto-save never touch the checked-in fixture.
+// Returns the path of the opened copy.
+func openTestProgram(t *testing.T, srv *Server) string {
 	t.Helper()
-	form := url.Values{"path": {testdataPath("test.pgm")}}
+	data, err := os.ReadFile(testdataPath("test.pgm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(srv.session.WorkspacePath, "test.pgm")
+	if err := os.WriteFile(dst, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{"path": {dst}}
 	req := httptest.NewRequest("POST", "/program/open", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	srv.Handler().ServeHTTP(httptest.NewRecorder(), req)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("open program: status = %d", w.Code)
+	}
+	return dst
 }
 
 func TestHandlePadParams_Post(t *testing.T) {
@@ -166,5 +184,51 @@ func TestHandleLayerUpdate_MethodNotAllowed(t *testing.T) {
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestHandlePadParams_SavedTrigger(t *testing.T) {
+	srv := testServer(t)
+	openTestProgram(t, srv)
+
+	form := url.Values{"mixer_level": {"90"}}
+	req := httptest.NewRequest("POST", "/pad/params", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	trigger := w.Header().Get("HX-Trigger")
+	if !strings.Contains(trigger, "programSaved") {
+		t.Errorf("HX-Trigger = %q, want programSaved event after successful save", trigger)
+	}
+}
+
+func TestHandlePadParams_NoFileNoSaveTrigger(t *testing.T) {
+	srv := testServer(t)
+	// No program file open: the edit applies in memory only.
+
+	form := url.Values{"mixer_level": {"90"}}
+	req := httptest.NewRequest("POST", "/pad/params", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	trigger := w.Header().Get("HX-Trigger")
+	if !strings.Contains(trigger, "invalidatePad") {
+		t.Errorf("HX-Trigger = %q, want invalidatePad", trigger)
+	}
+	if strings.Contains(trigger, "programSaved") {
+		t.Errorf("HX-Trigger = %q, must not claim a save without a file", trigger)
+	}
+	// The empty-path guard must not leak temp files into the cwd.
+	strays, _ := filepath.Glob(".pgm-save-*")
+	if len(strays) > 0 {
+		t.Errorf("leaked temp files: %v", strays)
 	}
 }

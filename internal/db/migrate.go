@@ -52,6 +52,9 @@ func Open() (*sql.DB, *Queries, error) {
 	migrateAddFileColor(sqlDB)
 	migrateAddFileLabel(sqlDB)
 	migrateAddFileFavorite(sqlDB)
+	migrateCreateSampleLinks(sqlDB)
+	migrateAddSampleLinkSyncStatus(sqlDB)
+	migrateAddSampleLinkSrcStat(sqlDB)
 
 	queries := New(sqlDB)
 	migrateJSONPrefs(dir, queries)
@@ -198,6 +201,30 @@ func migrateAddFileLabel(sqlDB *sql.DB) {
 func migrateAddFileFavorite(sqlDB *sql.DB) {
 	_, _ = sqlDB.Exec(`ALTER TABLE files ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0`)
 	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_files_favorite ON files(favorite)`)
+}
+
+// migrateCreateSampleLinks creates the sample_links table for tracking library provenance.
+func migrateCreateSampleLinks(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`CREATE TABLE IF NOT EXISTS sample_links (
+		id           INTEGER PRIMARY KEY AUTOINCREMENT,
+		copy_path    TEXT NOT NULL UNIQUE,
+		library_path TEXT NOT NULL,
+		checksum     TEXT NOT NULL DEFAULT '',
+		copied_at    INTEGER NOT NULL DEFAULT 0
+	)`)
+	_, _ = sqlDB.Exec(`CREATE INDEX IF NOT EXISTS idx_sample_links_library_path ON sample_links(library_path)`)
+}
+
+// migrateAddSampleLinkSyncStatus adds the sync_status column to existing sample_links tables.
+func migrateAddSampleLinkSyncStatus(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`ALTER TABLE sample_links ADD COLUMN sync_status TEXT NOT NULL DEFAULT ''`)
+}
+
+// migrateAddSampleLinkSrcStat adds the source size/mod-time columns used to skip
+// re-checksumming unchanged library sources during sync checks.
+func migrateAddSampleLinkSrcStat(sqlDB *sql.DB) {
+	_, _ = sqlDB.Exec(`ALTER TABLE sample_links ADD COLUMN src_size INTEGER NOT NULL DEFAULT 0`)
+	_, _ = sqlDB.Exec(`ALTER TABLE sample_links ADD COLUMN src_mod_time INTEGER NOT NULL DEFAULT 0`)
 }
 
 // migrateJSONPrefs migrates preferences from the old JSON file to the database.

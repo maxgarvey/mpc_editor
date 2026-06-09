@@ -569,5 +569,261 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 	migrateAddFileTypeIndex(sqlDB)
 	migrateRenameScannedAt(sqlDB)
 	migrateAddFKIndexes(sqlDB)
+	migrateAddFileColor(sqlDB)
+	migrateAddFileLabel(sqlDB)
+	migrateAddFileFavorite(sqlDB)
+	migrateCreateSampleLinks(sqlDB)
+	migrateAddSampleLinkSyncStatus(sqlDB)
+	migrateAddSampleLinkSrcStat(sqlDB)
 	// migrateJSONPrefs skipped: requires filesystem side effects.
+}
+
+// File color / label / favorite ------------------------------------------
+
+func TestFileColorLabelFavorite(t *testing.T) {
+	_, q := openTestDB(t)
+	ctx := context.Background()
+
+	id, _ := q.UpsertFile(ctx, UpsertFileParams{Path: "meta.wav", FileType: "wav", Size: 1})
+
+	if err := q.SetFileColor(ctx, SetFileColorParams{Color: "red", ID: id}); err != nil {
+		t.Fatalf("SetFileColor: %v", err)
+	}
+	color, err := q.GetFileColor(ctx, id)
+	if err != nil || color != "red" {
+		t.Errorf("GetFileColor = %q, %v; want red", color, err)
+	}
+	colored, err := q.ListWavColored(ctx)
+	if err != nil || len(colored) != 1 {
+		t.Errorf("ListWavColored = %d rows, %v; want 1", len(colored), err)
+	}
+
+	if err := q.SetFileLabel(ctx, SetFileLabelParams{Category: "drum", Subcategory: "kick", ID: id}); err != nil {
+		t.Fatalf("SetFileLabel: %v", err)
+	}
+	label, err := q.GetFileLabel(ctx, id)
+	if err != nil || label.Category != "drum" || label.Subcategory != "kick" {
+		t.Errorf("GetFileLabel = %+v, %v; want drum/kick", label, err)
+	}
+
+	if err := q.SetFileFavorite(ctx, SetFileFavoriteParams{Favorite: 1, ID: id}); err != nil {
+		t.Fatalf("SetFileFavorite: %v", err)
+	}
+	fav, err := q.GetFileFavorite(ctx, id)
+	if err != nil || fav != 1 {
+		t.Errorf("GetFileFavorite = %d, %v; want 1", fav, err)
+	}
+	favs, err := q.ListFavorites(ctx)
+	if err != nil || len(favs) != 1 {
+		t.Errorf("ListFavorites = %d rows, %v; want 1", len(favs), err)
+	}
+}
+
+// Path prefix operations ---------------------------------------------------
+
+func TestMoveFilePathPrefix(t *testing.T) {
+	_, q := openTestDB(t)
+	ctx := context.Background()
+
+	q.UpsertFile(ctx, UpsertFileParams{Path: "kits/a.wav", FileType: "wav", Size: 1})  //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "kits/b.wav", FileType: "wav", Size: 1})  //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "kitsch.wav", FileType: "wav", Size: 1})  //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "other/c.wav", FileType: "wav", Size: 1}) //nolint:errcheck // test setup
+
+	if err := q.MoveFilePathPrefix(ctx, MoveFilePathPrefixParams{NewPrefix: "drums/", OldPrefix: "kits/"}); err != nil {
+		t.Fatalf("MoveFilePathPrefix: %v", err)
+	}
+
+	if _, err := q.GetFileByPath(ctx, "drums/a.wav"); err != nil {
+		t.Error("drums/a.wav should exist after prefix move")
+	}
+	if _, err := q.GetFileByPath(ctx, "drums/b.wav"); err != nil {
+		t.Error("drums/b.wav should exist after prefix move")
+	}
+	// Non-prefix lookalike and unrelated paths must be untouched.
+	if _, err := q.GetFileByPath(ctx, "kitsch.wav"); err != nil {
+		t.Error("kitsch.wav must not be affected by kits/ prefix move")
+	}
+	if _, err := q.GetFileByPath(ctx, "other/c.wav"); err != nil {
+		t.Error("other/c.wav must not be affected")
+	}
+}
+
+func TestDeleteFilesByPathPrefix(t *testing.T) {
+	_, q := openTestDB(t)
+	ctx := context.Background()
+
+	q.UpsertFile(ctx, UpsertFileParams{Path: "trash/a.wav", FileType: "wav", Size: 1}) //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "trashy.wav", FileType: "wav", Size: 1})  //nolint:errcheck // test setup
+
+	if err := q.DeleteFilesByPathPrefix(ctx, "trash/"); err != nil {
+		t.Fatalf("DeleteFilesByPathPrefix: %v", err)
+	}
+	if _, err := q.GetFileByPath(ctx, "trash/a.wav"); err == nil {
+		t.Error("trash/a.wav should be deleted")
+	}
+	if _, err := q.GetFileByPath(ctx, "trashy.wav"); err != nil {
+		t.Error("trashy.wav must survive the prefix delete")
+	}
+}
+
+func TestListFilesWithWavMetaForPrefix(t *testing.T) {
+	_, q := openTestDB(t)
+	ctx := context.Background()
+
+	id, _ := q.UpsertFile(ctx, UpsertFileParams{Path: "dir/kick.wav", FileType: "wav", Size: 1})
+	q.UpsertWavMeta(ctx, UpsertWavMetaParams{FileID: id, SampleRate: 44100, Channels: 2, BitsPerSample: 16, FrameCount: 100}) //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "dir/no_meta.pgm", FileType: "pgm", Size: 1})                                    //nolint:errcheck // test setup
+	q.UpsertFile(ctx, UpsertFileParams{Path: "elsewhere/x.wav", FileType: "wav", Size: 1})                                    //nolint:errcheck // test setup
+
+	rows, err := q.ListFilesWithWavMetaForPrefix(ctx, "dir/")
+	if err != nil {
+		t.Fatalf("ListFilesWithWavMetaForPrefix: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(rows))
+	}
+	byPath := map[string]ListFilesWithWavMetaForPrefixRow{}
+	for _, r := range rows {
+		byPath[r.Path] = r
+	}
+	if byPath["dir/kick.wav"].SampleRate != 44100 {
+		t.Errorf("kick sample rate = %d, want 44100", byPath["dir/kick.wav"].SampleRate)
+	}
+	if byPath["dir/no_meta.pgm"].SampleRate != 0 {
+		t.Errorf("pgm sample rate = %d, want 0 (no wav_meta row)", byPath["dir/no_meta.pgm"].SampleRate)
+	}
+
+	// Empty prefix matches everything.
+	all, err := q.ListFilesWithWavMetaForPrefix(ctx, "")
+	if err != nil || len(all) != 3 {
+		t.Errorf("empty prefix rows = %d, %v; want 3", len(all), err)
+	}
+}
+
+func TestCountMissingSamplesForPrefix(t *testing.T) {
+	_, q := openTestDB(t)
+	ctx := context.Background()
+
+	pgmID, _ := q.UpsertFile(ctx, UpsertFileParams{Path: "dir/prog.pgm", FileType: "pgm", Size: 1})
+	q.InsertPgmSample(ctx, InsertPgmSampleParams{PgmFileID: pgmID, Pad: 0, Layer: 0, SampleName: "ghost"})  //nolint:errcheck // test setup
+	q.InsertPgmSample(ctx, InsertPgmSampleParams{PgmFileID: pgmID, Pad: 1, Layer: 0, SampleName: "ghost2"}) //nolint:errcheck // test setup
+
+	rows, err := q.CountMissingSamplesForPrefix(ctx, "dir/")
+	if err != nil {
+		t.Fatalf("CountMissingSamplesForPrefix: %v", err)
+	}
+	if len(rows) != 1 || rows[0].PgmFileID != pgmID || rows[0].Missing != 2 {
+		t.Errorf("rows = %+v, want one row {%d 2}", rows, pgmID)
+	}
+
+	// No pgm files under another prefix.
+	none, err := q.CountMissingSamplesForPrefix(ctx, "nowhere/")
+	if err != nil || len(none) != 0 {
+		t.Errorf("rows for nowhere/ = %d, %v; want 0", len(none), err)
+	}
+}
+
+// Sample links -------------------------------------------------------------
+
+func TestSampleLinks(t *testing.T) {
+	_, q := openTestDB(t)
+	ctx := context.Background()
+
+	if err := q.UpsertSampleLink(ctx, UpsertSampleLinkParams{
+		CopyPath:    "beats/kick.wav",
+		LibraryPath: "sample_library/kick.wav",
+		Checksum:    "abc123",
+		CopiedAt:    1000,
+		SrcSize:     42,
+		SrcModTime:  999,
+	}); err != nil {
+		t.Fatalf("UpsertSampleLink: %v", err)
+	}
+
+	link, err := q.GetSampleLinkByCopyPath(ctx, "beats/kick.wav")
+	if err != nil {
+		t.Fatalf("GetSampleLinkByCopyPath: %v", err)
+	}
+	if link.LibraryPath != "sample_library/kick.wav" || link.SyncStatus != "ok" {
+		t.Errorf("link = %+v, want library path + ok status", link)
+	}
+	if link.SrcSize != 42 || link.SrcModTime != 999 {
+		t.Errorf("src stat = %d/%d, want 42/999", link.SrcSize, link.SrcModTime)
+	}
+
+	if err := q.UpdateSampleLinkSync(ctx, UpdateSampleLinkSyncParams{
+		SyncStatus: "outdated", Checksum: "abc123", SrcSize: 43, SrcModTime: 1001, CopyPath: "beats/kick.wav",
+	}); err != nil {
+		t.Fatalf("UpdateSampleLinkSync: %v", err)
+	}
+	link, _ = q.GetSampleLinkByCopyPath(ctx, "beats/kick.wav")
+	if link.SyncStatus != "outdated" || link.SrcSize != 43 {
+		t.Errorf("after sync update: %+v", link)
+	}
+
+	if err := q.RenameSampleLink(ctx, RenameSampleLinkParams{NewPath: "beats/kick2.wav", OldPath: "beats/kick.wav"}); err != nil {
+		t.Fatalf("RenameSampleLink: %v", err)
+	}
+	if _, err := q.GetSampleLinkByCopyPath(ctx, "beats/kick2.wav"); err != nil {
+		t.Error("renamed link should exist")
+	}
+
+	if err := q.MoveSampleLinkPrefix(ctx, MoveSampleLinkPrefixParams{NewPrefix: "songs/", OldPrefix: "beats/"}); err != nil {
+		t.Fatalf("MoveSampleLinkPrefix: %v", err)
+	}
+	if _, err := q.GetSampleLinkByCopyPath(ctx, "songs/kick2.wav"); err != nil {
+		t.Error("prefix-moved link should exist")
+	}
+
+	links, err := q.ListSampleLinksForDir(ctx, "songs/%")
+	if err != nil || len(links) != 1 {
+		t.Errorf("ListSampleLinksForDir = %d rows, %v; want 1", len(links), err)
+	}
+	all, err := q.ListAllSampleLinks(ctx)
+	if err != nil || len(all) != 1 {
+		t.Errorf("ListAllSampleLinks = %d rows, %v; want 1", len(all), err)
+	}
+
+	if err := q.DeleteSampleLinkByCopyPath(ctx, "songs/kick2.wav"); err != nil {
+		t.Fatalf("DeleteSampleLinkByCopyPath: %v", err)
+	}
+	if _, err := q.GetSampleLinkByCopyPath(ctx, "songs/kick2.wav"); err == nil {
+		t.Error("deleted link should be gone")
+	}
+}
+
+func TestDeleteSampleLinksByPathPrefix(t *testing.T) {
+	_, q := openTestDB(t)
+	ctx := context.Background()
+
+	q.UpsertSampleLink(ctx, UpsertSampleLinkParams{CopyPath: "gone/a.wav", LibraryPath: "lib/a.wav"}) //nolint:errcheck // test setup
+	q.UpsertSampleLink(ctx, UpsertSampleLinkParams{CopyPath: "kept/b.wav", LibraryPath: "lib/b.wav"}) //nolint:errcheck // test setup
+
+	if err := q.DeleteSampleLinksByPathPrefix(ctx, "gone/"); err != nil {
+		t.Fatalf("DeleteSampleLinksByPathPrefix: %v", err)
+	}
+	if _, err := q.GetSampleLinkByCopyPath(ctx, "gone/a.wav"); err == nil {
+		t.Error("gone/a.wav link should be deleted")
+	}
+	if _, err := q.GetSampleLinkByCopyPath(ctx, "kept/b.wav"); err != nil {
+		t.Error("kept/b.wav link must survive")
+	}
+}
+
+// ExecSchema ---------------------------------------------------------------
+
+func TestExecSchema(t *testing.T) {
+	sqlDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sqlDB.Close() //nolint:errcheck // test cleanup
+	if err := ExecSchema(sqlDB); err != nil {
+		t.Fatalf("ExecSchema: %v", err)
+	}
+	// Running it again must be idempotent (CREATE TABLE IF NOT EXISTS).
+	if err := ExecSchema(sqlDB); err != nil {
+		t.Fatalf("ExecSchema (second run): %v", err)
+	}
 }

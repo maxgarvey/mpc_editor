@@ -1,8 +1,6 @@
 package pgm
 
 import (
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -92,17 +90,6 @@ func FindSampleInDirs(name string, dirs ...string) SampleRef {
 	return SampleRef{Name: name, Status: SampleNotFound}
 }
 
-// EscapeName truncates and cleans a filename to fit the MPC's 16-char limit.
-func EscapeName(name string, maxLen int) string {
-	if maxLen <= 0 {
-		maxLen = 16
-	}
-	if len(name) <= maxLen {
-		return name
-	}
-	return name[:maxLen]
-}
-
 // SampleMatrix is a 64x4 grid of sample references (one per pad per layer).
 type SampleMatrix [64][4]*SampleRef
 
@@ -123,42 +110,4 @@ func (m *SampleMatrix) Clear() {
 			m[i][j] = nil
 		}
 	}
-}
-
-// CollectAll returns all non-nil sample references.
-func (m *SampleMatrix) CollectAll() []*SampleRef {
-	var refs []*SampleRef
-	seen := make(map[string]bool)
-	for i := range m {
-		for j := range m[i] {
-			ref := m[i][j]
-			if ref != nil && ref.FilePath != "" && !seen[ref.FilePath] {
-				refs = append(refs, ref)
-				seen[ref.FilePath] = true
-			}
-		}
-	}
-	return refs
-}
-
-// CopySample copies a sample file to a destination directory.
-func CopySample(ref *SampleRef, destDir string) error {
-	if ref == nil || ref.FilePath == "" {
-		return fmt.Errorf("no file path")
-	}
-	src, err := os.Open(ref.FilePath)
-	if err != nil {
-		return err
-	}
-	defer src.Close() //nolint:errcheck // read-only file
-
-	destPath := filepath.Join(destDir, filepath.Base(ref.FilePath))
-	dst, err := os.Create(destPath)
-	if err != nil {
-		return err
-	}
-	defer dst.Close() //nolint:errcheck // write error checked via io.Copy
-
-	_, err = io.Copy(dst, src)
-	return err
 }

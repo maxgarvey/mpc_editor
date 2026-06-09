@@ -51,21 +51,3 @@ func TestFindSample_NotFound(t *testing.T) {
 		t.Errorf("status = %d, want SampleNotFound", ref.Status)
 	}
 }
-
-func TestEscapeName(t *testing.T) {
-	tests := []struct {
-		name   string
-		maxLen int
-		want   string
-	}{
-		{"short", 16, "short"},
-		{"exactly16chars!!", 16, "exactly16chars!!"},
-		{"toolongfilename_extra", 16, "toolongfilename_"},
-	}
-	for _, tt := range tests {
-		got := EscapeName(tt.name, tt.maxLen)
-		if got != tt.want {
-			t.Errorf("EscapeName(%q, %d) = %q, want %q", tt.name, tt.maxLen, got, tt.want)
-		}
-	}
-}

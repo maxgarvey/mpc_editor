@@ -1,6 +1,7 @@
 {{define "file_browser_nav.html"}}
 {{if .SearchQuery}}
 <div class="nav-search-header">Results for "{{.SearchQuery}}"</div>
+{{if .SearchCapped}}<div class="nav-search-capped">Showing first {{len .Entries}} matches — refine your search to see more</div>{{end}}
 {{else}}
 <div class="nav-breadcrumbs">
     {{range $i, $b := .Breadcrumbs}}{{if $i}}<span class="breadcrumb-sep">/</span>{{end}}<a class="breadcrumb-link" hx-get="/browse/nav?dir={{$b.Path}}" hx-target="#file-nav">{{$b.Name}}</a>{{end}}
@@ -12,20 +13,25 @@
     {{end}}
     {{range .Entries}}
     {{if .Divider}}
-    <div class="nav-divider">{{.DividerLabel}}</div>
+    {{if .Collapsible}}
+    <div class="nav-divider collapsible" data-group-key="{{.DividerGroup}}" onclick="BrowseGroups.toggle('{{.DividerGroup}}')">
+        <span class="group-toggle-icon">&#x25BE;</span>{{.DividerLabel}}
+    </div>
     {{else}}
-    <div class="browser-entry {{if .IsDir}}is-dir{{end}} {{if .IsProject}}is-project{{end}}{{if .Favorite}} is-favorite{{end}}" data-path="{{.Path}}" data-file-id="{{.FileID}}"
-         title="{{if .RelPath}}{{.RelPath}}{{else}}{{.Name}}{{end}}{{if .WavInfo}} — {{.WavInfo}}{{end}}{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}} — {{.MissingSamples}} missing{{end}}"
+    <div class="nav-divider">{{.DividerLabel}}</div>
+    {{end}}
+    {{else}}
+    <div class="browser-entry {{if .IsDir}}is-dir{{end}} {{if .IsProject}}is-project{{end}}{{if .Favorite}} is-favorite{{end}}{{if .IsLibraryRoot}} is-library-root{{end}}{{if .IsLibrary}} is-library{{end}}{{if .LibraryCopyOf}} is-library-copy{{end}}" data-path="{{.Path}}" data-file-id="{{.FileID}}"{{if .Group}} data-group="{{.Group}}"{{end}}
+         title="{{if .RelPath}}{{.RelPath}}{{else}}{{.Name}}{{end}}{{if .WavInfo}} — {{.WavInfo}}{{end}}{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}} — {{.MissingSamples}} missing{{end}}{{if .LibraryCopyOf}} — library copy{{end}}"
          {{if .IsDir}}
-         hx-get="/browse/nav?dir={{.Path}}"
-         hx-target="#file-nav"
-         hx-indicator="#file-nav-spinner"
+         onclick="htmx.ajax('GET', '/browse/nav', {target:'#file-nav', indicator:'#file-nav-spinner', values:{dir:this.dataset.path}})"
          {{else}}
          onclick="TabManager.openFile('{{.Path}}')"
          {{if eq .Ext ".wav"}}draggable="true" ondragstart="event.dataTransfer.setData('text/wav-path', '{{.Path}}')"{{end}}
          {{end}}>
         <span class="entry-icon"{{if .Color}} style="color: {{.Color}}"{{end}}>
-            {{if and .IsDir .IsProject}}{{template "icon-folder-project" .}}
+            {{if and .IsDir .IsLibraryRoot}}{{template "icon-folder-library" .}}
+            {{else if and .IsDir .IsProject}}{{template "icon-folder-project" .}}
             {{else if .IsDir}}{{template "icon-folder" .}}
             {{else if eq .Ext ".pgm"}}{{template "icon-pgm" .}}
             {{else if eq .Ext ".wav"}}{{template "icon-wav" .}}
@@ -37,11 +43,12 @@
             {{end}}
         </span>
         <span class="entry-body">
-            <span class="entry-name">{{.Name}}</span>{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}
+            <span class="entry-name">{{.Name}}</span>{{if and (eq .Ext ".pgm") (gt .MissingSamples 0)}}<span class="badge badge-warn">{{.MissingSamples}} missing</span>{{end}}{{if .IsLibraryRoot}}<span class="badge badge-lib">Library</span>{{end}}
             <span class="entry-meta-row">
                 {{if .RelDirPath}}<span class="entry-dir-path">{{.RelDirPath}}</span>{{end}}
                 {{if .WavInfo}}<span class="entry-meta">{{.WavInfo}}</span>{{end}}
                 {{if .Subcategory}}<span class="entry-label-chip"{{if .Color}} style="color:{{.Color}};border-color:{{.Color}}"{{end}}>{{.Subcategory}}</span>{{end}}
+                {{if .LibraryCopyOf}}<span class="entry-lib-chip{{if eq .LibrarySyncStatus "outdated"}} lib-chip-outdated{{else if eq .LibrarySyncStatus "source_missing"}} lib-chip-missing{{end}}" title="Library copy of {{.LibraryCopyOf}}{{if eq .LibrarySyncStatus "outdated"}} — update available{{else if eq .LibrarySyncStatus "source_missing"}} — source missing{{end}}">&#x1F517; lib{{if eq .LibrarySyncStatus "outdated"}} &#9650;{{else if eq .LibrarySyncStatus "source_missing"}} &#10007;{{end}}</span>{{end}}
             </span>
         </span>
         {{if eq .Ext ".wav"}}

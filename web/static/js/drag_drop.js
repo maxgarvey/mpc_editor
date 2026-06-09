@@ -3,6 +3,12 @@
 // Pad-button drag-and-drop uses document-level delegation so listeners are
 // attached exactly once regardless of how many HTMX swaps replace the pad grid.
 (function() {
+    document.addEventListener('dragstart', function(e) {
+        var wavPath = e.dataTransfer.getData('text/wav-path');
+        // Note: during dragstart, getData returns '' in some browsers; log the types instead.
+        console.log('[drag-drop] dragstart — target:', e.target, 'types:', Array.from(e.dataTransfer.types));
+    });
+
     document.addEventListener('dragover', function(e) {
         var btn = e.target.closest('.pad-btn');
         if (!btn) return;
@@ -23,6 +29,7 @@
 
     document.addEventListener('drop', function(e) {
         var btn = e.target.closest('.pad-btn');
+        console.log('[drag-drop] drop event — target:', e.target, 'btn:', btn);
         if (!btn) return;
         e.preventDefault();
         btn.classList.remove('drag-over');
@@ -31,10 +38,13 @@
 
         // Internal browser-to-pad drag (WAV file from file browser).
         var wavPath = e.dataTransfer.getData('text/wav-path');
+        console.log('[drag-drop] padIndex:', padIndex, 'wavPath:', JSON.stringify(wavPath), 'has-sample:', btn.classList.contains('has-sample'));
         if (wavPath) {
             if (btn.classList.contains('has-sample')) {
+                console.log('[drag-drop] occupied pad — opening assign modal');
                 openAssignModal(wavPath, padIndex);
             } else {
+                console.log('[drag-drop] empty pad — calling assignPathToPad');
                 assignPathToPad(wavPath, padIndex, 'per-pad');
             }
             return;
@@ -42,6 +52,7 @@
 
         // OS file drop.
         var files = e.dataTransfer.files;
+        console.log('[drag-drop] no wav-path, files:', files ? files.length : 0);
         if (!files || files.length === 0) return;
         uploadFiles(files, padIndex, 'per-pad');
     });

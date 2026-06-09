@@ -1,17 +1,18 @@
 {{define "pad_grid.html"}}
 <div class="pad-grid">
     {{range .Pads}}
-    <button class="pad-btn {{if .Selected}}selected{{end}} {{if .HasSample}}has-sample{{end}}"
+    <button class="pad-btn {{if .Selected}}selected{{end}} {{if .HasSample}}has-sample{{end}}{{if .IsLinked}} is-linked{{end}}"
             hx-get="/pad/{{.Index}}"
             hx-target="#pad-params"
             hx-indicator="#pad-section-loading"
             data-pad-index="{{.Index}}"
             onclick="AudioPlayer.playAllPadLayers({{.Index}})"
-            title="{{.Name}}"
+            title="{{.Name}}{{if .IsLinked}} (library copy){{end}}"
             {{if .Color}}style="border-top: 3px solid {{.Color}}"{{end}}>
         <span class="pad-number">{{.Display}}</span>
         {{if .HasSample}}<span class="pad-name">{{.Name}}</span>{{end}}
         {{if gt .LayerCount 1}}<span class="pad-layers">{{.LayerCount}}L</span>{{end}}
+        {{if .IsLinked}}<span class="pad-lib-dot" title="Library copy">&#x1F517;</span>{{end}}
     </button>
     {{end}}
 </div>

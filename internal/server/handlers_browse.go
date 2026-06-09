@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
@@ -24,9 +25,13 @@ type BrowseData struct {
 	Workspace      string
 	SelectedPath   string // absolute path of the currently selected file (for highlighting)
 	SearchQuery    string // non-empty when showing search results
+	SearchCapped   bool   // true when search results hit the limit (more matches exist)
 	SortMode       string // "name" or "label"; empty defaults to "name"
 	HasLabeledWAVs bool   // true when the current dir contains at least one labeled WAV (show Organize button)
 }
+
+// searchResultLimit caps catalog search results (see searchCatalog).
+const searchResultLimit = 200
 
 // BreadcrumbItem represents a segment in the breadcrumb path.
 type BreadcrumbItem struct {
@@ -36,23 +41,30 @@ type BreadcrumbItem struct {
 
 // BrowseEntry represents a file or directory in the browser listing.
 type BrowseEntry struct {
-	Name           string
-	Path           string // absolute path
-	RelPath        string // relative path from workspace (set in search results)
-	RelDirPath     string // directory portion of RelPath (set in search results, for display)
-	IsDir          bool
-	IsProject      bool   // true if directory contains a .pgm file (self-contained beat)
-	Divider        bool   // true for synthetic label-group divider rows (no file)
-	DividerLabel   string // label text for divider rows
-	Ext            string
-	Size           int64
-	FileID         int64  // catalog file ID (0 if not cataloged)
-	MissingSamples int64  // for .pgm: number of unresolved sample refs
-	WavInfo        string // for .wav: e.g. "44100Hz 16bit stereo"
-	Color          string // for .wav: CSS hex color from preset (e.g. "#e05555"), empty if unset
-	Category       string // for .wav: label category (e.g. "drum")
-	Subcategory    string // for .wav: label subcategory (e.g. "kick")
-	Favorite       bool   // for .wav: true if starred by user
+	Name              string
+	Path              string // absolute path
+	RelPath           string // relative path from workspace (set in search results)
+	RelDirPath        string // directory portion of RelPath (set in search results, for display)
+	IsDir             bool
+	IsProject         bool   // true if directory contains a .pgm file (self-contained beat)
+	Divider           bool   // true for synthetic label-group divider rows (no file)
+	DividerLabel      string // label text for divider rows
+	Collapsible       bool   // true if divider is a clickable collapse toggle
+	DividerGroup      string // group key for collapsible dividers (e.g. "samples")
+	Group             string // group key for file entries (matches DividerGroup of their header)
+	Ext               string
+	Size              int64
+	FileID            int64  // catalog file ID (0 if not cataloged)
+	MissingSamples    int64  // for .pgm: number of unresolved sample refs
+	WavInfo           string // for .wav: e.g. "44100Hz 16bit stereo"
+	Color             string // for .wav: CSS hex color from preset (e.g. "#e05555"), empty if unset
+	Category          string // for .wav: label category (e.g. "drum")
+	Subcategory       string // for .wav: label subcategory (e.g. "kick")
+	Favorite          bool   // for .wav: true if starred by user
+	IsLibraryRoot     bool   // true when this entry IS the sample_library/ directory
+	IsLibrary         bool   // true when this entry lives inside sample_library/
+	LibraryCopyOf     string // relative library path this copy was made from (non-empty if linked)
+	LibrarySyncStatus string // 'ok', 'outdated', 'source_missing', or '' if unchecked
 }
 
 // resolveAbsDir converts a (possibly relative) dir string to a validated absolute path.
@@ -169,6 +181,64 @@ func sortByLabel(entries []BrowseEntry) []BrowseEntry {
 	return out
 }
 
+// groupBrowseEntries inserts collapsible type-group dividers into a pre-sorted entry list.
+// Directories (already first) are left ungrouped. Files are bucketed as:
+// Samples (.wav), Programs (.pgm/.all/.txt), Sequences (.seq), Songs (.sng), Other (everything else).
+// Groups with no files are omitted. Input must already be sorted (dirs first, then files alpha).
+func groupBrowseEntries(entries []BrowseEntry) []BrowseEntry {
+	type groupDef struct {
+		key   string
+		label string
+	}
+	order := []groupDef{
+		{"samples", "Samples"},
+		{"programs", "Programs"},
+		{"sequences", "Sequences"},
+		{"songs", "Songs"},
+		{"other", "Other"},
+	}
+	extGroup := func(ext string) string {
+		switch ext {
+		case ".wav":
+			return "samples"
+		case ".pgm", ".all", ".txt":
+			return "programs"
+		case ".seq":
+			return "sequences"
+		case ".sng":
+			return "songs"
+		default:
+			return "other"
+		}
+	}
+
+	buckets := map[string][]BrowseEntry{}
+	var out []BrowseEntry
+	for _, e := range entries {
+		if e.IsDir {
+			out = append(out, e)
+			continue
+		}
+		g := extGroup(e.Ext)
+		e.Group = g
+		buckets[g] = append(buckets[g], e)
+	}
+	for _, gd := range order {
+		files := buckets[gd.key]
+		if len(files) == 0 {
+			continue
+		}
+		out = append(out, BrowseEntry{
+			Divider:      true,
+			DividerLabel: gd.label,
+			Collapsible:  true,
+			DividerGroup: gd.key,
+		})
+		out = append(out, files...)
+	}
+	return out
+}
+
 // buildBreadcrumbs returns the workspace-relative dir string and breadcrumb items for absDir.
 func buildBreadcrumbs(workspace, absDir string) (relDir string, crumbs []BreadcrumbItem) {
 	relDir, _ = filepath.Rel(workspace, absDir)
@@ -217,8 +287,11 @@ func (s *Server) buildBrowseData(dir, filterCtx, selectedPath, sortMode string) 
 	}
 	// Enrich before sort so label-sort can use Subcategory populated by enrich.
 	relDir, breadcrumbs := buildBreadcrumbs(workspace, absDir)
-	s.enrichBrowseEntries(entries, workspace)
+	s.enrichBrowseEntries(entries, workspace, absDir)
 	entries = sortBrowseEntries(entries, sortMode)
+	if filterCtx == "browse" && sortMode != "label" {
+		entries = groupBrowseEntries(entries)
+	}
 	var hasLabeled bool
 	for _, e := range entries {
 		if !e.IsDir && e.Subcategory != "" {
@@ -349,41 +422,77 @@ func (s *Server) handleWorkspaceMkdir(w http.ResponseWriter, r *http.Request) {
 }
 
 // enrichBrowseEntries looks up catalog data for each entry and populates
-// badge fields (MissingSamples for .pgm, WavInfo for .wav).
-func (s *Server) enrichBrowseEntries(entries []BrowseEntry, workspace string) {
+// badge fields (MissingSamples for .pgm, WavInfo for .wav, library flags).
+// All entries live in absDir; catalog data is fetched with three batched
+// queries instead of several per file.
+func (s *Server) enrichBrowseEntries(entries []BrowseEntry, workspace, absDir string) {
 	ctx := context.Background()
+	libDir := s.libDir()
+
+	prefix := ""
+	if rel, err := filepath.Rel(workspace, absDir); err == nil && rel != "." {
+		prefix = rel + "/"
+	}
+
+	fileByPath := map[string]db.ListFilesWithWavMetaForPrefixRow{}
+	if rows, err := s.queries.ListFilesWithWavMetaForPrefix(ctx, prefix); err == nil {
+		for _, r := range rows {
+			fileByPath[r.Path] = r
+		}
+	}
+	missingByID := map[int64]int64{}
+	if rows, err := s.queries.CountMissingSamplesForPrefix(ctx, prefix); err == nil {
+		for _, r := range rows {
+			missingByID[r.PgmFileID] = r.Missing
+		}
+	}
+	linkByPath := map[string]db.SampleLink{}
+	if links, err := s.queries.ListSampleLinksForDir(ctx, prefix+"%"); err == nil {
+		for _, l := range links {
+			linkByPath[l.CopyPath] = l
+		}
+	}
+
 	for i := range entries {
 		e := &entries[i]
 		if e.IsDir {
 			e.IsProject = dirContainsPGM(e.Path)
+			e.IsLibraryRoot = filepath.Clean(e.Path) == filepath.Clean(libDir)
+			e.IsLibrary = s.isUnderLibrary(e.Path)
 			continue
 		}
+
+		e.IsLibrary = s.isUnderLibrary(e.Path)
 
 		relPath, err := filepath.Rel(workspace, e.Path)
 		if err != nil {
 			continue
 		}
 
-		f, err := s.queries.GetFileByPath(ctx, relPath)
-		if err != nil {
+		// Check if this copy has a library link.
+		if !e.IsLibrary {
+			if link, ok := linkByPath[relPath]; ok {
+				e.LibraryCopyOf = link.LibraryPath
+				e.LibrarySyncStatus = link.SyncStatus
+			}
+		}
+
+		f, ok := fileByPath[relPath]
+		if !ok {
 			continue
 		}
 		e.FileID = f.ID
 
 		switch e.Ext {
 		case ".pgm":
-			missing, err := s.queries.CountMissingSamples(ctx, f.ID)
-			if err == nil {
-				e.MissingSamples = missing
-			}
+			e.MissingSamples = missingByID[f.ID]
 		case ".wav":
-			meta, err := s.queries.GetWavMeta(ctx, f.ID)
-			if err == nil {
+			if f.SampleRate > 0 {
 				ch := "mono"
-				if meta.Channels == 2 {
+				if f.Channels == 2 {
 					ch = "stereo"
 				}
-				e.WavInfo = fmt.Sprintf("%dHz %dbit %s", meta.SampleRate, meta.BitsPerSample, ch)
+				e.WavInfo = fmt.Sprintf("%dHz %dbit %s", f.SampleRate, f.BitsPerSample, ch)
 			}
 			e.Color = colorToCSS(f.Color)
 			e.Category = f.Category
@@ -463,7 +572,9 @@ func (s *Server) handleWorkspaceRename(w http.ResponseWriter, r *http.Request) {
 	changed := s.patchMatrixForPath(oldPath, newPath)
 	if changed {
 		if s.session.FilePath != "" {
-			_ = s.session.Program.Save(s.session.FilePath)
+			if err := s.session.Program.Save(s.session.FilePath); err != nil {
+				log.Printf("save program after path change: %v", err)
+			}
 		}
 		w.Header().Set("HX-Redirect", "/")
 		w.WriteHeader(http.StatusOK)
@@ -544,7 +655,9 @@ func (s *Server) handleWorkspaceMove(w http.ResponseWriter, r *http.Request) {
 	changed := s.patchMatrixForPath(srcPath, newPath)
 	if changed {
 		if s.session.FilePath != "" {
-			_ = s.session.Program.Save(s.session.FilePath)
+			if err := s.session.Program.Save(s.session.FilePath); err != nil {
+				log.Printf("save program after path change: %v", err)
+			}
 		}
 		w.Header().Set("HX-Redirect", "/")
 		w.WriteHeader(http.StatusOK)
@@ -676,25 +789,21 @@ func (s *Server) updateCatalogPath(ctx context.Context, oldAbs, newAbs string) {
 	}); err != nil {
 		log.Printf("update catalog path: %v", err)
 	}
+	_ = s.queries.RenameSampleLink(ctx, db.RenameSampleLinkParams{NewPath: newRel, OldPath: oldRel})
 
-	// For directories, update all files under the old path prefix.
+	// For directories, update all files under the old path prefix in one statement.
 	oldPrefix := oldRel + string(filepath.Separator)
 	newPrefix := newRel + string(filepath.Separator)
-	files, err := s.queries.ListAllFiles(ctx)
-	if err != nil {
-		return
+	if err := s.queries.MoveFilePathPrefix(ctx, db.MoveFilePathPrefixParams{
+		NewPrefix: newPrefix,
+		OldPrefix: oldPrefix,
+	}); err != nil {
+		log.Printf("update catalog path prefix %q: %v", oldPrefix, err)
 	}
-	for _, f := range files {
-		if suffix, ok := strings.CutPrefix(f.Path, oldPrefix); ok {
-			updated := newPrefix + suffix
-			if err := s.queries.UpdateFilePath(ctx, db.UpdateFilePathParams{
-				NewPath: updated,
-				OldPath: f.Path,
-			}); err != nil {
-				log.Printf("update catalog path %q: %v", f.Path, err)
-			}
-		}
-	}
+	_ = s.queries.MoveSampleLinkPrefix(ctx, db.MoveSampleLinkPrefixParams{
+		NewPrefix: newPrefix,
+		OldPrefix: oldPrefix,
+	})
 }
 
 // handleWorkspaceOrganize moves labeled WAV files in a flat directory into
@@ -771,7 +880,9 @@ func (s *Server) handleWorkspaceOrganize(w http.ResponseWriter, r *http.Request)
 	}
 
 	if moved > 0 && s.session.FilePath != "" {
-		_ = s.session.Program.Save(s.session.FilePath)
+		if err := s.session.Program.Save(s.session.FilePath); err != nil {
+			log.Printf("save program after organize: %v", err)
+		}
 	}
 
 	relDir, _ := filepath.Rel(workspace, absDir)
@@ -817,14 +928,10 @@ func (s *Server) handleWorkspaceDelete(w http.ResponseWriter, r *http.Request) {
 
 	// Remove from catalog: delete the file entry and any files under a directory prefix.
 	_ = s.queries.DeleteFileByPath(ctx, relPath)
+	_ = s.queries.DeleteSampleLinkByCopyPath(ctx, relPath)
 	dirPrefix := relPath + string(filepath.Separator)
-	if files, err := s.queries.ListAllFiles(ctx); err == nil {
-		for _, f := range files {
-			if strings.HasPrefix(f.Path, dirPrefix) {
-				_ = s.queries.DeleteFileByPath(ctx, f.Path)
-			}
-		}
-	}
+	_ = s.queries.DeleteFilesByPathPrefix(ctx, dirPrefix)
+	_ = s.queries.DeleteSampleLinksByPathPrefix(ctx, dirPrefix)
 
 	// For disk mode, also remove the file/directory from the filesystem.
 	if mode == "disk" {
@@ -848,7 +955,9 @@ func (s *Server) handleWorkspaceDelete(w http.ResponseWriter, r *http.Request) {
 		// Clear any matrix pads that referenced the deleted path.
 		changed := s.patchMatrixForPath(absPath, "")
 		if changed && s.session.FilePath != "" {
-			_ = s.session.Program.Save(s.session.FilePath)
+			if err := s.session.Program.Save(s.session.FilePath); err != nil {
+				log.Printf("save program after delete: %v", err)
+			}
 		}
 	}
 
@@ -856,43 +965,64 @@ func (s *Server) handleWorkspaceDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// searchCatalog queries the catalog for WAV files matching q, ranked by label precision.
-// Rank order: exact subcategory → exact category → partial subcategory → partial category →
-// tag match → filename match. Favorites float above non-favorites within each rank tier.
-// When favoritesOnly is true, only starred files are returned (q is ignored).
-func (s *Server) searchCatalog(ctx context.Context, q string, favoritesOnly bool) ([]db.File, error) {
-	if favoritesOnly {
+// searchCatalog queries the catalog for WAV files matching q and/or chips (subcategory filters).
+// Rank order (when q is non-empty): exact subcategory → exact category → partial subcategory →
+// partial category → tag match → filename match. Favorites float above within each tier.
+// chips narrows results to specific subcategories. favoritesOnly adds an AND f.favorite=1 filter.
+func (s *Server) searchCatalog(ctx context.Context, q string, chips []string, favoritesOnly bool) ([]db.File, error) {
+	if q == "" && len(chips) == 0 && favoritesOnly {
 		return s.queries.ListFavorites(ctx)
 	}
+
 	qLike := "%" + strings.ToLower(q) + "%"
-	rows, err := s.sqlDB.QueryContext(ctx, `
-		SELECT DISTINCT f.id, f.path, f.file_type, f.size, f.mod_time, f.scanned_at,
-		                f.color, f.category, f.subcategory, f.favorite
-		FROM files f
-		LEFT JOIN file_tags ft ON ft.file_id = f.id
-		WHERE f.file_type = 'wav'
-		  AND (
-		        LOWER(f.path)        LIKE ?
-		     OR LOWER(f.category)    LIKE ?
-		     OR LOWER(f.subcategory) LIKE ?
-		     OR LOWER(ft.tag_value)  LIKE ?
-		  )
-		GROUP BY f.id
-		ORDER BY
-		    f.favorite DESC,
-		    CASE
-		        WHEN LOWER(f.subcategory) = LOWER(?) THEN 0
-		        WHEN LOWER(f.category)    = LOWER(?) THEN 1
-		        WHEN LOWER(f.subcategory) LIKE ?      THEN 2
-		        WHEN LOWER(f.category)    LIKE ?      THEN 3
-		        WHEN MIN(LOWER(ft.tag_value)) LIKE ?  THEN 4
-		        ELSE 5
-		    END,
-		    f.path
-		LIMIT 200`,
-		qLike, qLike, qLike, qLike,
-		q, q, qLike, qLike, qLike,
-	)
+
+	var whereParts []string
+	var whereArgs []interface{}
+
+	if q != "" {
+		whereParts = append(whereParts, `(LOWER(f.path) LIKE ? OR LOWER(f.category) LIKE ? OR LOWER(f.subcategory) LIKE ? OR LOWER(ft.tag_value) LIKE ?)`)
+		whereArgs = append(whereArgs, qLike, qLike, qLike, qLike)
+	}
+	if len(chips) > 0 {
+		ph := make([]string, len(chips))
+		for i, c := range chips {
+			ph[i] = "?"
+			whereArgs = append(whereArgs, strings.ToLower(c))
+		}
+		whereParts = append(whereParts, `LOWER(f.subcategory) IN (`+strings.Join(ph, ",")+`)`)
+	}
+	if favoritesOnly {
+		whereParts = append(whereParts, "f.favorite = 1")
+	}
+
+	orderBy := "f.favorite DESC"
+	var orderArgs []interface{}
+	if q != "" {
+		orderBy += `, CASE
+		    WHEN LOWER(f.subcategory) = LOWER(?) THEN 0
+		    WHEN LOWER(f.category)    = LOWER(?) THEN 1
+		    WHEN LOWER(f.subcategory) LIKE ?      THEN 2
+		    WHEN LOWER(f.category)    LIKE ?      THEN 3
+		    WHEN MIN(LOWER(ft.tag_value)) LIKE ?  THEN 4
+		    ELSE 5
+		END`
+		orderArgs = append(orderArgs, q, q, qLike, qLike, qLike)
+	}
+	orderBy += ", f.path"
+
+	sqlStr := `SELECT DISTINCT f.id, f.path, f.file_type, f.size, f.mod_time, f.scanned_at,
+		f.color, f.category, f.subcategory, f.favorite
+	FROM files f
+	LEFT JOIN file_tags ft ON ft.file_id = f.id
+	WHERE ` + strings.Join(whereParts, " AND ") + `
+	GROUP BY f.id
+	ORDER BY ` + orderBy + `
+	LIMIT ` + strconv.Itoa(searchResultLimit)
+
+	allArgs := make([]any, 0, len(whereArgs)+len(orderArgs))
+	allArgs = append(allArgs, whereArgs...)
+	allArgs = append(allArgs, orderArgs...)
+	rows, err := s.sqlDB.QueryContext(ctx, sqlStr, allArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -909,9 +1039,44 @@ func (s *Server) searchCatalog(ctx context.Context, q string, favoritesOnly bool
 	return files, rows.Err()
 }
 
-// handleBrowseSearch searches the catalog for WAV files matching the query across
-// filename, label (category/subcategory), and tags. Results are ranked by label precision.
-// GET /browse/search?q=...&favorites=1
+// searchDirs walks the workspace and returns directories whose names contain q (case-insensitive).
+// Capped at 20 results to keep response time bounded.
+func (s *Server) searchDirs(workspace, q string) []BrowseEntry {
+	qLower := strings.ToLower(q)
+	var results []BrowseEntry
+	_ = filepath.WalkDir(workspace, func(path string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || path == workspace {
+			return nil
+		}
+		name := d.Name()
+		if strings.HasPrefix(name, ".") {
+			return filepath.SkipDir
+		}
+		if strings.Contains(strings.ToLower(name), qLower) {
+			relPath, _ := filepath.Rel(workspace, path)
+			dir := filepath.Dir(relPath)
+			if dir == "." {
+				dir = ""
+			}
+			results = append(results, BrowseEntry{
+				Name:       name,
+				Path:       path,
+				RelPath:    relPath,
+				RelDirPath: dir,
+				IsDir:      true,
+				IsProject:  dirContainsPGM(path),
+			})
+			if len(results) >= 20 {
+				return fmt.Errorf("limit")
+			}
+		}
+		return nil
+	})
+	return results
+}
+
+// handleBrowseSearch searches the catalog for WAV files matching q, chips, and/or favorites.
+// GET /browse/search?q=...&chips=kick&chips=snare&favorites=1
 func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
 	workspace := s.session.WorkspacePath
 	if workspace == "" {
@@ -919,10 +1084,16 @@ func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
 	q := strings.TrimSpace(r.FormValue("q"))
+	chips := r.Form["chips"]
 	favoritesOnly := r.FormValue("favorites") == "1"
 
-	if q == "" && !favoritesOnly {
+	// Nothing active — fall back to directory nav.
+	if q == "" && len(chips) == 0 && !favoritesOnly {
 		data, err := s.buildBrowseData("", "browse", s.session.SelectedDetailPath, "")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -933,13 +1104,16 @@ func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	files, err := s.searchCatalog(ctx, q, favoritesOnly)
+	files, err := s.searchCatalog(ctx, q, chips, favoritesOnly)
 	if err != nil {
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
 	}
 
 	var entries []BrowseEntry
+	if q != "" && len(chips) == 0 && !favoritesOnly {
+		entries = append(entries, s.searchDirs(workspace, q)...)
+	}
 	for _, f := range files {
 		relPath := f.Path
 		absPath := filepath.Join(workspace, relPath)
@@ -962,14 +1136,19 @@ func (s *Server) handleBrowseSearch(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	searchLabel := q
+	var labelParts []string
+	if q != "" {
+		labelParts = append(labelParts, q)
+	}
+	labelParts = append(labelParts, chips...)
 	if favoritesOnly {
-		searchLabel = "★ Favorites"
+		labelParts = append(labelParts, "★")
 	}
 	data := BrowseData{
-		SearchQuery: searchLabel,
-		Entries:     entries,
-		Workspace:   workspace,
+		SearchQuery:  strings.Join(labelParts, " + "),
+		SearchCapped: len(files) >= searchResultLimit,
+		Entries:      entries,
+		Workspace:    workspace,
 	}
 	s.renderTemplate(w, "file_browser_nav.html", data)
 }

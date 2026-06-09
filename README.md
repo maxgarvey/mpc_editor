@@ -23,8 +23,11 @@ Runs locally as a single-binary web app on `http://127.0.0.1:8080`.
 - Workspace file browser with right-click context menu (rename, move, delete)
 - Workspace scanner indexes WAV/PGM files into a local SQLite catalog
 - MPC device auto-detection (USB mass storage) with use-as-workspace shortcut
-- Sequence viewer for .seq files
+- Sequence viewer and step-grid editor for .seq files
 - File tagging and source-URL tracking
+- Sample colors, category/subcategory labels, and favorites with filter-chip search
+- Batch organize: move labeled WAVs into per-label subdirectories
+- Sample library provenance: workspace copies track their `sample_library/` source with checksum sync status
 - Import samples from external directories into workspace
 
 ## Build & Run
@@ -75,7 +78,7 @@ See [`tauri/README.md`](tauri/README.md) for cross-platform packaging targets an
 | [`internal/seq`](internal/seq/README.md) | Binary `.seq` sequence format: parse, events, step grid |
 | [`internal/audio`](internal/audio/README.md) | WAV I/O, energy-based beat detection, marker management, waveform downsampling |
 | [`internal/midi`](internal/midi/README.md) | Standard MIDI File Type 0 writer/reader |
-| [`internal/command`](internal/command/README.md) | Import, export, sample assignment, batch creation |
+| [`internal/command`](internal/command/README.md) | Sample import validation and pad assignment |
 | [`internal/server`](internal/server/README.md) | HTTP handlers, session state, template rendering |
 | [`internal/db`](internal/db/README.md) | SQLite schema, migrations, sqlc-generated queries |
 | [`internal/scanner`](internal/scanner/README.md) | Background workspace scanner, file catalog, auto-tags |

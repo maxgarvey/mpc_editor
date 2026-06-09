@@ -1,6 +1,6 @@
 # internal/command
 
-High-level operations that orchestrate across `pgm`, `audio`, and `midi` packages: importing samples, exporting programs, and assigning samples to pads.
+High-level operations on top of `pgm`: importing samples and assigning them to pads.
 
 ## Purpose
 
@@ -27,13 +27,6 @@ Validates a list of file paths. Rejects non-`.wav` files. Truncates names longer
 
 `ImportResult` reports how many were imported, renamed, or rejected. `Report()` produces a human-readable string for the UI.
 
-### `export.go` — Program + sample export
-
-**`ExportProgram(prog, matrix, destDir, pgmName)`** → `ExportResult`
-Saves the `.pgm` file to `destDir` and copies all samples referenced by the matrix. Used for "Export to MPC" — places the program and all its WAVs together in a flat directory ready for the hardware.
-
-`ExportResult` reports expected vs. actual export counts and any per-file errors.
-
 ## Relationship to Handlers
 
 These functions have no HTTP dependencies. Server handlers construct the inputs (parse form values, resolve paths, load programs) and then call these functions, keeping the application logic testable in isolation.
@@ -43,5 +36,4 @@ These functions have no HTTP dependencies. Server handlers construct the inputs 
 | Module | Relationship |
 |--------|-------------|
 | [`internal/pgm`](../pgm/README.md) | All functions operate on `*pgm.Program` and `*pgm.SampleMatrix` |
-| [`internal/audio`](../audio/README.md) | `ExportProgram` copies WAV files that the matrix references on disk |
-| [`internal/server`](../server/README.md) | `handlers_assign.go`, `handlers_import.go`, and `handlers_program.go` call into this package |
+| [`internal/server`](../server/README.md) | `handlers_assign.go` calls into this package (`ImportSamples`, `SimpleAssign`, `MultisampleAssign`) |

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 )
 
 // PadInfo holds display data for a single pad in the grid.
@@ -14,6 +15,7 @@ type PadInfo struct {
 	HasSample  bool
 	LayerCount int
 	Color      string // CSS color from sample catalog, "" if none
+	IsLinked   bool   // true if at least one layer sample is a library copy
 }
 
 // padGridData builds template data for the pad grid.
@@ -21,6 +23,20 @@ type PadInfo struct {
 // row 4 (pads 13-16) at top, row 1 (pads 1-4) at bottom.
 func (s *Server) padGridData(ctx context.Context, bank int) map[string]any {
 	colorMap := s.sampleColorMap(ctx)
+
+	// Build library link map for the current program directory.
+	var linkedMap map[string]string // copy_path → library_path
+	var pgmDirPrefix string         // relative dir of the program + "/", "" at workspace root
+	if s.session.FilePath != "" {
+		pgmDir := filepath.Dir(s.session.FilePath)
+		if relPgmDir, err := filepath.Rel(s.session.WorkspacePath, pgmDir); err == nil {
+			if relPgmDir != "." {
+				pgmDirPrefix = relPgmDir + "/"
+			}
+			linkedMap = s.sampleLinkedMap(ctx, pgmDirPrefix)
+		}
+	}
+
 	start := bank * 16
 	pads := make([]PadInfo, 16)
 	for uiPos := range pads {
@@ -31,12 +47,18 @@ func (s *Server) padGridData(ctx context.Context, bank int) map[string]any {
 		name := s.session.PadName(idx)
 		layerCount := 0
 		var padColor string
+		var isLinked bool
 		for j := range 4 {
 			layerName := s.session.Program.Pad(idx).Layer(j).GetSampleName()
 			if layerName != "" {
 				layerCount++
 				if padColor == "" {
 					padColor = colorMap[sampleKey(layerName)]
+				}
+				if !isLinked && linkedMap != nil {
+					if _, ok := linkedMap[pgmDirPrefix+layerName+".wav"]; ok {
+						isLinked = true
+					}
 				}
 			}
 		}
@@ -48,6 +70,7 @@ func (s *Server) padGridData(ctx context.Context, bank int) map[string]any {
 			HasSample:  name != "",
 			LayerCount: layerCount,
 			Color:      padColor,
+			IsLinked:   isLinked,
 		}
 	}
 

@@ -196,6 +196,12 @@ func (s *Server) renderDetailWAV(w http.ResponseWriter, path string) {
 		}
 
 		data["Tags"] = s.loadTags(ctx, f.ID)
+
+		// Library link: is this a copy made from sample_library/?
+		if link, err := s.queries.GetSampleLinkByCopyPath(ctx, relPath); err == nil {
+			data["LibrarySource"] = link.LibraryPath
+			data["LibrarySyncStatus"] = link.SyncStatus
+		}
 	}
 
 	s.renderTemplate(w, "detail_wav.html", data)

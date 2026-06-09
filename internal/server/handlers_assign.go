@@ -109,6 +109,8 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 			if _, err := os.Stat(localWav); os.IsNotExist(err) {
 				if err := audio.NormalizeWAVForMPC(ref.FilePath, localWav); err != nil {
 					log.Printf("normalize sample %s: %v", ref.Name, err)
+				} else {
+					s.recordLibraryLinkIfApplicable(r.Context(), ref.FilePath, localWav)
 				}
 			}
 			ref.FilePath = localWav
@@ -225,6 +227,8 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 			if _, err := os.Stat(localWav); os.IsNotExist(err) {
 				if err := audio.NormalizeWAVForMPC(ref.FilePath, localWav); err != nil {
 					log.Printf("normalize sample %s: %v", ref.Name, err)
+				} else {
+					s.recordLibraryLinkIfApplicable(r.Context(), ref.FilePath, localWav)
 				}
 			}
 			// Update ref to point to local copy so Matrix uses the stable path.
@@ -254,8 +258,10 @@ func (s *Server) handleAssignPath(w http.ResponseWriter, r *http.Request) {
 	s.session.SelectedPad = padIdx
 
 	// Save the program so the assignment persists on disk.
-	if err := s.session.Program.Save(s.session.FilePath); err != nil {
-		log.Printf("assignPath save program: %v", err)
+	if s.session.FilePath != "" {
+		if err := s.session.Program.Save(s.session.FilePath); err != nil {
+			log.Printf("assignPath save program: %v", err)
+		}
 	}
 
 	// Redirect to refresh the full page

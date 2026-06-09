@@ -45,35 +45,11 @@
             </div>
             <div class="browser-search-box">
                 <input type="search" id="workspace-search" class="browser-search-input"
-                       placeholder="Search files..."
-                       hx-get="/browse/search"
-                       hx-trigger="input delay:250ms"
-                       hx-target="#file-nav"
-                       hx-indicator="#file-nav-spinner"
-                       name="q">
-                <div class="sort-toggle" id="sort-toggle">
-                    <button class="sort-btn active" data-sort="name" onclick="BrowseSort.set('name', this)">Name</button>
-                    <button class="sort-btn" data-sort="label" onclick="BrowseSort.set('label', this)">Label</button>
-                </div>
+                       placeholder="Search files...">
             </div>
-            <div class="filter-chips" id="filter-chips">
-                {{range .FilterChips}}
-                {{if .Fav}}
-                <button class="filter-chip filter-chip-fav" data-chip="★"
-                        hx-get="/browse/search?favorites=1" hx-target="#file-nav" hx-indicator="#file-nav-spinner"
-                        onclick="setActiveChip(this)">★</button>
-                {{else if eq .Query ""}}
-                <button class="filter-chip filter-chip-all active" data-chip="all"
-                        hx-get="/browse/nav" hx-target="#file-nav" hx-indicator="#file-nav-spinner"
-                        onclick="setActiveChip(this); document.getElementById('workspace-search').value=''">All</button>
-                {{else}}
-                <button class="filter-chip" data-chip="{{.Query}}"
-                        hx-get="/browse/search?q={{.Query}}" hx-target="#file-nav" hx-indicator="#file-nav-spinner"
-                        onclick="setActiveChip(this); document.getElementById('workspace-search').value=''">
-                    {{if .CSS}}<span class="filter-chip-dot" style="background:{{.CSS}}"></span>{{end}}{{.Label}}
-                </button>
-                {{end}}
-                {{end}}
+            <div class="filter-chips" id="filter-chips"></div>
+            <div id="filter-chip-option-data" hidden>
+                {{range .FilterChips}}<span data-label="{{.Label}}" data-css="{{.CSS}}"></span>{{end}}
             </div>
             <div id="file-nav">
                 {{template "file_browser_nav.html" .BrowseData}}
@@ -91,6 +67,11 @@
             </div>
         </section>
     </main>
+
+    <div id="filter-chip-dropdown" class="chip-dropdown" hidden>
+        <input type="text" id="chip-dropdown-search" class="chip-dropdown-search" placeholder="Search filters..." autocomplete="off">
+        <div id="chip-dropdown-list" class="chip-dropdown-list"></div>
+    </div>
 
     <script src="/static/js/audio.js"></script>
     <script src="/static/js/wav_detail_player.js"></script>

@@ -87,6 +87,19 @@ CREATE TABLE IF NOT EXISTS song_steps (
 );
 CREATE INDEX IF NOT EXISTS idx_song_steps_seq_file_id ON song_steps(seq_file_id);
 
+-- Library provenance: tracks workspace copies back to their sample_library source.
+CREATE TABLE IF NOT EXISTS sample_links (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    copy_path     TEXT NOT NULL UNIQUE,   -- relative path of the workspace copy
+    library_path  TEXT NOT NULL,          -- relative path of the library source
+    checksum      TEXT NOT NULL DEFAULT '',  -- SHA-256 of the library source at copy time
+    copied_at     INTEGER NOT NULL DEFAULT 0, -- Unix timestamp of the copy
+    sync_status   TEXT NOT NULL DEFAULT '',  -- '', 'ok', 'outdated', 'source_missing'
+    src_size      INTEGER NOT NULL DEFAULT 0, -- source size at last sync check (0 = unknown)
+    src_mod_time  INTEGER NOT NULL DEFAULT 0  -- source mod time at last sync check (0 = unknown)
+);
+CREATE INDEX IF NOT EXISTS idx_sample_links_library_path ON sample_links(library_path);
+
 -- Tags attached to files (free-form and key:value).
 CREATE TABLE IF NOT EXISTS file_tags (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,

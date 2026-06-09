@@ -14,6 +14,7 @@ session.go         Session: in-memory state (active program, slicer, workspace p
 preferences.go     Persistent user prefs (profile, last paths) — load/save via DB
 template_data.go   Shared structs passed to Go html/template files
 workspace.go       Workspace path validation and resolution helpers
+library.go         Sample-library provenance: record/check sample_links rows (copy ↔ sample_library source, checksum sync status)
 
 handlers_pad.go        Pad parameter read/write, batch copy
 handlers_edit.go       Program-level edits (chromatic layout, copy-to-all, profile switch)
@@ -27,6 +28,7 @@ handlers_assign.go     Drag-and-drop sample assignment to pads
 handlers_import.go     Import samples from external directories
 handlers_device.go     MPC USB device status + use-as-workspace action; polls return 204 when unchanged
 handlers_scan.go       Trigger workspace rescan
+handlers_library.go    Library link sync check / re-copy actions for linked samples
 handlers_settings.go   Settings modal (profile, workspace path, preferences)
 handlers_api.go        JSON API endpoints consumed by JS
 handlers_detail.go     Detail panel rendering; renderDetailPGM / renderCurrentPGMDetail helpers
@@ -43,7 +45,11 @@ A single `Session` is created at startup and holds:
 | `FilePath` | `string` | Path to the current `.pgm` file |
 | `WorkspacePath` | `string` | Root of the MPC workspace directory tree |
 | `Slicer` | `*audio.Slicer` | Active slicer instance (nil when no WAV is loaded) |
+| `SlicerPath` | `string` | Path of the WAV loaded in the slicer |
 | `Profile` | `pgm.Profile` | MPC1000 or MPC500 hardware variant |
+| `SelectedPad` | `int` | Currently selected pad index (0–63) |
+| `SampleDir` | `string` | Directory samples are resolved from (usually the program's directory) |
+| `SelectedDetailPath` | `string` | Path of the file shown in the detail panel |
 | `Prefs` | `Preferences` | Persisted settings loaded from SQLite on startup |
 
 On startup, the session restores the last-opened program and workspace from `Preferences`. If the file still exists, it is re-opened and the sample matrix is rebuilt.
@@ -59,7 +65,10 @@ On startup, the session restores the last-opened program and workspace from `Pre
 | `GET /sequence/events` | JSON event list for JS playback engine |
 | `POST /sequence/update` | Update BPM/bars; re-renders grid partial |
 | `GET /browse` | Workspace file tree (HTMX partial) |
-| `GET /browse/search` | Filtered file list |
+| `GET /browse/search` | Catalog search: `q` text, repeatable `chips` (subcategory filters), `favorites=1` |
+| `POST /workspace/organize` | Move labeled WAVs in a directory into per-subcategory subdirectories |
+| `POST /file/color` `/file/label` `/file/favorite` | Set per-file display color, label, favorite star |
+| `POST /library/check` `/library/update` | Check / re-copy a sample-library linked WAV |
 | `POST /edit/pad` | Write a pad parameter |
 | `POST /edit/profile` | Switch MPC profile |
 | `GET /audio/stream` | Stream WAV PCM to Web Audio API |
@@ -69,7 +78,7 @@ On startup, the session restores the last-opened program and workspace from `Pre
 
 ## Template Rendering
 
-Templates are parsed from the embedded `web/templates/` FS at startup with a `template.FuncMap` that adds helpers: `add`, `mul`, `mod`, `seq`, `padBankLabel`, `velocityColor`, `velocityOpacity`. All handler responses call `s.renderTemplate(w, name, data)`.
+Templates are parsed from the embedded `web/templates/` FS at startup with a `template.FuncMap` that adds helpers: `add`, `mul`, `mod`, `seq`, `upper`, `padBankLabel`, `padDisplayIndex`, `velocityColor`, `velocityOpacity`. All handler responses call `s.renderTemplate(w, name, data)`.
 
 HTMX requests (`HX-Request: true`) receive partial HTML; full-page requests receive the complete layout.
 
@@ -81,6 +90,7 @@ Handlers that affect audio state set `HX-Trigger` response headers so JS reacts 
 |---|---|---|
 | `clearAudioCache` | `renderDetailPGM`, `renderCurrentPGMDetail` | `AudioPlayer.clearCache()` |
 | `{"invalidatePad":N}` | `handlePadParams`, `handleLayerUpdate` | `AudioPlayer.invalidatePad(N)` |
+| `{"invalidatePad":N,"programSaved":true}` | same handlers, when the program file was written | also pulses the "Saved" indicator |
 
 ### Edit toolbar partial swaps
 
@@ -98,7 +108,7 @@ All user-supplied paths are validated via `s.resolvePath()` and `s.validateWithi
 | [`internal/seq`](../seq/README.md) | Sequence handlers open `.seq` files, call `BuildGrid`, `WriteEvents`, `PatchLoop`, `PatchFile` |
 | [`internal/audio`](../audio/README.md) | `Session.Slicer` is an `*audio.Slicer`; audio stream and waveform handlers use `OpenWAV` and `DownsamplePeaks` |
 | [`internal/midi`](../midi/README.md) | Slicer export handler calls `midi.WriteSMF` to produce a `.mid` file |
-| [`internal/command`](../command/README.md) | Import, assign, and export handlers delegate to `command.ImportSamples`, `SimpleAssign`, `ExportProgram` |
+| [`internal/command`](../command/README.md) | Assignment handlers delegate to `command.ImportSamples`, `SimpleAssign`, `MultisampleAssign` |
 | [`internal/db`](../db/README.md) | `Server.queries` is a `*db.Queries`; all catalog reads/writes (preferences, file tags, seq meta) go through it |
 | [`internal/scanner`](../scanner/README.md) | `Server.scanner` is called after file writes to keep the catalog fresh |
 | [`internal/device`](../device/README.md) | `Server.detector` polls for USB MPC devices; `handlers_device.go` exposes the result to the UI |

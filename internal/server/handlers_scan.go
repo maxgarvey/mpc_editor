@@ -28,6 +28,8 @@ func (s *Server) handleWorkspaceScan(w http.ResponseWriter, r *http.Request) {
 	log.Printf("scan complete: found=%d scanned=%d removed=%d errors=%d",
 		result.FilesFound, result.FilesScanned, result.FilesRemoved, len(result.Errors))
 
+	s.refreshAllLibraryLinks(r.Context())
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result) //nolint:errcheck // best-effort JSON response
 }

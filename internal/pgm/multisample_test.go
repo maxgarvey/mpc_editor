@@ -5,25 +5,6 @@ import (
 	"testing"
 )
 
-func TestNoteName(t *testing.T) {
-	tests := []struct {
-		note int
-		want string
-	}{
-		{35, "B0"},
-		{36, "C1"},
-		{48, "C2"},
-		{60, "C3"},
-		{69, "A3"},
-	}
-	for _, tt := range tests {
-		got := NoteName(tt.note)
-		if got != tt.want {
-			t.Errorf("NoteName(%d) = %q, want %q", tt.note, got, tt.want)
-		}
-	}
-}
-
 func TestExtractNote(t *testing.T) {
 	tests := []struct {
 		name string

@@ -221,6 +221,8 @@ func (s *Server) handleAPIAssignToProgram(w http.ResponseWriter, r *http.Request
 	if _, err := os.Stat(localWav); os.IsNotExist(err) {
 		if err := audio.NormalizeWAVForMPC(wavAbs, localWav); err != nil {
 			log.Printf("assign-to-program: copy sample to pgm dir: %v", err)
+		} else {
+			s.recordLibraryLinkIfApplicable(r.Context(), wavAbs, localWav)
 		}
 	}
 

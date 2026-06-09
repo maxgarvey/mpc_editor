@@ -139,6 +139,9 @@ func OpenReader(r io.Reader) (*Buffer, error) {
 // temporary file in the same directory, then renames into place so a crash
 // mid-write cannot produce a truncated or corrupt .pgm.
 func (b *Buffer) SaveFile(path string) error {
+	if path == "" {
+		return fmt.Errorf("save pgm: empty path")
+	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".pgm-save-*")
 	if err != nil {
 		return err
@@ -154,5 +157,9 @@ func (b *Buffer) SaveFile(path string) error {
 		os.Remove(tmpPath) //nolint:errcheck // best-effort cleanup
 		return err
 	}
-	return os.Rename(tmpPath, path)
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath) //nolint:errcheck // best-effort cleanup
+		return err
+	}
+	return nil
 }

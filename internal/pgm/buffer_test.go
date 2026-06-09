@@ -1,6 +1,8 @@
 package pgm
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -104,5 +106,35 @@ func TestRangeContains(t *testing.T) {
 	}
 	if r.Contains(-1) {
 		t.Error("Range{0,100}.Contains(-1) should be false")
+	}
+}
+
+func TestSaveFileEmptyPath(t *testing.T) {
+	buf := NewEmptyBuffer(16)
+	if err := buf.SaveFile(""); err == nil {
+		t.Fatal("SaveFile(\"\") should return an error")
+	}
+	// No temp file may be left in the current directory.
+	strays, _ := filepath.Glob(".pgm-save-*")
+	if len(strays) > 0 {
+		t.Errorf("SaveFile(\"\") leaked temp files: %v", strays)
+	}
+}
+
+func TestSaveFileRenameFailureCleansUp(t *testing.T) {
+	dir := t.TempDir()
+	// Renaming a file onto an existing non-empty directory fails.
+	target := filepath.Join(dir, "occupied")
+	if err := os.MkdirAll(filepath.Join(target, "child"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	buf := NewEmptyBuffer(16)
+	if err := buf.SaveFile(target); err == nil {
+		t.Fatal("SaveFile onto a directory should return an error")
+	}
+	strays, _ := filepath.Glob(filepath.Join(dir, ".pgm-save-*"))
+	if len(strays) > 0 {
+		t.Errorf("SaveFile leaked temp files on rename failure: %v", strays)
 	}
 }

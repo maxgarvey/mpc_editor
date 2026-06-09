@@ -25,6 +25,12 @@ func hxTriggerInvalidatePad(padIdx int) string {
 	return fmt.Sprintf(`{"invalidatePad":%d}`, padIdx)
 }
 
+// hxTriggerInvalidatePadSaved is hxTriggerInvalidatePad plus the programSaved
+// event that pulses the "Saved" indicator in app.js.
+func hxTriggerInvalidatePadSaved(padIdx int) string {
+	return fmt.Sprintf(`{"invalidatePad":%d,"programSaved":true}`, padIdx)
+}
+
 // Server is the HTTP server for the MPC Editor web application.
 type Server struct {
 	mu              sync.Mutex // serializes all session-touching handlers
@@ -111,6 +117,7 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 		}
 		log.Printf("startup scan: found=%d scanned=%d removed=%d",
 			result.FilesFound, result.FilesScanned, result.FilesRemoved)
+		s.refreshAllLibraryLinks(context.Background())
 	}()
 
 	// Start MPC device detection in background.
@@ -120,11 +127,13 @@ func New(templateFS, staticFS fs.FS, sqlDB *sql.DB, queries *db.Queries) *Server
 }
 
 // Handler returns the HTTP handler for the server.
-// All routes except /static/ are serialized behind a mutex to prevent
-// concurrent HTMX requests from racing on shared session state.
+// All routes except /static/ and read-only audio streaming are serialized
+// behind a mutex to prevent concurrent HTMX requests from racing on shared
+// session state. The audio endpoints lock internally around session reads so
+// a long-running WAV stream cannot block the rest of the UI.
 func (s *Server) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/static/") {
+		if strings.HasPrefix(r.URL.Path, "/static/") || isStreamingAudioPath(r.URL.Path) {
 			s.mux.ServeHTTP(w, r)
 			return
 		}
@@ -132,6 +141,17 @@ func (s *Server) Handler() http.Handler {
 		defer s.mu.Unlock()
 		s.mux.ServeHTTP(w, r)
 	})
+}
+
+// isStreamingAudioPath reports whether the path is a read-only audio endpoint
+// that manages its own session locking (see handlers_audio.go). /audio/crop is
+// deliberately not listed: it writes files and session state.
+func isStreamingAudioPath(p string) bool {
+	switch p {
+	case "/audio/file", "/audio/waveform", "/audio/info":
+		return true
+	}
+	return strings.HasPrefix(p, "/audio/pad/") || strings.HasPrefix(p, "/audio/slice/")
 }
 
 func (s *Server) registerRoutes() {
@@ -213,6 +233,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/file/label", s.handleFileLabel)
 	s.mux.HandleFunc("/file/favorite", s.handleFileFavorite)
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)
+	s.mux.HandleFunc("/library/check", s.handleLibraryCheck)
+	s.mux.HandleFunc("/library/update", s.handleLibraryUpdate)
 	s.mux.HandleFunc("/file/", s.handleFileDetail)
 
 	// Settings

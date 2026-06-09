@@ -10,7 +10,7 @@ All application logic lives here. Nothing in `internal/` is importable by extern
 | [`seq/`](seq/README.md) | Binary `.seq` sequence format: parse events, build step grid, write back |
 | [`audio/`](audio/README.md) | WAV I/O, energy-based beat detection, slice marker management, waveform downsampling |
 | [`midi/`](midi/README.md) | Standard MIDI File (Type 0) writer and reader |
-| [`command/`](command/README.md) | Application-layer operations: import samples, assign to pads, export programs |
+| [`command/`](command/README.md) | Application-layer operations: import samples, assign to pads |
 | [`server/`](server/README.md) | HTTP handlers, session state, template rendering, route registration |
 | [`db/`](db/README.md) | SQLite schema, migrations, and sqlc-generated query layer |
 | [`scanner/`](scanner/README.md) | Background workspace scanner: catalogs WAV/PGM/SEQ files, extracts metadata, writes auto-tags |
@@ -21,7 +21,7 @@ All application logic lives here. Nothing in `internal/` is importable by extern
 ```
 server ──► pgm, seq, audio, midi, command, db, scanner, device
 scanner──► pgm, seq, audio, db
-command──► pgm, audio
+command──► pgm
 seq    ──► pgm (note→pad mapping at display time)
 midi   ──► (no internal deps)
 audio  ──► (no internal deps)

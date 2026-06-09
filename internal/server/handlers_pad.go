@@ -110,11 +110,16 @@ func (s *Server) handlePadParams(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.session.Program.Save(s.session.FilePath); err != nil {
-		log.Printf("save program: %v", err)
+	trigger := hxTriggerInvalidatePad(idx)
+	if s.session.FilePath != "" {
+		if err := s.session.Program.Save(s.session.FilePath); err != nil {
+			log.Printf("save program: %v", err)
+		} else {
+			trigger = hxTriggerInvalidatePadSaved(idx)
+		}
 	}
 
-	w.Header().Set("HX-Trigger", hxTriggerInvalidatePad(idx))
+	w.Header().Set("HX-Trigger", trigger)
 	s.renderTemplate(w, "pad_params.html", s.padParamsData())
 }
 
@@ -175,6 +180,8 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 				if _, err := os.Stat(localPath); os.IsNotExist(err) {
 					if err := audio.NormalizeWAVForMPC(ref.FilePath, localPath); err != nil {
 						log.Printf("normalize sample %s: %v", name, err)
+					} else {
+						s.recordLibraryLinkIfApplicable(r.Context(), ref.FilePath, localPath)
 					}
 				}
 				// Update ref to point to local copy.
@@ -199,11 +206,16 @@ func (s *Server) handleLayerUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.session.Program.Save(s.session.FilePath); err != nil {
-		log.Printf("save program: %v", err)
+	trigger := hxTriggerInvalidatePad(padIdx)
+	if s.session.FilePath != "" {
+		if err := s.session.Program.Save(s.session.FilePath); err != nil {
+			log.Printf("save program: %v", err)
+		} else {
+			trigger = hxTriggerInvalidatePadSaved(padIdx)
+		}
 	}
 
-	w.Header().Set("HX-Trigger", hxTriggerInvalidatePad(padIdx))
+	w.Header().Set("HX-Trigger", trigger)
 	s.renderTemplate(w, "pad_params.html", s.padParamsData())
 }
 

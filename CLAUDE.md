@@ -42,6 +42,15 @@ Single-binary local web app. Go `net/http` backend serves HTML partials; fronten
 - `ProfileMPC1000` (4×4, 2 sliders, 2 filters) vs `ProfileMPC500` (4×3, 1 slider, 1 filter)
 - 64 pads total, 4 layers per pad; banks A–D are just offset windows into the 64-pad array
 
+### Sequence format (`internal/seq/`)
+
+`.seq` files: parse, edit, and write back binary MPC sequences. `BuildGrid` produces the `StepGrid` (pad×step table) rendered by the sequence editor. Byte-level spec lives in `docs/seq-format.md`.
+
+### Other domain packages
+
+- `internal/midi/` — Standard MIDI File (Type 0) writer/reader; the slicer export uses it to emit a `.mid` alongside slices
+- `internal/command/` — application-layer operations (import/validate samples, assign to pads, multisample layout) called by `handlers_assign.go`; no HTTP dependencies
+
 ### Database (`internal/db/`)
 
 SQLite at `~/.mpc_editor/mpc_editor.db`. Schema in `schema.sql`, queries in `queries.sql`, generated code in `queries.sql.go` (via sqlc). Connection pool is capped at 1 to prevent `SQLITE_BUSY` between background scanner and UI writes. Migrations run inline at startup in `migrate.go` (additive `ALTER TABLE` and `CREATE TABLE IF NOT EXISTS`).
@@ -62,7 +71,7 @@ Vanilla JS globals — no bundler. Files are loaded in order via `<script>` tags
 
 | File | Responsibility |
 |------|---------------|
-| `app.js` | Core init, HTMX event handlers, param/bank/pad tab highlighting, `initDetailContent`, Save/Settings/Mkdir modals, WAV browser preview, browser nav refresh, `WorkspacePanel`, shared utilities |
+| `app.js` | Core init, HTMX event handlers, param/bank/pad tab highlighting, `initDetailContent`, Save/Settings/Mkdir modals, WAV browser preview, `SearchChips` (search + filter chips), `BrowseGroups`/`BrowseSort` (file-nav grouping and sort), `WorkspacePanel`, shared utilities |
 | `drag_drop.js` | Drag-and-drop onto pad buttons and slicer canvas, XHR file upload with progress bar |
 | `file_browser.js` | Context menu, inline rename, Delete modal, Move modal |
 | `new_modal.js` | New Program / New Sequence / Import Files modal |
@@ -75,7 +84,7 @@ Vanilla JS globals — no bundler. Files are loaded in order via `<script>` tags
 | `wav_waveform.js` | WAV detail panel waveform canvas |
 | `waveform.js` | Slicer waveform canvas |
 
-`layout.html` loads all modules; `slicer_page.html` loads only `app.js` and `drag_drop.js`.
+`layout.html` loads all modules except `waveform.js`; `slicer_page.html` loads `audio.js`, `waveform.js`, `app.js`, and `drag_drop.js`; `sequence_page.html` loads `audio.js` and `sequencer.js`.
 
 ### Audio pipeline (`internal/audio/`)
 

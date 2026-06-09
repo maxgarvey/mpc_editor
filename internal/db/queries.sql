@@ -39,6 +39,26 @@ UPDATE files SET path = sqlc.arg(new_path) WHERE path = sqlc.arg(old_path);
 -- name: DeleteFileByPath :exec
 DELETE FROM files WHERE path = ?;
 
+-- Prefix variants for directory rename/move/delete. substr() comparison is used
+-- instead of LIKE so that % and _ in file names cannot over-match.
+
+-- name: MoveFilePathPrefix :exec
+UPDATE files SET path = sqlc.arg(new_prefix) || substr(path, length(sqlc.arg(old_prefix)) + 1)
+WHERE substr(path, 1, length(sqlc.arg(old_prefix))) = sqlc.arg(old_prefix);
+
+-- name: DeleteFilesByPathPrefix :exec
+DELETE FROM files WHERE substr(path, 1, length(sqlc.arg(prefix))) = sqlc.arg(prefix);
+
+-- name: ListFilesWithWavMetaForPrefix :many
+SELECT f.id, f.path, f.file_type, f.size, f.mod_time, f.scanned_at,
+       f.color, f.category, f.subcategory, f.favorite,
+       COALESCE(w.sample_rate, 0)     AS sample_rate,
+       COALESCE(w.channels, 0)        AS channels,
+       COALESCE(w.bits_per_sample, 0) AS bits_per_sample
+FROM files f
+LEFT JOIN wav_meta w ON w.file_id = f.id
+WHERE substr(f.path, 1, length(sqlc.arg(prefix))) = sqlc.arg(prefix);
+
 -- PGM metadata
 
 -- name: UpsertPgmMeta :exec
@@ -105,6 +125,14 @@ ORDER BY f.path;
 -- name: CountMissingSamples :one
 SELECT COUNT(*) FROM pgm_samples
 WHERE pgm_file_id = ? AND sample_file_id IS NULL AND sample_name != '';
+
+-- name: CountMissingSamplesForPrefix :many
+SELECT ps.pgm_file_id, COUNT(*) AS missing
+FROM pgm_samples ps
+JOIN files f ON f.id = ps.pgm_file_id
+WHERE ps.sample_file_id IS NULL AND ps.sample_name != ''
+  AND substr(f.path, 1, length(sqlc.arg(prefix))) = sqlc.arg(prefix)
+GROUP BY ps.pgm_file_id;
 
 -- name: ResolveUnlinkedSamples :exec
 UPDATE pgm_samples SET sample_file_id = (
@@ -191,6 +219,46 @@ SELECT favorite FROM files WHERE id = ?;
 
 -- name: ListFavorites :many
 SELECT id, path, file_type, size, mod_time, scanned_at, color, category, subcategory, favorite FROM files WHERE favorite = 1 ORDER BY path;
+
+-- Sample library links
+
+-- name: UpsertSampleLink :exec
+INSERT INTO sample_links (copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time)
+VALUES (?, ?, ?, ?, 'ok', ?, ?)
+ON CONFLICT(copy_path) DO UPDATE SET
+    library_path = excluded.library_path,
+    checksum     = excluded.checksum,
+    copied_at    = excluded.copied_at,
+    sync_status  = 'ok',
+    src_size     = excluded.src_size,
+    src_mod_time = excluded.src_mod_time;
+
+-- name: GetSampleLinkByCopyPath :one
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links WHERE copy_path = ?;
+
+-- name: DeleteSampleLinkByCopyPath :exec
+DELETE FROM sample_links WHERE copy_path = ?;
+
+-- name: DeleteSampleLinksByPathPrefix :exec
+DELETE FROM sample_links WHERE substr(copy_path, 1, length(sqlc.arg(prefix))) = sqlc.arg(prefix);
+
+-- name: RenameSampleLink :exec
+UPDATE sample_links SET copy_path = sqlc.arg(new_path) WHERE copy_path = sqlc.arg(old_path);
+
+-- name: MoveSampleLinkPrefix :exec
+UPDATE sample_links SET copy_path = sqlc.arg(new_prefix) || substr(copy_path, length(sqlc.arg(old_prefix)) + 1)
+WHERE substr(copy_path, 1, length(sqlc.arg(old_prefix))) = sqlc.arg(old_prefix);
+
+-- name: ListSampleLinksForDir :many
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links WHERE copy_path LIKE ?;
+
+-- name: ListAllSampleLinks :many
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links ORDER BY copy_path;
+
+-- name: UpdateSampleLinkSync :exec
+UPDATE sample_links SET sync_status = sqlc.arg(sync_status), checksum = sqlc.arg(checksum),
+    src_size = sqlc.arg(src_size), src_mod_time = sqlc.arg(src_mod_time)
+WHERE copy_path = sqlc.arg(copy_path);
 
 -- name: ListFilesByTag :many
 SELECT DISTINCT f.id, f.path, f.file_type, f.size

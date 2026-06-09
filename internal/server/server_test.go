@@ -1084,6 +1084,82 @@ func TestHandleAssign_WithProgramOpen(t *testing.T) {
 	}
 }
 
+// TestAssignPath_FromLibrary exercises the library drag-drop scenario: a WAV from
+// sample_library/ is dragged to an empty pad in an open program.
+func TestAssignPath_FromLibrary(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	// Create sample_library/ directory and a WAV inside it (the drag source).
+	libDir := filepath.Join(workspace, "sample_library")
+	if err := os.MkdirAll(libDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	libWav := filepath.Join(libDir, "kick.wav")
+	wavData, err := os.ReadFile(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(libWav, wavData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create programs/ directory and a PGM file there, then open it.
+	pgmDir := filepath.Join(workspace, "programs", "beat")
+	if err := os.MkdirAll(pgmDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pgmDest := filepath.Join(pgmDir, "beat.pgm")
+	pgmData, err := os.ReadFile(testdataPath("test.pgm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pgmDest, pgmData, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	openForm := url.Values{"path": {pgmDest}}
+	openReq := httptest.NewRequest("POST", "/program/open", strings.NewReader(openForm.Encode()))
+	openReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	srv.Handler().ServeHTTP(httptest.NewRecorder(), openReq)
+
+	// Simulate drag: POST /assign/path with the absolute library path and pad=13
+	// (pads 0–12 are all occupied in test.pgm; 13 is the first empty slot).
+	form := url.Values{
+		"pad":  {"13"},
+		"mode": {"per-pad"},
+		"path": {libWav},
+	}
+	req := httptest.NewRequest("POST", "/assign/path", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+
+	// Pad 13 should now have the sample name set.
+	name := srv.session.Program.Pad(13).Layer(0).GetSampleName()
+	if name != "kick" && name != "chh" {
+		t.Errorf("pad 13 layer 0 = %q, want 'kick' or 'chh'", name)
+	}
+
+	// Matrix should be updated too.
+	ref := srv.session.Matrix.Get(13, 0)
+	if ref == nil {
+		t.Error("matrix[13][0] is nil after library drag assign")
+	}
+
+	// The sample should be linked in the DB (copy path is relative to workspace).
+	relCopyPath, _ := filepath.Rel(workspace, filepath.Join(pgmDir, "kick.wav"))
+	link, err := srv.queries.GetSampleLinkByCopyPath(context.Background(), relCopyPath)
+	if err != nil {
+		t.Errorf("no library link recorded: %v", err)
+	} else if link.LibraryPath != filepath.Join("sample_library", "kick.wav") {
+		t.Errorf("library_path = %q, want sample_library/kick.wav", link.LibraryPath)
+	}
+}
+
 // TestAssignPath_WithProgramOpen exercises the s.session.FilePath != "" branch in handleAssignPath.
 func TestAssignPath_WithProgramOpen(t *testing.T) {
 	srv := testServer(t)

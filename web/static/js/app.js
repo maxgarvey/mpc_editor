@@ -22,6 +22,55 @@ function formatBytes(bytes) {
     return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
+// --- Toast Notifications ---
+
+// showToast displays a transient message bottom-right. type: '' | 'error'.
+function showToast(message, type) {
+    var container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'toast' + (type ? ' toast-' + type : '');
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(function() {
+        toast.classList.add('toast-hide');
+        setTimeout(function() { toast.remove(); }, 350);
+    }, 4000);
+}
+
+// Surface failed HTMX requests instead of failing silently.
+document.addEventListener('htmx:responseError', function(e) {
+    var xhr = e.detail.xhr;
+    var msg = xhr && xhr.responseText ? xhr.responseText.trim() : '';
+    // Plain-text handler errors are short; ignore HTML error pages.
+    if (msg.length > 200 || msg.charAt(0) === '<') msg = '';
+    showToast(msg || ('Request failed (' + (xhr ? xhr.status : 'no response') + ')'), 'error');
+});
+document.addEventListener('htmx:sendError', function() {
+    showToast('Server unreachable', 'error');
+});
+
+// --- Save Indicator ---
+
+// Subtle "Saved" pulse fired by the server (HX-Trigger: programSaved) after
+// the program file is written following a pad/layer edit.
+document.addEventListener('programSaved', function() {
+    var el = document.getElementById('save-indicator');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'save-indicator';
+        el.textContent = '✓ Saved';
+        document.body.appendChild(el);
+    }
+    el.classList.remove('save-indicator-show');
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add('save-indicator-show');
+});
+
 // --- Slider Display ---
 
 // Update range slider value displays
@@ -410,51 +459,178 @@ function previewWavInBrowser(absPath, btn) {
     });
 }
 
-// --- Browser Refresh (triggered by server via HX-Trigger) ---
+// --- Search + Filter Chips ---
 
-// Refresh the file nav, re-running any active search query instead of resetting to directory view.
-function refreshBrowserNav(dir) {
-    var searchInput = document.getElementById('workspace-search');
-    var query = searchInput ? searchInput.value.trim() : '';
-    var activeChip = document.querySelector('#filter-chips .filter-chip.active');
-    if (activeChip && activeChip.dataset.chip !== 'all') {
-        // Re-run chip filter
-        activeChip.dispatchEvent(new Event('htmx:trigger'));
-        return;
-    }
-    if (query) {
-        htmx.ajax('GET', '/browse/search?q=' + encodeURIComponent(query), { target: '#file-nav' });
-    } else {
-        var sortMode = typeof BrowseSort !== 'undefined' ? BrowseSort.getMode() : 'name';
-        var url = '/browse/nav?sort=' + encodeURIComponent(sortMode) + (dir ? '&dir=' + encodeURIComponent(dir) : '');
-        htmx.ajax('GET', url, { target: '#file-nav' });
-    }
-}
+const SearchChips = (function() {
+    var activeChips = new Set();
+    var favsActive = false;
+    var debounceTimer = null;
+    var options = []; // [{label, css}] loaded from DOM on page init
 
-// setActiveChip marks the clicked chip as active and clears the others.
-function setActiveChip(btn) {
-    document.querySelectorAll('#filter-chips .filter-chip').forEach(function(c) {
-        c.classList.remove('active');
-    });
-    btn.classList.add('active');
-}
-
-// Deactivate chips and clear "All" active when user types in search box.
-document.addEventListener('DOMContentLoaded', function() {
-    var search = document.getElementById('workspace-search');
-    if (search) {
-        search.addEventListener('input', function() {
-            if (search.value.trim()) {
-                document.querySelectorAll('#filter-chips .filter-chip').forEach(function(c) {
-                    c.classList.remove('active');
-                });
-            } else {
-                var allChip = document.querySelector('#filter-chips .filter-chip-all');
-                if (allChip) setActiveChip(allChip);
-            }
+    function loadOptions() {
+        document.querySelectorAll('#filter-chip-option-data span').forEach(function(el) {
+            options.push({label: el.dataset.label || '', css: el.dataset.css || ''});
         });
     }
-});
+
+    function buildSearchUrl() {
+        var input = document.getElementById('workspace-search');
+        var q = input ? input.value.trim() : '';
+        if (!q && activeChips.size === 0 && !favsActive) return null;
+        var params = new URLSearchParams();
+        if (q) params.set('q', q);
+        activeChips.forEach(function(c) { params.append('chips', c); });
+        if (favsActive) params.set('favorites', '1');
+        return '/browse/search?' + params.toString();
+    }
+
+    function runSearch(dir) {
+        var url = buildSearchUrl();
+        if (!url) {
+            var sortMode = typeof BrowseSort !== 'undefined' ? BrowseSort.getMode() : 'name';
+            var navUrl = '/browse/nav?sort=' + encodeURIComponent(sortMode) + (dir ? '&dir=' + encodeURIComponent(dir) : '');
+            htmx.ajax('GET', navUrl, {target: '#file-nav'});
+            return;
+        }
+        htmx.ajax('GET', url, {target: '#file-nav'});
+    }
+
+    function debounce() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runSearch, 250);
+    }
+
+    function renderChips() {
+        var bar = document.getElementById('filter-chips');
+        if (!bar) return;
+        var input = document.getElementById('workspace-search');
+        var q = input ? input.value.trim() : '';
+        var isActive = q || activeChips.size > 0 || favsActive;
+        var html = '';
+        html += '<button class="filter-chip filter-chip-all' + (isActive ? '' : ' active') + '" onclick="SearchChips.clearToAll()">All</button>';
+        html += '<button class="filter-chip filter-chip-fav' + (favsActive ? ' active' : '') + '" onclick="SearchChips.toggleFav()">★</button>';
+        activeChips.forEach(function(label) {
+            var opt = options.find(function(o) { return o.label === label; }) || {};
+            html += '<button class="filter-chip filter-chip-active active" onclick="SearchChips.removeChip(\'' + escapeAttr(label) + '\')">';
+            if (opt.css) html += '<span class="filter-chip-dot" style="background:' + opt.css + '"></span>';
+            html += escapeHtml(label) + ' <span class="chip-remove">×</span></button>';
+        });
+        html += '<button class="filter-chip filter-chip-add" id="chip-add-btn" onclick="SearchChips.toggleDropdown(event)">+ Add Filter</button>';
+        bar.innerHTML = html;
+    }
+
+    function addChip(label) {
+        activeChips.add(label);
+        closeDropdown();
+        renderChips();
+        runSearch();
+    }
+
+    function removeChip(label) {
+        activeChips.delete(label);
+        renderChips();
+        runSearch();
+    }
+
+    function toggleFav() {
+        favsActive = !favsActive;
+        renderChips();
+        runSearch();
+    }
+
+    function clearToAll() {
+        activeChips.clear();
+        favsActive = false;
+        var search = document.getElementById('workspace-search');
+        if (search) search.value = '';
+        renderChips();
+        runSearch();
+    }
+
+    // resetState clears filter state (called when explicitly navigating to directory view).
+    function resetState() {
+        activeChips.clear();
+        favsActive = false;
+        var search = document.getElementById('workspace-search');
+        if (search) search.value = '';
+        closeDropdown();
+        renderChips();
+    }
+
+    function toggleDropdown(e) {
+        if (e) e.stopPropagation();
+        var dd = document.getElementById('filter-chip-dropdown');
+        if (!dd) return;
+        if (!dd.hidden) { dd.hidden = true; return; }
+        var btn = document.getElementById('chip-add-btn');
+        if (btn) {
+            var rect = btn.getBoundingClientRect();
+            dd.style.left = rect.left + 'px';
+            dd.style.top = (rect.bottom + 4) + 'px';
+        }
+        dd.hidden = false;
+        renderDropdownList('');
+        var ds = document.getElementById('chip-dropdown-search');
+        if (ds) { ds.value = ''; ds.focus(); }
+    }
+
+    function closeDropdown() {
+        var dd = document.getElementById('filter-chip-dropdown');
+        if (dd) dd.hidden = true;
+    }
+
+    function renderDropdownList(filter) {
+        var list = document.getElementById('chip-dropdown-list');
+        if (!list) return;
+        var html = '';
+        var shown = 0;
+        options.forEach(function(opt) {
+            if (activeChips.has(opt.label)) return;
+            if (filter && opt.label.toLowerCase().indexOf(filter.toLowerCase()) === -1) return;
+            html += '<div class="chip-dropdown-item" onclick="SearchChips.addChip(\'' + escapeAttr(opt.label) + '\')">';
+            if (opt.css) html += '<span class="filter-chip-dot" style="background:' + opt.css + '"></span>';
+            html += escapeHtml(opt.label) + '</div>';
+            shown++;
+        });
+        if (!shown) html = '<div class="chip-dropdown-empty">No options</div>';
+        list.innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadOptions();
+        var search = document.getElementById('workspace-search');
+        if (search) search.addEventListener('input', function() { renderChips(); debounce(); });
+        var ds = document.getElementById('chip-dropdown-search');
+        if (ds) ds.addEventListener('input', function() { renderDropdownList(ds.value); });
+        renderChips();
+    });
+
+    // Close dropdown on outside click.
+    document.addEventListener('click', function(e) {
+        var dd = document.getElementById('filter-chip-dropdown');
+        if (dd && !dd.hidden && !dd.contains(e.target)) {
+            var btn = document.getElementById('chip-add-btn');
+            if (!btn || !btn.contains(e.target)) dd.hidden = true;
+        }
+    });
+
+    return {
+        addChip: addChip,
+        removeChip: removeChip,
+        toggleFav: toggleFav,
+        clearToAll: clearToAll,
+        resetState: resetState,
+        toggleDropdown: toggleDropdown,
+        debounce: debounce,
+        runSearch: runSearch
+    };
+})();
+
+// --- Browser Refresh (triggered by server via HX-Trigger) ---
+
+function refreshBrowserNav(dir) {
+    SearchChips.runSearch(dir);
+}
 
 document.addEventListener('refreshBrowser', function() {
     refreshBrowserNav();
@@ -470,6 +646,7 @@ document.addEventListener('htmx:afterSettle', function(e) {
         TabManager.refreshBrowserHighlight();
         if (_previewAudio) _previewAudio.pause();
         _clearBrowserPreviewState();
+        BrowseGroups.restore();
     }
     if (e.detail.target && e.detail.target.id === 'move-dirs-container') {
         attachMoveDirClickSelection(e.detail.target);
@@ -512,6 +689,39 @@ const WorkspacePanel = (function() {
     return { toggle: toggle, headerClick: headerClick };
 })();
 
+// --- Browse Groups (collapsible type sections in directory view) ---
+
+const BrowseGroups = (function() {
+    var PREFIX = 'browse-group-';
+
+    function isCollapsed(key) {
+        return localStorage.getItem(PREFIX + key) === '1';
+    }
+
+    function applyGroup(key, collapsed) {
+        document.querySelectorAll('#file-nav .browser-entry[data-group="' + key + '"]').forEach(function(e) {
+            e.style.display = collapsed ? 'none' : '';
+        });
+        var divider = document.querySelector('#file-nav .nav-divider[data-group-key="' + key + '"]');
+        if (divider) divider.classList.toggle('is-collapsed', collapsed);
+    }
+
+    function toggle(key) {
+        var nowCollapsed = !isCollapsed(key);
+        localStorage.setItem(PREFIX + key, nowCollapsed ? '1' : '0');
+        applyGroup(key, nowCollapsed);
+    }
+
+    function restore() {
+        document.querySelectorAll('#file-nav .nav-divider[data-group-key]').forEach(function(d) {
+            var key = d.dataset.groupKey;
+            if (key) applyGroup(key, isCollapsed(key));
+        });
+    }
+
+    return { toggle: toggle, restore: restore };
+})();
+
 // --- Browse Sort ---
 
 const BrowseSort = (function() {
@@ -538,11 +748,12 @@ const BrowseSort = (function() {
         apply();
     });
 
-    // Inject sort param into all /browse/nav requests.
+    // On any /browse/nav request (breadcrumbs, sort change): inject sort param and clear chip state.
     document.body.addEventListener('htmx:configRequest', function(e) {
         var path = e.detail.path || '';
-        if (path.startsWith('/browse/nav') && !e.detail.parameters.sort) {
-            e.detail.parameters.sort = mode;
+        if (path.startsWith('/browse/nav')) {
+            if (!e.detail.parameters.sort) e.detail.parameters.sort = mode;
+            if (typeof SearchChips !== 'undefined') SearchChips.resetState();
         }
     });
 

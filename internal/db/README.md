@@ -25,13 +25,15 @@ Stores everything that needs to survive a restart: user preferences, the indexed
 
 ```
 preferences      — single-row user settings (profile, workspace path, last opened paths)
-files            — workspace file catalog (path, type, size, mod_time)
+files            — workspace file catalog (path, type, size, mod_time) plus user metadata
+                   (color, category/subcategory label, favorite flag)
 wav_meta         — WAV metadata per file (sample_rate, channels, bits, frame_count, source URL)
 pgm_meta         — PGM metadata (midi_pgm_change)
 pgm_samples      — pad×layer sample name assignments extracted from each .pgm
 seq_meta         — SEQ metadata (bpm, bars, version)
 seq_tracks       — track metadata extracted from each .seq (name, MIDI channel, pgm reference)
 song_steps       — .sng song step list (step, seq reference, repeats, tempo)
+sample_links     — library provenance: workspace copy → sample_library source, checksum, sync status
 file_tags        — arbitrary key/value tags per file (auto-generated or user-set)
 ```
 

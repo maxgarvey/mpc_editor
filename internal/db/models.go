@@ -53,6 +53,17 @@ type Preference struct {
 	LastDetailPath string
 }
 
+type SampleLink struct {
+	ID          int64
+	CopyPath    string
+	LibraryPath string
+	Checksum    string
+	CopiedAt    int64
+	SyncStatus  string
+	SrcSize     int64
+	SrcModTime  int64
+}
+
 type SeqMetum struct {
 	FileID  int64
 	Bpm     float64

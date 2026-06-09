@@ -44,6 +44,43 @@ func (q *Queries) CountMissingSamples(ctx context.Context, pgmFileID int64) (int
 	return count, err
 }
 
+const countMissingSamplesForPrefix = `-- name: CountMissingSamplesForPrefix :many
+SELECT ps.pgm_file_id, COUNT(*) AS missing
+FROM pgm_samples ps
+JOIN files f ON f.id = ps.pgm_file_id
+WHERE ps.sample_file_id IS NULL AND ps.sample_name != ''
+  AND substr(f.path, 1, length(?1)) = ?1
+GROUP BY ps.pgm_file_id
+`
+
+type CountMissingSamplesForPrefixRow struct {
+	PgmFileID int64
+	Missing   int64
+}
+
+func (q *Queries) CountMissingSamplesForPrefix(ctx context.Context, prefix interface{}) ([]CountMissingSamplesForPrefixRow, error) {
+	rows, err := q.db.QueryContext(ctx, countMissingSamplesForPrefix, prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountMissingSamplesForPrefixRow
+	for rows.Next() {
+		var i CountMissingSamplesForPrefixRow
+		if err := rows.Scan(&i.PgmFileID, &i.Missing); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteFile = `-- name: DeleteFile :exec
 DELETE FROM files WHERE id = ?
 `
@@ -62,6 +99,15 @@ func (q *Queries) DeleteFileByPath(ctx context.Context, path string) error {
 	return err
 }
 
+const deleteFilesByPathPrefix = `-- name: DeleteFilesByPathPrefix :exec
+DELETE FROM files WHERE substr(path, 1, length(?1)) = ?1
+`
+
+func (q *Queries) DeleteFilesByPathPrefix(ctx context.Context, prefix interface{}) error {
+	_, err := q.db.ExecContext(ctx, deleteFilesByPathPrefix, prefix)
+	return err
+}
+
 const deletePgmSamples = `-- name: DeletePgmSamples :exec
 
 DELETE FROM pgm_samples WHERE pgm_file_id = ?
@@ -70,6 +116,24 @@ DELETE FROM pgm_samples WHERE pgm_file_id = ?
 // PGM sample references
 func (q *Queries) DeletePgmSamples(ctx context.Context, pgmFileID int64) error {
 	_, err := q.db.ExecContext(ctx, deletePgmSamples, pgmFileID)
+	return err
+}
+
+const deleteSampleLinkByCopyPath = `-- name: DeleteSampleLinkByCopyPath :exec
+DELETE FROM sample_links WHERE copy_path = ?
+`
+
+func (q *Queries) DeleteSampleLinkByCopyPath(ctx context.Context, copyPath string) error {
+	_, err := q.db.ExecContext(ctx, deleteSampleLinkByCopyPath, copyPath)
+	return err
+}
+
+const deleteSampleLinksByPathPrefix = `-- name: DeleteSampleLinksByPathPrefix :exec
+DELETE FROM sample_links WHERE substr(copy_path, 1, length(?1)) = ?1
+`
+
+func (q *Queries) DeleteSampleLinksByPathPrefix(ctx context.Context, prefix interface{}) error {
+	_, err := q.db.ExecContext(ctx, deleteSampleLinksByPathPrefix, prefix)
 	return err
 }
 
@@ -208,6 +272,26 @@ func (q *Queries) GetPreferences(ctx context.Context) (Preference, error) {
 	return i, err
 }
 
+const getSampleLinkByCopyPath = `-- name: GetSampleLinkByCopyPath :one
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links WHERE copy_path = ?
+`
+
+func (q *Queries) GetSampleLinkByCopyPath(ctx context.Context, copyPath string) (SampleLink, error) {
+	row := q.db.QueryRowContext(ctx, getSampleLinkByCopyPath, copyPath)
+	var i SampleLink
+	err := row.Scan(
+		&i.ID,
+		&i.CopyPath,
+		&i.LibraryPath,
+		&i.Checksum,
+		&i.CopiedAt,
+		&i.SyncStatus,
+		&i.SrcSize,
+		&i.SrcModTime,
+	)
+	return i, err
+}
+
 const getSeqMeta = `-- name: GetSeqMeta :one
 SELECT file_id, bpm, bars, version FROM seq_meta WHERE file_id = ?
 `
@@ -340,6 +424,42 @@ func (q *Queries) ListAllFiles(ctx context.Context) ([]File, error) {
 			&i.Category,
 			&i.Subcategory,
 			&i.Favorite,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllSampleLinks = `-- name: ListAllSampleLinks :many
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links ORDER BY copy_path
+`
+
+func (q *Queries) ListAllSampleLinks(ctx context.Context) ([]SampleLink, error) {
+	rows, err := q.db.QueryContext(ctx, listAllSampleLinks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SampleLink
+	for rows.Next() {
+		var i SampleLink
+		if err := rows.Scan(
+			&i.ID,
+			&i.CopyPath,
+			&i.LibraryPath,
+			&i.Checksum,
+			&i.CopiedAt,
+			&i.SyncStatus,
+			&i.SrcSize,
+			&i.SrcModTime,
 		); err != nil {
 			return nil, err
 		}
@@ -514,6 +634,70 @@ func (q *Queries) ListFilesByType(ctx context.Context, fileType string) ([]File,
 	return items, nil
 }
 
+const listFilesWithWavMetaForPrefix = `-- name: ListFilesWithWavMetaForPrefix :many
+SELECT f.id, f.path, f.file_type, f.size, f.mod_time, f.scanned_at,
+       f.color, f.category, f.subcategory, f.favorite,
+       COALESCE(w.sample_rate, 0)     AS sample_rate,
+       COALESCE(w.channels, 0)        AS channels,
+       COALESCE(w.bits_per_sample, 0) AS bits_per_sample
+FROM files f
+LEFT JOIN wav_meta w ON w.file_id = f.id
+WHERE substr(f.path, 1, length(?1)) = ?1
+`
+
+type ListFilesWithWavMetaForPrefixRow struct {
+	ID            int64
+	Path          string
+	FileType      string
+	Size          int64
+	ModTime       int64
+	ScannedAt     int64
+	Color         string
+	Category      string
+	Subcategory   string
+	Favorite      int64
+	SampleRate    int64
+	Channels      int64
+	BitsPerSample int64
+}
+
+func (q *Queries) ListFilesWithWavMetaForPrefix(ctx context.Context, prefix interface{}) ([]ListFilesWithWavMetaForPrefixRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesWithWavMetaForPrefix, prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFilesWithWavMetaForPrefixRow
+	for rows.Next() {
+		var i ListFilesWithWavMetaForPrefixRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.FileType,
+			&i.Size,
+			&i.ModTime,
+			&i.ScannedAt,
+			&i.Color,
+			&i.Category,
+			&i.Subcategory,
+			&i.Favorite,
+			&i.SampleRate,
+			&i.Channels,
+			&i.BitsPerSample,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPgmSamples = `-- name: ListPgmSamples :many
 SELECT ps.pad, ps.layer, ps.sample_name, ps.sample_file_id,
        f.path AS sample_path
@@ -583,6 +767,42 @@ func (q *Queries) ListProgramsUsingSample(ctx context.Context, sampleFileID sql.
 	for rows.Next() {
 		var i ListProgramsUsingSampleRow
 		if err := rows.Scan(&i.ID, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSampleLinksForDir = `-- name: ListSampleLinksForDir :many
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links WHERE copy_path LIKE ?
+`
+
+func (q *Queries) ListSampleLinksForDir(ctx context.Context, copyPath string) ([]SampleLink, error) {
+	rows, err := q.db.QueryContext(ctx, listSampleLinksForDir, copyPath)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SampleLink
+	for rows.Next() {
+		var i SampleLink
+		if err := rows.Scan(
+			&i.ID,
+			&i.CopyPath,
+			&i.LibraryPath,
+			&i.Checksum,
+			&i.CopiedAt,
+			&i.SyncStatus,
+			&i.SrcSize,
+			&i.SrcModTime,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -723,6 +943,39 @@ func (q *Queries) ListWavColored(ctx context.Context) ([]ListWavColoredRow, erro
 	return items, nil
 }
 
+const moveFilePathPrefix = `-- name: MoveFilePathPrefix :exec
+
+UPDATE files SET path = ?1 || substr(path, length(?2) + 1)
+WHERE substr(path, 1, length(?2)) = ?2
+`
+
+type MoveFilePathPrefixParams struct {
+	NewPrefix string
+	OldPrefix interface{}
+}
+
+// Prefix variants for directory rename/move/delete. substr() comparison is used
+// instead of LIKE so that % and _ in file names cannot over-match.
+func (q *Queries) MoveFilePathPrefix(ctx context.Context, arg MoveFilePathPrefixParams) error {
+	_, err := q.db.ExecContext(ctx, moveFilePathPrefix, arg.NewPrefix, arg.OldPrefix)
+	return err
+}
+
+const moveSampleLinkPrefix = `-- name: MoveSampleLinkPrefix :exec
+UPDATE sample_links SET copy_path = ?1 || substr(copy_path, length(?2) + 1)
+WHERE substr(copy_path, 1, length(?2)) = ?2
+`
+
+type MoveSampleLinkPrefixParams struct {
+	NewPrefix string
+	OldPrefix interface{}
+}
+
+func (q *Queries) MoveSampleLinkPrefix(ctx context.Context, arg MoveSampleLinkPrefixParams) error {
+	_, err := q.db.ExecContext(ctx, moveSampleLinkPrefix, arg.NewPrefix, arg.OldPrefix)
+	return err
+}
+
 const removeAutoTags = `-- name: RemoveAutoTags :exec
 DELETE FROM file_tags WHERE file_id = ? AND auto = 1
 `
@@ -744,6 +997,20 @@ type RemoveFileTagParams struct {
 
 func (q *Queries) RemoveFileTag(ctx context.Context, arg RemoveFileTagParams) error {
 	_, err := q.db.ExecContext(ctx, removeFileTag, arg.FileID, arg.TagKey, arg.TagValue)
+	return err
+}
+
+const renameSampleLink = `-- name: RenameSampleLink :exec
+UPDATE sample_links SET copy_path = ?1 WHERE copy_path = ?2
+`
+
+type RenameSampleLinkParams struct {
+	NewPath string
+	OldPath string
+}
+
+func (q *Queries) RenameSampleLink(ctx context.Context, arg RenameSampleLinkParams) error {
+	_, err := q.db.ExecContext(ctx, renameSampleLink, arg.NewPath, arg.OldPath)
 	return err
 }
 
@@ -848,6 +1115,31 @@ func (q *Queries) UpdateFilePath(ctx context.Context, arg UpdateFilePathParams) 
 	return err
 }
 
+const updateSampleLinkSync = `-- name: UpdateSampleLinkSync :exec
+UPDATE sample_links SET sync_status = ?1, checksum = ?2,
+    src_size = ?3, src_mod_time = ?4
+WHERE copy_path = ?5
+`
+
+type UpdateSampleLinkSyncParams struct {
+	SyncStatus string
+	Checksum   string
+	SrcSize    int64
+	SrcModTime int64
+	CopyPath   string
+}
+
+func (q *Queries) UpdateSampleLinkSync(ctx context.Context, arg UpdateSampleLinkSyncParams) error {
+	_, err := q.db.ExecContext(ctx, updateSampleLinkSync,
+		arg.SyncStatus,
+		arg.Checksum,
+		arg.SrcSize,
+		arg.SrcModTime,
+		arg.CopyPath,
+	)
+	return err
+}
+
 const updateWavSource = `-- name: UpdateWavSource :exec
 UPDATE wav_meta SET source = ? WHERE file_id = ?
 `
@@ -911,6 +1203,41 @@ type UpsertPgmMetaParams struct {
 // PGM metadata
 func (q *Queries) UpsertPgmMeta(ctx context.Context, arg UpsertPgmMetaParams) error {
 	_, err := q.db.ExecContext(ctx, upsertPgmMeta, arg.FileID, arg.MidiPgmChange)
+	return err
+}
+
+const upsertSampleLink = `-- name: UpsertSampleLink :exec
+
+INSERT INTO sample_links (copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time)
+VALUES (?, ?, ?, ?, 'ok', ?, ?)
+ON CONFLICT(copy_path) DO UPDATE SET
+    library_path = excluded.library_path,
+    checksum     = excluded.checksum,
+    copied_at    = excluded.copied_at,
+    sync_status  = 'ok',
+    src_size     = excluded.src_size,
+    src_mod_time = excluded.src_mod_time
+`
+
+type UpsertSampleLinkParams struct {
+	CopyPath    string
+	LibraryPath string
+	Checksum    string
+	CopiedAt    int64
+	SrcSize     int64
+	SrcModTime  int64
+}
+
+// Sample library links
+func (q *Queries) UpsertSampleLink(ctx context.Context, arg UpsertSampleLinkParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSampleLink,
+		arg.CopyPath,
+		arg.LibraryPath,
+		arg.Checksum,
+		arg.CopiedAt,
+		arg.SrcSize,
+		arg.SrcModTime,
+	)
 	return err
 }
 

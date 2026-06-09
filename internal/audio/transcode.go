@@ -74,11 +74,6 @@ func TranscodeToWAV(srcPath, destDir string, outputName ...string) (string, erro
 	return wavPath, nil
 }
 
-// CheckFFmpegAvailable returns nil if ffmpeg is installed, or an error.
-func CheckFFmpegAvailable() error {
-	return checkFFmpeg()
-}
-
 // NormalizeWAVForMPC copies srcPath to destPath, converting to 16-bit PCM
 // 44100 Hz via ffmpeg if the source is not already in that format.
 // Returns an error if conversion is needed but ffmpeg is unavailable.

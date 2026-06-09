@@ -29,13 +29,6 @@ type MultisampleBuilder struct {
 	Warnings []string
 }
 
-// NoteName returns the note name for a MIDI note number (e.g., 60 → "C3").
-func NoteName(note int) string {
-	chromatic := (note - 24) % 12
-	octave := (note - 24) / 12
-	return fmt.Sprintf("%s%d", noteNames[chromatic], octave)
-}
-
 // ExtractNote extracts a MIDI note number from a string containing a note name.
 // Returns -1 if no note found.
 func ExtractNote(name string) int {

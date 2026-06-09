@@ -160,17 +160,13 @@ var labelTaxonomy = []LabelCategory{
 // FilterChip holds display data for a category quick-filter chip.
 type FilterChip struct {
 	Label string
-	Query string // search query param value; empty string means "All" (clear search)
-	Fav   bool   // true for the favorites chip
+	Query string
 	CSS   string // CSS hex color for the dot, empty if none
 }
 
-// drumFilterChips returns the ordered list of filter chips for the workspace panel.
+// drumFilterChips returns subcategory filter chips for the workspace panel (no All/★; those are managed by JS).
 func drumFilterChips() []FilterChip {
-	chips := []FilterChip{
-		{Label: "All", Query: ""},
-		{Label: "★", Query: "", Fav: true},
-	}
+	var chips []FilterChip
 	for _, cat := range labelTaxonomy {
 		if cat.Name != "drum" {
 			continue

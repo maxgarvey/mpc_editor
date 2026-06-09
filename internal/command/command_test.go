@@ -1,16 +1,10 @@
 package command
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/maxgarvey/mpc_editor/internal/pgm"
 )
-
-func testdataPath(name string) string {
-	return filepath.Join("..", "..", "testdata", name)
-}
 
 func TestImportSamples(t *testing.T) {
 	paths := []string{
@@ -149,39 +143,4 @@ func TestMultisampleAssign(t *testing.T) {
 	}
 
 	t.Logf("modified %d pads, %d warnings", len(modified), len(warnings))
-}
-
-func TestExportProgram(t *testing.T) {
-	// Create a program with a sample reference
-	prog := pgm.NewProgram()
-	_ = prog.Pad(0).Layer(0).SetSampleName("chh") //nolint:errcheck // test setup, name is short
-
-	// Set up matrix with a real sample file
-	var matrix pgm.SampleMatrix
-	ref := &pgm.SampleRef{
-		Name:     "chh",
-		FilePath: testdataPath("chh.wav"),
-		Status:   pgm.SampleOK,
-	}
-	matrix.Set(0, 0, ref)
-
-	destDir := t.TempDir()
-	result := ExportProgram(prog, &matrix, destDir, "test.pgm")
-
-	if result.HasError() {
-		t.Errorf("export errors: %v", result.Errors)
-	}
-	if result.Exported != 1 {
-		t.Errorf("exported = %d, want 1", result.Exported)
-	}
-
-	// Verify files exist
-	if _, err := os.Stat(filepath.Join(destDir, "test.pgm")); err != nil {
-		t.Error("missing test.pgm")
-	}
-	if _, err := os.Stat(filepath.Join(destDir, "chh.wav")); err != nil {
-		t.Error("missing chh.wav")
-	}
-
-	t.Log(result.Report())
 }

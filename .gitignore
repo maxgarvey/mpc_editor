@@ -41,3 +41,12 @@ dist-electron/
 # Tauri
 tauri/src-tauri/target/
 dist-tauri/
+
+# pgm save temp files (atomic-write leftovers)
+.pgm-save-*
+
+# genseq fixture-generator binary (built from cmd/genseq)
+/genseq
+
+# Test residue: server tests must never write here, but keep it out of status noise
+internal/server/workspace/

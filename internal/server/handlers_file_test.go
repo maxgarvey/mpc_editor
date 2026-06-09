@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -455,4 +456,60 @@ func TestHandleFileLabel_InvalidLabel(t *testing.T) {
 
 func itoa(n int64) string {
 	return fmt.Sprintf("%d", n)
+}
+
+func TestHandleFileFavorite_Toggle(t *testing.T) {
+	srv := testServer(t)
+	id := seedFile(t, srv, "fav.wav", "wav")
+
+	post := func() *httptest.ResponseRecorder {
+		form := url.Values{"id": {strconv.FormatInt(id, 10)}}
+		req := httptest.NewRequest("POST", "/file/favorite", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(w, req)
+		return w
+	}
+
+	w := post()
+	if w.Code != 200 {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "★") {
+		t.Error("first toggle should return a filled star")
+	}
+
+	w = post()
+	if !strings.Contains(w.Body.String(), "☆") {
+		t.Error("second toggle should return an empty star")
+	}
+}
+
+func TestHandleFileFavorite_Errors(t *testing.T) {
+	srv := testServer(t)
+
+	req := httptest.NewRequest("GET", "/file/favorite", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET status = %d, want 405", w.Code)
+	}
+
+	form := url.Values{"id": {"not-a-number"}}
+	req = httptest.NewRequest("POST", "/file/favorite", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("bad id status = %d, want 400", w.Code)
+	}
+
+	form = url.Values{"id": {"999999"}}
+	req = httptest.NewRequest("POST", "/file/favorite", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("unknown id status = %d, want 404", w.Code)
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -319,4 +320,45 @@ func TestHandleAudioSlice_InvalidIndex(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", w.Code)
 	}
+}
+
+// TestAudioStreamConcurrentWithEdits exercises the lock split: streaming audio
+// endpoints bypass the global handler mutex and must not race with handlers
+// that mutate session state. Run with -race to verify.
+func TestAudioStreamConcurrentWithEdits(t *testing.T) {
+	srv := testServer(t)
+	wavPath := testdataPath("chh.wav")
+	handler := srv.Handler()
+
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for range 20 {
+				req := httptest.NewRequest("GET", "/audio/file?path="+url.QueryEscape(wavPath), http.NoBody)
+				w := httptest.NewRecorder()
+				handler.ServeHTTP(w, req)
+				if w.Code != 200 {
+					t.Errorf("audio stream status = %d", w.Code)
+					return
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for range 20 {
+				form := url.Values{"pad": {"0"}, "mixer_level": {"90"}}
+				req := httptest.NewRequest("POST", "/pad/params", strings.NewReader(form.Encode()))
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				w := httptest.NewRecorder()
+				handler.ServeHTTP(w, req)
+				if w.Code != 200 {
+					t.Errorf("pad params status = %d", w.Code)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }

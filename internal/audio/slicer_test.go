@@ -200,3 +200,33 @@ func TestSlicerExportSlices(t *testing.T) {
 		}
 	}
 }
+
+func TestSlicerAccessors(t *testing.T) {
+	s, err := OpenWAV(testdataPath("myLoop.wav"))
+	if err != nil {
+		t.Fatalf("OpenWAV: %v", err)
+	}
+	slicer := NewSlicer(s)
+
+	if got := slicer.GetSensitivity(); got <= 0 {
+		t.Errorf("GetSensitivity() = %d, want > 0", got)
+	}
+	if slicer.Sample() != s {
+		t.Error("Sample() should return the underlying sample")
+	}
+	if ch := slicer.Channels(); len(ch) == 0 || len(ch[0]) == 0 {
+		t.Error("Channels() should return decoded channel data")
+	}
+
+	slice := slicer.GetSelectedSlice()
+	if slice == nil || slice.FrameLength <= 0 {
+		t.Error("GetSelectedSlice() should return a non-empty sample")
+	}
+
+	// Zero-crossing adjustment must stay within the excursion window.
+	loc := 1000
+	adjusted := slicer.AdjustNearestZeroCrossing(loc, 64)
+	if adjusted < loc-64 || adjusted > loc+64 {
+		t.Errorf("AdjustNearestZeroCrossing(%d, 64) = %d, outside window", loc, adjusted)
+	}
+}

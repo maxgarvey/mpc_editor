@@ -25,13 +25,18 @@ web/
     css/style.css       Single stylesheet for all UI components
     js/
       htmx.min.js       HTMX 2.0.4 (vendored)
-      app.js            Tab manager, workspace panel collapse, modal dialogs
+      app.js            Core init, HTMX event handlers, search + filter chips, modals, WorkspacePanel, shared utilities
       audio.js          Web Audio API engine: decode WAV, schedule pad playback
+      drag_drop.js      Drag-and-drop onto pads/slicer, XHR upload with progress
+      file_browser.js   Context menu, inline rename, Delete/Move modals
+      new_modal.js      New Program / New Sequence / Import Files modal
+      pad_assignment.js WAV-to-pad assignment, Sample Picker, Pad Picker
+      device_transfer.js MPC USB file transfer modal
       sequencer.js      Sequence player + step editor (SequencePlayer, SequenceEditor)
       tabs.js           Tab bar management across file opens
       wav_detail_player.js   WAV file audition controls
       wav_waveform.js        Canvas waveform rendering from server peak data
-      waveform.js            Lower-level canvas drawing primitives
+      waveform.js            Slicer waveform canvas (slicer page only)
 ```
 
 ## HTMX Integration
@@ -51,6 +56,9 @@ Handlers signal audio state changes via `HX-Trigger` response headers rather tha
 |-------|----------|-----------|
 | `clearAudioCache` | `renderDetailPGM`, `renderCurrentPGMDetail` | `AudioPlayer.clearCache()` |
 | `invalidatePad` (value: pad index) | `handlePadParams`, `handleLayerUpdate` | `AudioPlayer.invalidatePad(N)` |
+| `programSaved` | pad/layer handlers after a successful file write | pulses the "Saved" indicator (app.js) |
+
+Failed HTMX requests (`htmx:responseError`, `htmx:sendError`) surface as error toasts via `showToast` in `app.js`.
 
 JS listens with `document.body.addEventListener('clearAudioCache', ...)` and `document.body.addEventListener('invalidatePad', e => AudioPlayer.invalidatePad(e.detail.value))`.
 
@@ -109,6 +117,8 @@ Two IIFEs: `SequencePlayer` and `SequenceEditor`.
 | `mul` | `(a, b int) int` | Arithmetic in templates |
 | `mod` | `(a, b int) int` | Step/beat modulo for CSS classes |
 | `seq` | `(n int) []int` | Generate `[0..n-1]` for `range` |
+| `upper` | `(s string) string` | `strings.ToUpper` |
 | `padBankLabel` | `(bank int) string` | `"A"`, `"B"`, etc. |
+| `padDisplayIndex` | `(padIndex int) int` | 1-based index within the bank (1–16) |
 | `velocityColor` | `(vel byte) string` | `#4488cc` / `#44aa44` / `#cc4444` |
 | `velocityOpacity` | `(vel byte) float64` | 0.5–1.0 mapped from 0–127 |

@@ -120,3 +120,31 @@ func TestSaveAndReopen(t *testing.T) {
 		t.Errorf("reopened SampleRate = %d, want %d", s2.Format.SampleRate, s.Format.SampleRate)
 	}
 }
+
+func TestReadWAVHeader(t *testing.T) {
+	format, frames, err := ReadWAVHeader(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatalf("ReadWAVHeader: %v", err)
+	}
+	if format.SampleRate != 44100 {
+		t.Errorf("SampleRate = %d, want 44100", format.SampleRate)
+	}
+	if format.BitsPerSample != 16 {
+		t.Errorf("BitsPerSample = %d, want 16", format.BitsPerSample)
+	}
+
+	// Header frame count must agree with a full decode.
+	s, err := OpenWAV(testdataPath("chh.wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if frames != s.FrameLength {
+		t.Errorf("header frames = %d, decoded frames = %d", frames, s.FrameLength)
+	}
+}
+
+func TestReadWAVHeader_Missing(t *testing.T) {
+	if _, _, err := ReadWAVHeader(testdataPath("does_not_exist.wav")); err == nil {
+		t.Error("ReadWAVHeader on missing file should return an error")
+	}
+}

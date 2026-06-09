@@ -93,16 +93,23 @@
     }
 
     function assignPathToPad(wavPath, padIndex, mode) {
+        console.log('[assign] POST /assign/path — wavPath:', wavPath, 'pad:', padIndex, 'mode:', mode);
         fetch('/assign/path', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'path=' + encodeURIComponent(wavPath) + '&pad=' + padIndex + '&mode=' + mode
-        }).then(function() {
+        }).then(function(r) {
+            console.log('[assign] response status:', r.status);
+            if (!r.ok) {
+                return r.text().then(function(body) {
+                    console.warn('[assign] server error:', r.status, body);
+                });
+            }
             AudioPlayer.clearCache();
             AudioPlayer.invalidatePad(padIndex);
             refreshPadGridAndParams(padIndex);
         }).catch(function(err) {
-            console.warn('Assign to pad failed:', err);
+            console.warn('[assign] Assign to pad failed:', err);
         });
     }
 
