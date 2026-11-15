@@ -47,6 +47,7 @@ dist-tauri/
 
 # genseq fixture-generator binary (built from cmd/genseq)
 /genseq
+/genpgm
 
 # Test residue: server tests must never write here, but keep it out of status noise
 internal/server/workspace/

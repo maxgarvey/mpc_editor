@@ -29,3 +29,4 @@ Fields marked `[?]` in `seq-format.md` are observed in real files but not yet un
 - [`internal/seq`](../internal/seq/README.md) — implements the parser and writer described in `seq-format.md`
 - [`internal/pgm`](../internal/pgm/README.md) — implements the `.PGM` format; its byte offsets align with the Norum spec
 - [`cmd/genseq`](../cmd/genseq/README.md) — generates test `.SEQ` files that exercise the format spec on real hardware
+- [`cmd/genpgm`](../cmd/genpgm/README.md) — generates `.PGM` probe files for testing open format questions on real hardware
