@@ -79,9 +79,9 @@ func isTerminator(b []byte) bool {
 //	[6]    MIDI note
 //	[7]    velocity
 //	[8-11] duration in ticks (uint32)
-//	[12]   padding (0x00)
-//	[13]   pad index approximation (note - 36 for factory mappings)
-//	[14-15] padding (0x00 0x00)
+//	[12]   0x00, or 0xFF when [12-15] are all 0xFF (meaning unknown; ignored)
+//	[13]   pad index in recorded files; 0 in Akai's factory sequences, so ignored
+//	[14-15] 0x00 0x00, or 0xFF 0xFF as above
 func parseEvent(b []byte) Event {
 	tick := binary.LittleEndian.Uint32(b[0:4])
 	track := int(b[4])

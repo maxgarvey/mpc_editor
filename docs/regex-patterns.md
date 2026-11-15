@@ -426,14 +426,21 @@ Byte   Size  Field       Constraints
 6      1     note        0x00–0x7F (MIDI note number)
 7      1     velocity    0x01–0x7F (high bit clear; 0 would be NoteOff)
 8-11   4     duration    uint32 LE — ticks held
-12     1     [?]         0x00 in all observed files
-13     1     pad_idx     ≈ note-36 for factory pad mapping (redundant with note)
-14-15  2     [?]         0x00 0x00 in all observed files
+12     1     [?]         0x00 usually; see ff ff ff ff note below
+13     1     pad_idx     0x00 in all factory events; not used for playback
+14-15  2     [?]         0x00 0x00 usually; see ff ff ff ff note below
 ```
 
 Pattern for a single NoteOn event:
 ```
-(?s)(?P<tick>.{4})(?P<track>[\x01-\x40])\x90(?P<note>[\x00-\x7f])(?P<velocity>[\x01-\x7f])(?P<dur>.{4})\x00(?P<pad>[\x00-\x7f])\x00\x00
+(?s)(?P<tick>.{4})(?P<track>[\x01-\x40])\x90(?P<note>[\x00-\x7f])(?P<velocity>[\x01-\x7f])(?P<dur>.{4})(?P<tail>\x00[\x00-\x7f]\x00\x00|\xff{4})
+```
+
+Bytes 12–15 are `ff ff ff ff` in about 1% of the events in Akai's factory
+`.ALL` file, so the tail accepts that as well as the usual zeros.
+See [`seq-format.md`](seq-format.md#events-0x1c10-onward-16-bytes-each).
+
+```
 ```
 
 Extract all events (Python):
@@ -548,7 +555,7 @@ then `diff <(xxd a) <(xxd b)` to isolate which bytes changed.
 | 0x0014 | 4 B  | file header | constant in all observed files |
 | 0x2958 | 128 B | after MIDI note map | between note map and program change |
 | 0x29F3 | 17 B | file tail | after slider 1 |
-| pad+0x60 | 2 B | per-pad | before voice overlap |
+| pad+0x60 | 2 B | per-pad | int16 LE, non-zero on ~100 factory pads; roughly layer 1 tuning ÷ 10 but often not, and set on some untuned pads |
 | pad+0x64 | 2 B | per-pad | between mute group and envelope |
 | pad+0x69 | 2 B | per-pad | after decay mode |
 | pad+0x6C | 5 B | per-pad | before filter 1 |
@@ -573,8 +580,7 @@ then `diff <(xxd a) <(xxd b)` to isolate which bytes changed.
 | track+0x20 | 2 B  | per-track | zero in observed files |
 | track+0x24 | 8 B  | per-track | possibly volume/pan (100, 30, 110, 50 observed) |
 | track+0x2E | 1 B  | per-track | zero |
-| event+12 | 1 B  | per-event | always 0x00 |
-| event+14 | 2 B  | per-event | always 0x00 0x00 |
+| event+12 | 4 B  | per-event | bytes 12–15: `00 00 00 00` (byte 13 = pad_idx) or `ff ff ff ff` |
 
 ### SNG
 

@@ -49,8 +49,11 @@ Raw:    OpenProgramRaw(path) → no RepairNoteMap; SetNoteMapEntry / Pad.SetUnkn
 
 - All offsets are absolute within the buffer. `Pad.base` + `Parameter.Offset` = field location.
 - Pads 0–63 span all banks: bank A = 0–15, B = 16–31, C = 32–47, D = 48–63.
-- The two MIDI tables must agree. `Pad.SetMIDINote` updates both, and `OpenProgram` calls `RepairNoteMap` to fix stale note→pad entries left by editors that only write pad→note (consistent entries, including which pad wins when two share a note, are kept). `PadForNote` reads the note→pad table. Which table the hardware actually trusts is unverified. [`cmd/genpgm`](../../cmd/genpgm/README.md) generates probe programs for finding out on real hardware.
-- Pad byte 0x65 and slider byte 0x01 are undocumented but always 1 in hardware files; `NewProgram` writes 1 to match.
+- The two MIDI tables must agree. `Pad.SetMIDINote` updates both, and `OpenProgram` calls `RepairNoteMap` to fix stale note→pad entries left by editors that only write pad→note (consistent entries, including which pad wins when two share a note, are kept). `PadForNote` reads the note→pad table. Both tables are consistent, with no shared notes, in every Akai factory program. Which table the hardware actually trusts is unverified. [`cmd/genpgm`](../../cmd/genpgm/README.md) generates probe programs for finding out on real hardware.
+- Pad byte 0x65 and slider byte 0x01 are undocumented but always 1 in hardware files, including all 13 Akai factory programs; `NewProgram` writes 1 to match.
+- A layer is empty when its name's first byte is 0. Deleting a sample on the hardware zeroes only that byte and leaves the rest of the old name behind (Akai's factory programs contain names like `\0J_KICK`), so never treat trailing name bytes as meaningful.
+- Pad `+0x60` (2 bytes, signed LE) is not modelled. It is non-zero on about 100 pads of Akai's factory programs, roughly follows layer 1 tuning ÷ 10 without matching it, and is set on some untuned pads. Since the buffer is saved verbatim, the editor preserves it.
+- Factory defaults are not settled. Akai's factory programs have blank pads with layer levels 100 (all 4 layers) and FX send level 100, but `NewProgram` follows `testdata/chromatic.pgm` (70 and 33). Factory drum kits use a drum note layout (A1=37, A2=36, A3=42, A4=82, …); factory instrument programs use chromatic from 35.
 - `SampleMatrix` lives outside the binary; it maps the 16-char name stored in the `.pgm` to a full filesystem path resolved at load time.
 - `MultisampleBuilder` handles chromatic note assignment with tuning spread across pads — used for multi-velocity/pitched sample programs.
 

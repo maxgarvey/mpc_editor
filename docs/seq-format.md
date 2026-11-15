@@ -7,7 +7,9 @@ All multi-byte values are **little-endian**. Sequencer resolution is fixed at
 **96 PPQN** (pulses per quarter note), giving 384 ticks per 4/4 bar.
 
 > This spec is derived from direct hex analysis of real MPC 1000 files
-> (`Sequence01.SEQ`, `BasicDrumsSeq.SEQ`) captured from the hardware.
+> (`Sequence01.SEQ`, `BasicDrumsSeq.SEQ`) captured from the hardware, plus
+> the event records in Akai's official MPC 1000 factory `ALL_SEQS&SONGS.ALL`
+> (akaipro.com legacy downloads), which uses the same 16-byte event layout.
 > Fields marked **[?]** are observed in the binary but not yet understood.
 > Update this file whenever new evidence changes or clarifies the format.
 
@@ -110,9 +112,22 @@ described in older references does not match real MPC 1000 files).
 | 6     | 1    | `note`     | MIDI note number (0–127) |
 | 7     | 1    | `velocity` | Velocity (0–127) |
 | 8–11  | 4    | `duration` | Note duration in ticks (uint32 LE) |
-| 12    | 1    | [?]        | Always `0x00` in observed files |
-| 13    | 1    | `pad_idx`  | Pad index (appears to be `note - 36` for factory-mapped pads; redundant with note) |
-| 14–15 | 2    | [?]        | Always `0x00 0x00` in observed files |
+| 12    | 1    | [?]        | `0x00`, except in the `ff ff ff ff` case below |
+| 13    | 1    | `pad_idx`  | Pad index in recorded files; **not used for playback** (see below) |
+| 14–15 | 2    | [?]        | `0x00 0x00`, except in the `ff ff ff ff` case below |
+
+Bytes 12–15 are `00 00 00 00` in almost every event. In the factory `.ALL`, about
+170 of 13,000 note events have `ff ff ff ff` there instead, with ordinary tick,
+note, velocity and duration values. Their meaning is unknown, so parsers must not
+require these bytes to be zero.
+
+**Byte 13 is not needed for playback.** It is `0x00` in every one of the roughly
+13,000 note events in Akai's factory sequences, even though their notes span
+35–98 and hit pads in all four banks of the factory kits. If the sequencer played
+by byte 13, every factory beat would play pad A1. The hardware therefore plays
+events by note, through the program's note tables. Recorded files such as
+`Sequence01.SEQ` do fill it in, but whether it then holds the physical pad or
+`note - 36` is unverified: in those files both readings give the same number.
 
 ### Confirmed examples from Sequence01.SEQ (1 bar, 120 BPM)
 
@@ -140,27 +155,27 @@ separator. Parsing stops when this pattern is found.
 
 ## Note-to-Pad Mapping
 
-MPC pads are mapped to MIDI notes in the sequence data. The MPC factory default
-for a fresh PGM is:
+Sequence events store MIDI notes, not pads. The program's pad→note table
+(see [`internal/pgm`](../internal/pgm/README.md)) decides which pad a note plays.
+Two layouts appear in Akai's own files:
 
-| Bank | Pads   | MIDI notes |
-|------|--------|-----------|
-| A    | A1–A16 | 36–51     |
-| B    | B1–B16 | 52–67     |
-| C    | C1–C16 | 68–83     |
-| D    | D1–D16 | 84–99     |
+| Layout | Used by | Bank A notes (A1–A16) |
+|--------|---------|-----------------------|
+| Drum | Factory drum kits; MPC Maid `default.pgm` | 37, 36, 42, 82, 40, 38, 46, 44, 48, 47, 45, 43, 49, 55, 51, 53 |
+| Chromatic from 35 | Factory instrument programs; `testdata/chromatic.pgm` | 35–50 (`note = 35 + pad_index` across all 64 pads) |
 
-Formula: `note = 36 + pad_index` where pad_index is 0-based across all 64 pads.
-Bank A is pads 0–15, Bank B is 16–31, etc.
+All 9 factory drum kits share an identical 64-entry drum table, so a factory
+sequence's notes only make sense against that layout. A plain `note - 36`
+mapping matches neither layout.
 
 **Caveat:** programs can remap pads to any MIDI note. The note stored in byte[6]
-reflects the PGM's mapping at the time of recording, not the pad layout. The
-`pad_idx` field in byte[13] appears to store the pad's physical index regardless
-of the MIDI note remapping, but this is not fully verified.
+reflects the PGM's mapping at the time of recording, not the pad layout. Map
+events to pads by note (byte[6]) and ignore byte[13], which can be zero (see
+Events above).
 
-**Code note:** the codebase currently uses `note - 35` as a chromatic fallback
-(pad 0 = note 35). The correct factory default from observed files is `note - 36`
-(pad 0 = note 36). This discrepancy should be resolved when the fallback is used.
+**Code note:** when no program is available, `internal/seq/grid.go` falls back to
+`note - 35`, which matches the chromatic layout. Factory drum-kit sequences need
+the program's table to land on the right pads.
 
 ---
 
