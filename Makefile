@@ -2,7 +2,7 @@ BINARY    := mpc_editor
 CMD       := ./cmd/mpc_editor
 GOFLAGS   := -trimpath
 LDFLAGS   := -s -w
-LINT_VER  := v2.11.4
+LINT_VER  := v2.15.0
 
 .PHONY: all build run test lint vet fmt check check-coverage clean install dev generate help test-e2e test-e2e-headed test-e2e-ui electron electron-dist tauri tauri-dist
 
@@ -45,8 +45,8 @@ check-coverage:  ## Fail if any internal/ package is below 80% coverage
 	  } \
 	  END { if (fail) { print "\nSome packages below 80%. Run: make test-cover"; exit 1 } }'
 
-lint:  ## Run golangci-lint (installs if missing)
-	@command -v golangci-lint >/dev/null 2>&1 || { \
+lint:  ## Run golangci-lint (installs if missing or a different version)
+	@golangci-lint --version 2>/dev/null | grep -q "version $(patsubst v%,%,$(LINT_VER)) " || { \
 		echo "Installing golangci-lint $(LINT_VER)..."; \
 		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(LINT_VER); \
 	}

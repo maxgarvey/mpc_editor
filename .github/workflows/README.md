@@ -13,7 +13,7 @@ Runs on every push and pull request to `main`.
 | Build | `go build ./...` | Verifies the project compiles cleanly |
 | Test | `go test -race ./...` | Runs all unit tests with the race detector |
 | Vet | `go vet ./...` | Catches common Go mistakes |
-| Lint | `golangci-lint` v2.11.4 | Enforces code style and catches additional issues |
+| Lint | `golangci-lint` v2.15.0 | Enforces code style and catches additional issues |
 
 ## What is not in CI
 

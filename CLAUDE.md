@@ -10,7 +10,7 @@ make run          # build and run server (opens browser on macOS)
 make test         # run all tests
 make test-race    # run tests with race detector
 make test-cover   # run tests with coverage report
-make lint         # run golangci-lint (auto-installs golangci-lint v2.11.4)
+make lint         # run golangci-lint (auto-installs golangci-lint v2.15.0)
 make check        # vet + lint + tests
 make fmt          # format code (fails if gofmt changes anything)
 make generate     # regenerate sqlc DB code from SQL definitions
