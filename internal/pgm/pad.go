@@ -66,9 +66,29 @@ func (p *Pad) GetMIDINote() int {
 	return int(p.buf.GetByte(midiNotePadValue + p.index))
 }
 
-// SetMIDINote sets the MIDI note number for this pad.
+// SetMIDINote sets the MIDI note number for this pad and keeps the
+// note→pad table in sync: the new note points at this pad, and the old
+// note falls back to another pad that still plays it (or "no pad").
 func (p *Pad) SetMIDINote(note int) {
+	old := p.GetMIDINote()
 	p.buf.SetByte(midiNotePadValue+p.index, byte(note))
+	if note >= 0 && note < midiNoteCount {
+		p.buf.SetByte(midiNoteToPad+note, byte(p.index))
+	}
+	if old != note && old < midiNoteCount && int(p.buf.GetByte(midiNoteToPad+old)) == p.index {
+		p.buf.SetByte(midiNoteToPad+old, byte(lowestPadForNote(p.buf, old)))
+	}
+}
+
+// lowestPadForNote returns the lowest-indexed pad assigned to note, or
+// noPad if none is.
+func lowestPadForNote(buf *Buffer, note int) int {
+	for i := range padCount {
+		if int(buf.GetByte(midiNotePadValue+i)) == note {
+			return i
+		}
+	}
+	return noPad
 }
 
 // Envelope returns the envelope section of this pad.

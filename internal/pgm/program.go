@@ -8,8 +8,16 @@ const (
 	headerFileSize = 0x00
 	headerFileType = 0x04
 
-	midiNotePadValue  = 0x2918 // 64 bytes: MIDI note → pad mapping
+	midiNotePadValue  = 0x2918 // 64 bytes: pad → MIDI note (indexed by pad)
+	midiNoteToPad     = 0x2958 // 128 bytes: MIDI note → pad (indexed by note; noPad = unassigned)
 	midiProgramChange = 0x29D8
+
+	midiNoteCount = 128
+	noPad         = 64
+
+	// Bytes Norum documents as "unknown, always 0x01"; hardware files have 1.
+	padConstOneOffset    = 0x65 // relative to pad base
+	sliderConstOneOffset = 0x01 // relative to slider base
 
 	padSectionStart = 0x18
 	padLength       = 0xA4
@@ -34,9 +42,16 @@ func NewProgram() *Program {
 	p.buf.SetInt(headerFileSize, ProgramFileSize)
 	// Write file type/version
 	_ = p.buf.SetString(headerFileType, fileVersion)
+	for n := range midiNoteCount {
+		p.buf.SetByte(midiNoteToPad+n, noPad)
+	}
+	for s := range slidersPerProg {
+		p.buf.SetByte(p.Slider(s).base()+sliderConstOneOffset, 1)
+	}
 	// Initialize all pads with MPC defaults.
 	for i := range padCount {
 		pad := p.Pad(i)
+		p.buf.SetByte(pad.base+padConstOneOffset, 1)
 		for j := range layersPerPad {
 			pad.Layer(j).SetLevel(100)
 			pad.Layer(j).SetRange(Range{Low: 0, High: 127})
@@ -61,7 +76,42 @@ func programFromBuffer(buf *Buffer) (*Program, error) {
 	if buf.Len() != ProgramFileSize {
 		return nil, fmt.Errorf("invalid pgm: expected %d bytes, got %d", ProgramFileSize, buf.Len())
 	}
-	return &Program{buf: buf}, nil
+	p := &Program{buf: buf}
+	p.RepairNoteMap()
+	return p, nil
+}
+
+// RepairNoteMap fixes entries in the note→pad table that disagree with the
+// pad→note table, as left by editors that only write the latter (or by older
+// versions of this one, which left the table zeroed). Each consistent entry is
+// kept; an inconsistent one is pointed at the lowest pad playing that note, or
+// set to "no pad". It returns true if anything changed.
+func (p *Program) RepairNoteMap() bool {
+	changed := false
+	for n := range midiNoteCount {
+		cur := int(p.buf.GetByte(midiNoteToPad + n))
+		if cur < padCount && int(p.buf.GetByte(midiNotePadValue+cur)) == n {
+			continue
+		}
+		want := lowestPadForNote(p.buf, n)
+		if cur != want {
+			p.buf.SetByte(midiNoteToPad+n, byte(want))
+			changed = true
+		}
+	}
+	return changed
+}
+
+// PadForNote returns the pad the note→pad table assigns to note, or -1.
+func (p *Program) PadForNote(note int) int {
+	if note < 0 || note >= midiNoteCount {
+		return -1
+	}
+	pad := int(p.buf.GetByte(midiNoteToPad + note))
+	if pad >= padCount {
+		return -1
+	}
+	return pad
 }
 
 // Save writes the program to a file.

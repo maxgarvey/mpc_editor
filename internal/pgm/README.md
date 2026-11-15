@@ -24,8 +24,10 @@ A `.pgm` file is a fixed-size binary buffer (10,756 bytes for MPC1000) that defi
 ```
 0x0000   File header (size, version string "MPC1000 PGM 1.00")
 0x0018   64 pads × 0xA4 bytes each
-0x2918   64-byte MIDI note→pad map (one byte per pad)
+0x2918   64 bytes: pad → MIDI note (one byte per pad)
+0x2958   128 bytes: MIDI note → pad (one byte per note; 64 = no pad)
 0x29D8   MIDI program change byte
+0x29D9   2 sliders × 13 bytes
 0x2A04   End (= ProgramFileSize)
 ```
 
@@ -37,13 +39,15 @@ Each pad occupies `0xA4` bytes at `0x18 + padIndex * 0xA4`. Layers are sub-range
 Open:   OpenProgram(path) → reads ProgramFileSize bytes → Buffer → Program
 Edit:   program.Pad(i).Layer(j).SetSampleName("kick.wav")
 Save:   program.Save(path) → writes Buffer bytes verbatim to disk
-New:    NewProgram() → zero-filled buffer + sensible defaults (level=100, chromatic MIDI notes)
+New:    NewProgram() → zero-filled buffer + sensible defaults (level=100, chromatic MIDI notes from 35)
 ```
 
 ## Design Notes
 
 - All offsets are absolute within the buffer. `Pad.base` + `Parameter.Offset` = field location.
 - Pads 0–63 span all banks: bank A = 0–15, B = 16–31, C = 32–47, D = 48–63.
+- The two MIDI tables must agree. `Pad.SetMIDINote` updates both, and `OpenProgram` calls `RepairNoteMap` to fix stale note→pad entries left by editors that only write pad→note (consistent entries, including which pad wins when two share a note, are kept). `PadForNote` reads the note→pad table. Which table the hardware actually trusts is unverified.
+- Pad byte 0x65 and slider byte 0x01 are undocumented but always 1 in hardware files; `NewProgram` writes 1 to match.
 - `SampleMatrix` lives outside the binary; it maps the 16-char name stored in the `.pgm` to a full filesystem path resolved at load time.
 - `MultisampleBuilder` handles chromatic note assignment with tuning spread across pads — used for multi-velocity/pitched sample programs.
 
