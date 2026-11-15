@@ -50,3 +50,4 @@ dist-tauri/
 
 # Test residue: server tests must never write here, but keep it out of status noise
 internal/server/workspace/
+.aider*
