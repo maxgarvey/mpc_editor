@@ -380,3 +380,21 @@ func TestResetToChromaticKeepsNoteMapConsistent(t *testing.T) {
 		}
 	}
 }
+
+func TestNewProgramMatchesHardwareDefaults(t *testing.T) {
+	// chromatic.pgm is a new program saved by an MPC 1000. NewProgram must
+	// reproduce it exactly: pad, envelope, filter, mixer and slider defaults,
+	// both MIDI tables and the "always 1" bytes.
+	raw, err := os.ReadFile(testdataPath("chromatic.pgm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	diffs := DiffBytes(raw, NewProgram().buf.Data())
+	for i, d := range diffs {
+		if i == 10 {
+			t.Errorf("... and %d more", len(diffs)-10)
+			break
+		}
+		t.Errorf("0x%04X %s: hardware %d, NewProgram %d", d.Offset, d.Field, d.A, d.B)
+	}
+}

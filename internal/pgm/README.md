@@ -40,7 +40,7 @@ Each pad occupies `0xA4` bytes at `0x18 + padIndex * 0xA4`. Layers are sub-range
 Open:   OpenProgram(path) → reads ProgramFileSize bytes → Buffer → Program
 Edit:   program.Pad(i).Layer(j).SetSampleName("kick.wav")
 Save:   program.Save(path) → writes Buffer bytes verbatim to disk
-New:    NewProgram() → zero-filled buffer + sensible defaults (level=100, chromatic MIDI notes from 35)
+New:    NewProgram() → byte-identical to a new program saved by the MPC 1000 (testdata/chromatic.pgm): layer level 70, decay 5, velocity→level 100, filter freq 100, FX send 33, slider ranges, chromatic MIDI notes from 35
 Raw:    OpenProgramRaw(path) → no RepairNoteMap; SetNoteMapEntry / Pad.SetUnknownConstByte / Slider.SetUnknownConstByte
         write single bytes with no syncing (for hardware probes and forensics only, never editor code)
 ```

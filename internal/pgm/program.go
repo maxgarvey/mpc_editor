@@ -45,19 +45,32 @@ func NewProgram() *Program {
 	for n := range midiNoteCount {
 		p.buf.SetByte(midiNoteToPad+n, noPad)
 	}
+	// Defaults below match a new program saved by the MPC 1000 itself
+	// (testdata/chromatic.pgm); a test asserts the two are byte-identical.
 	for s := range slidersPerProg {
-		p.buf.SetByte(p.Slider(s).base()+sliderConstOneOffset, 1)
+		sl := p.Slider(s)
+		p.buf.SetByte(sl.base()+sliderConstOneOffset, 1)
+		sl.SetRange(SliderTuneRange, Range{Low: -120, High: 120})
+		sl.SetRange(SliderFilterRange, Range{Low: -50, High: 50})
+		sl.SetRange(SliderLayerRange, Range{Low: 0, High: 127})
+		sl.SetRange(SliderAttackRange, Range{Low: 0, High: 100})
+		sl.SetRange(SliderDecayRange, Range{Low: 0, High: 100})
 	}
-	// Initialize all pads with MPC defaults.
+	p.Slider(1).SetParameter(1) // slider 2 defaults to Filter
 	for i := range padCount {
 		pad := p.Pad(i)
 		p.buf.SetByte(pad.base+padConstOneOffset, 1)
 		for j := range layersPerPad {
-			pad.Layer(j).SetLevel(100)
+			pad.Layer(j).SetLevel(70)
 			pad.Layer(j).SetRange(Range{Low: 0, High: 127})
 		}
+		pad.Envelope().SetDecay(5)
+		pad.Envelope().SetVelocityToLevel(100)
+		pad.Filter1().SetFrequency(100)
+		pad.Filter2().SetFrequency(100)
 		pad.Mixer().SetLevel(100)
 		pad.Mixer().SetPan(50)
+		pad.Mixer().SetFXSendLevel(33)
 		pad.SetMIDINote(35 + i) // chromatic default: A1=35, A2=36, ...
 	}
 	return p
