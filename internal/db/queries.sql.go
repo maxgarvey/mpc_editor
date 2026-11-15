@@ -816,6 +816,42 @@ func (q *Queries) ListSampleLinksForDir(ctx context.Context, copyPath string) ([
 	return items, nil
 }
 
+const listSampleLinksForLibraryPath = `-- name: ListSampleLinksForLibraryPath :many
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links WHERE library_path = ? ORDER BY copy_path
+`
+
+func (q *Queries) ListSampleLinksForLibraryPath(ctx context.Context, libraryPath string) ([]SampleLink, error) {
+	rows, err := q.db.QueryContext(ctx, listSampleLinksForLibraryPath, libraryPath)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SampleLink
+	for rows.Next() {
+		var i SampleLink
+		if err := rows.Scan(
+			&i.ID,
+			&i.CopyPath,
+			&i.LibraryPath,
+			&i.Checksum,
+			&i.CopiedAt,
+			&i.SyncStatus,
+			&i.SrcSize,
+			&i.SrcModTime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeqTracks = `-- name: ListSeqTracks :many
 SELECT st.track, st.track_name, st.midi_channel, st.pgm_file_id,
        f.path AS pgm_path

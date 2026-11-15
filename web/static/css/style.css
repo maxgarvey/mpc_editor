@@ -1661,11 +1661,18 @@ body {
     min-width: 0;
 }
 
-.lib-sync-row {
+.lib-sync-row,
+.lib-copies-row {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
+}
+
+.lib-copy-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .lib-sync-badge {
@@ -4045,12 +4052,14 @@ tr.pad-row:not(.has-events) .step-cell {
 /* --- Library sync row busy state (hx-indicator) --- */
 
 .lib-sync-row.htmx-request .btn-sm,
-.lib-sync-row.htmx-request .lib-sync-badge {
+.lib-sync-row.htmx-request .lib-sync-badge,
+.lib-copies-row.htmx-request .btn-sm {
     opacity: 0.45;
     pointer-events: none;
 }
 
-.lib-sync-row.htmx-request::after {
+.lib-sync-row.htmx-request::after,
+.lib-copies-row.htmx-request::after {
     content: '';
     display: inline-block;
     width: 12px;

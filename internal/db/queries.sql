@@ -252,6 +252,9 @@ WHERE substr(copy_path, 1, length(sqlc.arg(old_prefix))) = sqlc.arg(old_prefix);
 -- name: ListSampleLinksForDir :many
 SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links WHERE copy_path LIKE ?;
 
+-- name: ListSampleLinksForLibraryPath :many
+SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links WHERE library_path = ? ORDER BY copy_path;
+
 -- name: ListAllSampleLinks :many
 SELECT id, copy_path, library_path, checksum, copied_at, sync_status, src_size, src_mod_time FROM sample_links ORDER BY copy_path;
 

@@ -355,6 +355,14 @@ type FileRef struct {
 	Path string
 }
 
+// LibraryCopyInfo describes a workspace copy linked to a library source
+// (for the "Workspace Copies" section of the WAV detail view).
+type LibraryCopyInfo struct {
+	CopyPath   string // relative to the workspace
+	AbsPath    string
+	SyncStatus string // 'ok', 'outdated', 'source_missing', or '' if unchecked
+}
+
 func (s *Server) handleFileDetail(w http.ResponseWriter, r *http.Request) {
 	idStr := r.FormValue("id")
 	if idStr == "" {

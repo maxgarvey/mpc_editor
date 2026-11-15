@@ -204,6 +204,20 @@ func (s *Server) renderDetailWAV(w http.ResponseWriter, path string) {
 		}
 	}
 
+	// Library source: do any workspace copies link back to this file?
+	// Independent of the files catalog so it works before a scan picks the source up.
+	if links, err := s.queries.ListSampleLinksForLibraryPath(ctx, relPath); err == nil && len(links) > 0 {
+		copies := make([]LibraryCopyInfo, 0, len(links))
+		for _, l := range links {
+			copies = append(copies, LibraryCopyInfo{
+				CopyPath:   l.CopyPath,
+				AbsPath:    filepath.Join(workspace, l.CopyPath),
+				SyncStatus: l.SyncStatus,
+			})
+		}
+		data["LibraryCopies"] = copies
+	}
+
 	s.renderTemplate(w, "detail_wav.html", data)
 }
 

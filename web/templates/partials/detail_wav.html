@@ -80,6 +80,37 @@
     </div>
     {{end}}
 
+    {{if .LibraryCopies}}
+    <div class="detail-section">
+        <h3>Workspace Copies</h3>
+        <div class="detail-row lib-copies-row">
+            <span>{{len .LibraryCopies}} workspace cop{{if eq (len .LibraryCopies) 1}}y{{else}}ies{{end}} of this sample</span>
+            <button class="btn-sm"
+                    hx-post="/library/check-source"
+                    hx-vals='{"path":"{{.Path}}"}'
+                    hx-target="#detail-tab-content"
+                    hx-swap="innerHTML"
+                    hx-indicator=".lib-copies-row">Check all</button>
+        </div>
+        <ul class="detail-list">
+            {{range .LibraryCopies}}
+            <li class="lib-copy-item">
+                {{if eq .SyncStatus "ok"}}
+                <span class="lib-sync-badge lib-sync-ok" title="Up to date">&#10003;</span>
+                {{else if eq .SyncStatus "outdated"}}
+                <span class="lib-sync-badge lib-sync-outdated" title="Update available">&#9650;</span>
+                {{else if eq .SyncStatus "source_missing"}}
+                <span class="lib-sync-badge lib-sync-missing" title="Source missing">&#10007;</span>
+                {{else}}
+                <span class="lib-sync-badge lib-sync-unknown" title="Not checked">&#8863;</span>
+                {{end}}
+                <button type="button" class="btn-link" onclick="TabManager.openFile('{{.CopyPath}}')">{{.CopyPath}}</button>
+            </li>
+            {{end}}
+        </ul>
+    </div>
+    {{end}}
+
     {{if .UsedBy}}
     <div class="detail-section">
         <h3>Used by Programs</h3>

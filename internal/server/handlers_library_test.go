@@ -112,6 +112,113 @@ func TestCheckSyncStatus_SourceMissing(t *testing.T) {
 	}
 }
 
+func TestHandleLibraryCheckSource_MethodNotAllowed(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/library/check-source", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.handleLibraryCheckSource(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("got %d, want 405", w.Code)
+	}
+}
+
+func TestHandleLibraryCheckSource_MissingPath(t *testing.T) {
+	srv := testServer(t)
+	req := httptest.NewRequest(http.MethodPost, "/library/check-source", http.NoBody)
+	w := httptest.NewRecorder()
+	srv.handleLibraryCheckSource(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("got %d, want 400", w.Code)
+	}
+}
+
+func TestHandleLibraryCheckSource_NoLinks(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+
+	form := url.Values{"path": {filepath.Join(workspace, "sample_library", "unlinked.wav")}}
+	req := httptest.NewRequest(http.MethodPost, "/library/check-source",
+		strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.handleLibraryCheckSource(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("got %d, want 400 when no copies link to the file", w.Code)
+	}
+}
+
+func TestHandleLibraryCheckSource_ChecksAllCopies(t *testing.T) {
+	srv := testServer(t)
+	workspace := srv.session.WorkspacePath
+	ctx := context.Background()
+
+	libDir := filepath.Join(workspace, "sample_library")
+	if err := os.MkdirAll(libDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcPath := filepath.Join(libDir, "kick.wav")
+	if err := os.WriteFile(srcPath, makeMinimalWAV(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Two copies of the same source, both unchecked.
+	checksum, _ := checksumFile(srcPath)
+	libRel := filepath.Join("sample_library", "kick.wav")
+	copyRels := []string{
+		filepath.Join("programs", "beat", "kick.wav"),
+		filepath.Join("programs", "house", "kick.wav"),
+	}
+	for _, rel := range copyRels {
+		abs := filepath.Join(workspace, rel)
+		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(abs, makeMinimalWAV(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := srv.queries.UpsertSampleLink(ctx, db.UpsertSampleLinkParams{
+			CopyPath:    rel,
+			LibraryPath: libRel,
+			Checksum:    checksum,
+			CopiedAt:    1000,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	form := url.Values{"path": {srcPath}}
+	req := httptest.NewRequest(http.MethodPost, "/library/check-source",
+		strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("got %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+
+	// Every copy's link should now have a fresh 'ok' status.
+	for _, rel := range copyRels {
+		link, err := srv.queries.GetSampleLinkByCopyPath(ctx, rel)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if link.SyncStatus != "ok" {
+			t.Errorf("SyncStatus for %s = %q, want 'ok'", rel, link.SyncStatus)
+		}
+	}
+
+	// The re-rendered detail should list both copies.
+	body := w.Body.String()
+	if !strings.Contains(body, "Workspace Copies") {
+		t.Error("detail should contain the Workspace Copies section")
+	}
+	for _, rel := range copyRels {
+		if !strings.Contains(body, rel) {
+			t.Errorf("detail should list copy %s", rel)
+		}
+	}
+}
+
 func TestHandleLibraryUpdate_MethodNotAllowed(t *testing.T) {
 	srv := testServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/library/update", http.NoBody)

@@ -69,6 +69,7 @@ On startup, the session restores the last-opened program and workspace from `Pre
 | `POST /workspace/organize` | Move labeled WAVs in a directory into per-subcategory subdirectories |
 | `POST /file/color` `/file/label` `/file/favorite` | Set per-file display color, label, favorite star |
 | `POST /library/check` `/library/update` | Check / re-copy a sample-library linked WAV |
+| `POST /library/check-source` | Check sync status of every workspace copy of a library source |
 | `POST /edit/pad` | Write a pad parameter |
 | `POST /edit/profile` | Switch MPC profile |
 | `GET /audio/stream` | Stream WAV PCM to Web Audio API |

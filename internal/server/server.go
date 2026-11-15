@@ -234,6 +234,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/file/favorite", s.handleFileFavorite)
 	s.mux.HandleFunc("/file/source", s.handleSetWavSource)
 	s.mux.HandleFunc("/library/check", s.handleLibraryCheck)
+	s.mux.HandleFunc("/library/check-source", s.handleLibraryCheckSource)
 	s.mux.HandleFunc("/library/update", s.handleLibraryUpdate)
 	s.mux.HandleFunc("/file/", s.handleFileDetail)
 

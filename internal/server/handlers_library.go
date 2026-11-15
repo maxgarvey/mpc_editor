@@ -41,6 +41,42 @@ func (s *Server) handleLibraryCheck(w http.ResponseWriter, r *http.Request) {
 	s.renderDetailWAV(w, absPath)
 }
 
+// handleLibraryCheckSource checks the sync status of every workspace copy linked
+// to a library source and re-renders the source's WAV detail panel.
+// POST /library/check-source with form field "path" (absolute path of the source file).
+func (s *Server) handleLibraryCheckSource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	absPath := r.FormValue("path")
+	if absPath == "" {
+		http.Error(w, "path is required", http.StatusBadRequest)
+		return
+	}
+
+	ws := s.session.WorkspacePath
+	relPath, err := filepath.Rel(ws, absPath)
+	if err != nil {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+	links, err := s.queries.ListSampleLinksForLibraryPath(ctx, relPath)
+	if err != nil || len(links) == 0 {
+		http.Error(w, "no workspace copies linked to this file", http.StatusBadRequest)
+		return
+	}
+	for _, l := range links {
+		s.checkSyncStatus(ctx, l.CopyPath)
+	}
+
+	// Re-render the source's WAV detail so the copies list shows fresh statuses.
+	s.renderDetailWAV(w, absPath)
+}
+
 // handleLibraryUpdate re-copies the library source to the workspace copy location,
 // updates the link checksum, and re-renders the WAV detail panel.
 // POST /library/update with form field "path" (absolute path of the copy file).
