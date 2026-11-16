@@ -9,9 +9,11 @@ const TESTDATA_DIR = path.join(PROJECT_ROOT, 'testdata');
 /** Create a temp directory with copies of testdata fixtures. */
 export async function setupWorkspace(): Promise<string> {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mpc-e2e-'));
-  const files = fs.readdirSync(TESTDATA_DIR);
-  for (const file of files) {
-    fs.copyFileSync(path.join(TESTDATA_DIR, file), path.join(tmpDir, file));
+  // Top-level files only: subdirectories such as testdata/seq/ hold unit-test
+  // fixtures, and copyFileSync fails on a directory.
+  for (const entry of fs.readdirSync(TESTDATA_DIR, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    fs.copyFileSync(path.join(TESTDATA_DIR, entry.name), path.join(tmpDir, entry.name));
   }
   return tmpDir;
 }
