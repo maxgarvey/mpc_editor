@@ -12,7 +12,7 @@ func seqToggle(events []seq.Event, targetTick uint32, padIndex int, note byte, v
 	out := make([]seq.Event, 0, len(events))
 	found := false
 	for _, ev := range events {
-		if ev.Tick == targetTick && padForNote(ev.Note) == padIndex {
+		if ev.IsNote() && ev.Tick == targetTick && padForNote(ev.Note) == padIndex {
 			found = true
 			continue
 		}
@@ -36,12 +36,12 @@ func seqMove(events []seq.Event, fromTick uint32, fromPad int, toTick uint32, to
 	out := make([]seq.Event, 0, len(events))
 	moved := false
 	for _, ev := range events {
-		if ev.Tick == fromTick && padForNote(ev.Note) == fromPad && !moved {
+		if ev.IsNote() && ev.Tick == fromTick && padForNote(ev.Note) == fromPad && !moved {
 			ev.Tick = toTick
 			ev.Note = toNote
 			moved = true
 			out = append(out, ev)
-		} else if ev.Tick == toTick && padForNote(ev.Note) == toPad {
+		} else if ev.IsNote() && ev.Tick == toTick && padForNote(ev.Note) == toPad {
 			continue // discard pre-existing event at destination
 		} else {
 			out = append(out, ev)
@@ -55,7 +55,7 @@ func seqDelete(events []seq.Event, targetTick uint32, padIndex int, padForNote f
 	out := make([]seq.Event, 0, len(events))
 	removed := false
 	for _, ev := range events {
-		if ev.Tick == targetTick && padForNote(ev.Note) == padIndex && !removed {
+		if ev.IsNote() && ev.Tick == targetTick && padForNote(ev.Note) == padIndex && !removed {
 			removed = true
 			continue
 		}
@@ -67,7 +67,7 @@ func seqDelete(events []seq.Event, targetTick uint32, padIndex int, padForNote f
 // seqUpdate sets velocity and duration on the first event at (targetTick, padIndex).
 func seqUpdate(events []seq.Event, targetTick uint32, padIndex, velocity, duration int, padForNote func(byte) int) []seq.Event {
 	for i, ev := range events {
-		if ev.Tick == targetTick && padForNote(ev.Note) == padIndex {
+		if ev.IsNote() && ev.Tick == targetTick && padForNote(ev.Note) == padIndex {
 			events[i].Velocity = byte(velocity)
 			events[i].Duration = uint16(duration)
 			break
@@ -115,7 +115,7 @@ func seqMultiDelete(events []seq.Event, targets []multiTarget, ticksPerStep int,
 	out := make([]seq.Event, 0, len(events))
 	for _, ev := range events {
 		k := key{ev.Tick, padForNote(ev.Note)}
-		if counts[k] > 0 {
+		if ev.IsNote() && counts[k] > 0 {
 			counts[k]--
 			continue
 		}
@@ -151,7 +151,9 @@ func seqMultiMove(events []seq.Event, targets []multiMoveTarget, ticksPerStep in
 	out := make([]seq.Event, 0, len(events))
 	for _, ev := range events {
 		k := key{ev.Tick, padForNote(ev.Note)}
-		if d, ok := moveMap[k]; ok {
+		if !ev.IsNote() {
+			out = append(out, ev)
+		} else if d, ok := moveMap[k]; ok {
 			ev.Tick = d.toTick
 			ev.Note = d.toNote
 			delete(moveMap, k)
@@ -176,7 +178,7 @@ func seqMultiUpdate(events []seq.Event, targets []multiTarget, ticksPerStep, vel
 		toUpdate[key{uint32(t.GlobalStep * ticksPerStep), t.Pad}] = true
 	}
 	for i, ev := range events {
-		if toUpdate[key{ev.Tick, padForNote(ev.Note)}] {
+		if ev.IsNote() && toUpdate[key{ev.Tick, padForNote(ev.Note)}] {
 			events[i].Velocity = byte(velocity)
 			events[i].Duration = uint16(duration)
 		}
@@ -187,7 +189,7 @@ func seqMultiUpdate(events []seq.Event, targets []multiTarget, ticksPerStep, vel
 // seqQuantizeOne quantizes the first event at (sourceTick, padIndex) to the nearest qTicks boundary.
 func seqQuantizeOne(events []seq.Event, sourceTick uint32, padIndex, qTicks int, padForNote func(byte) int) []seq.Event {
 	for i, ev := range events {
-		if ev.Tick == sourceTick && padForNote(ev.Note) == padIndex {
+		if ev.IsNote() && ev.Tick == sourceTick && padForNote(ev.Note) == padIndex {
 			events[i].Tick = quantizeTick(ev.Tick, qTicks)
 			break
 		}
@@ -206,7 +208,7 @@ func seqMultiQuantize(events []seq.Event, targets []multiTarget, ticksPerStep, q
 		toQuantize[key{uint32(t.GlobalStep * ticksPerStep), t.Pad}] = true
 	}
 	for i, ev := range events {
-		if toQuantize[key{ev.Tick, padForNote(ev.Note)}] {
+		if ev.IsNote() && toQuantize[key{ev.Tick, padForNote(ev.Note)}] {
 			events[i].Tick = quantizeTick(ev.Tick, qTicks)
 		}
 	}

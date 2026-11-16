@@ -262,3 +262,69 @@ func TestSeqMultiQuantize_QuantizesTargets(t *testing.T) {
 		t.Errorf("untargeted event changed: tick = %d", out[2].Tick)
 	}
 }
+
+// --- non-note events must never be touched by grid edits ---
+
+// A program change at tick 0 with program 0 maps to pad 0 under the chromatic
+// fallback (note 0 is out of range → pad 0), exactly where a user is likely to
+// click. Every edit operation must leave it alone.
+func pcAndNote() []seq.Event {
+	return []seq.Event{
+		{Tick: 0, Type: seq.EventProgramChange, Status: 0xC0, Note: 0},
+		{Tick: 0, Type: 0x80, Status: 0x82, Note: 0},
+		ev(0, 0),
+	}
+}
+
+func countNonNotes(events []seq.Event) int {
+	n := 0
+	for _, e := range events {
+		if !e.IsNote() {
+			n++
+		}
+	}
+	return n
+}
+
+func TestSeqEditsIgnoreNonNoteEvents(t *testing.T) {
+	ops := map[string]func([]seq.Event) []seq.Event{
+		"toggle": func(e []seq.Event) []seq.Event { return seqToggle(e, 0, 0, chromaticNote(0), 100, 23, chromatic) },
+		"delete": func(e []seq.Event) []seq.Event { return seqDelete(e, 0, 0, chromatic) },
+		"move":   func(e []seq.Event) []seq.Event { return seqMove(e, 0, 0, 48, 1, chromaticNote(1), chromatic) },
+		"move-onto": func(e []seq.Event) []seq.Event {
+			return seqMove(append(e, ev(96, 2)), 96, 2, 0, 0, chromaticNote(0), chromatic)
+		},
+		"update":   func(e []seq.Event) []seq.Event { return seqUpdate(e, 0, 0, 1, 1, chromatic) },
+		"quantize": func(e []seq.Event) []seq.Event { return seqQuantizeOne(e, 0, 0, 96, chromatic) },
+		"multi_delete": func(e []seq.Event) []seq.Event {
+			return seqMultiDelete(e, []multiTarget{{Pad: 0, GlobalStep: 0}, {Pad: 0, GlobalStep: 0}, {Pad: 0, GlobalStep: 0}}, 24, chromatic)
+		},
+		"multi_move": func(e []seq.Event) []seq.Event {
+			return seqMultiMove(e, []multiMoveTarget{{Pad: 0, GlobalStep: 0, ToPad: 1, ToGlobalStep: 2}}, 24, chromatic, chromaticNote)
+		},
+		"multi_update": func(e []seq.Event) []seq.Event {
+			return seqMultiUpdate(e, []multiTarget{{Pad: 0, GlobalStep: 0}}, 24, 1, 1, chromatic)
+		},
+		"multi_quantize": func(e []seq.Event) []seq.Event {
+			return seqMultiQuantize(e, []multiTarget{{Pad: 0, GlobalStep: 0}}, 24, 96, chromatic)
+		},
+	}
+	for name, op := range ops {
+		out := op(pcAndNote())
+		if countNonNotes(out) != 2 {
+			t.Errorf("%s: non-note events = %d, want 2", name, countNonNotes(out))
+		}
+		for _, e := range out {
+			if e.IsNote() {
+				continue
+			}
+			if e.Tick != 0 || e.Note != 0 || e.Velocity != 0 || e.Duration != 0 {
+				t.Errorf("%s: non-note event modified: %+v", name, e)
+			}
+		}
+	}
+	// The note itself is still affected where the op says so.
+	if out := seqDelete(pcAndNote(), 0, 0, chromatic); len(out) != 2 {
+		t.Errorf("delete: len %d, want 2 (only the note removed)", len(out))
+	}
+}

@@ -185,9 +185,14 @@ func Create(bpm float64, bars int, trackName, pgmName string, loop bool, events 
 	return data
 }
 
-// WriteEvents re-serializes all NoteOn events from s back into the .SEQ file at path.
+// WriteEvents re-serializes the events of s back into the .SEQ file at path.
 // The header (everything before the event data region) is preserved unchanged.
-// The file is padded with 0xFF to maintain its original length.
+// Every event is written, including program changes and record types the
+// editor does not understand; only NoteOn events with velocity 0 are dropped.
+// Events are stably sorted by tick, so records sharing a tick keep their order
+// (factory files put the program change first). Parsed events keep their
+// unmodelled bytes (see encodeEvent). The file is padded with 0xFF to maintain
+// its original length.
 func WriteEvents(path string, s *Sequence) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -197,14 +202,14 @@ func WriteEvents(path string, s *Sequence) error {
 		return fmt.Errorf("seq: file too small to write events")
 	}
 
-	// Only write NoteOn events with velocity > 0, sorted by tick.
 	events := make([]Event, 0, len(s.Events))
 	for _, ev := range s.Events {
-		if ev.Type == EventNoteOn && ev.Velocity > 0 {
-			events = append(events, ev)
+		if ev.IsNote() && ev.Velocity == 0 {
+			continue
 		}
+		events = append(events, ev)
 	}
-	sort.Slice(events, func(i, j int) bool { return events[i].Tick < events[j].Tick })
+	sort.SliceStable(events, func(i, j int) bool { return events[i].Tick < events[j].Tick })
 
 	// Grow the output if the new event count no longer fits in the original file.
 	// Always reserve one slot for the terminator.

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/maxgarvey/mpc_editor/internal/db"
+	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
 func TestHandleSequencePage_HTMX(t *testing.T) {
@@ -778,4 +779,51 @@ func copySeqToTemp(t *testing.T, src string) string {
 		t.Fatal(err)
 	}
 	return tmp
+}
+
+// Editing a sequence through the handler must keep its program change and
+// other non-note records (they were silently dropped on every save before).
+func TestHandleSequenceEventEdit_KeepsNonNoteEvents(t *testing.T) {
+	srv := testServer(t)
+	path := filepath.Join(t.TempDir(), "pc.SEQ")
+	data := seq.Create(120, 1, "", "", true, []seq.Event{
+		{Tick: 0, Type: seq.EventProgramChange, Note: 0},                        // maps to pad 0 under the fallback
+		{Tick: 0, Type: seq.EventNoteOn, Note: 35, Velocity: 100, Duration: 23}, // pad A1
+		{Tick: 96, Type: seq.EventNoteOn, Note: 36, Velocity: 100, Duration: 23},
+		{Tick: 192, Type: 0x80, Status: 0x82, Note: 3},
+	})
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	form := url.Values{"path": {path}, "action": {"delete"}, "bar": {"1"}, "pad": {"0"}, "step": {"0"}}
+	req := httptest.NewRequest("POST", "/sequence/event/edit", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("status = %d, body: %s", w.Code, w.Body.String())
+	}
+
+	s, err := seq.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pcs, x82, notes int
+	for _, e := range s.Events {
+		switch {
+		case e.Status == 0xC0:
+			pcs++
+		case e.Status == 0x82:
+			x82++
+		case e.IsNote():
+			notes++
+			if e.Tick == 0 {
+				t.Errorf("note at tick 0 should have been deleted: %+v", e)
+			}
+		}
+	}
+	if pcs != 1 || x82 != 1 || notes != 1 {
+		t.Fatalf("program changes=%d 0x82=%d notes=%d, want 1/1/1", pcs, x82, notes)
+	}
 }

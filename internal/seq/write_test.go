@@ -1,6 +1,8 @@
 package seq
 
 import (
+	"bytes"
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -151,5 +153,101 @@ func TestPatchErrors(t *testing.T) {
 	}
 	if err := PatchFile(tiny, 120, 1); err == nil {
 		t.Error("PatchFile on truncated file should error")
+	}
+}
+
+// factoryLikeSEQ builds a file whose events are given as raw 16-byte records,
+// mirroring the record kinds found in Akai's factory sequences.
+func factoryLikeSEQ(t *testing.T, records ...string) []byte {
+	t.Helper()
+	data := buildTestSEQ(97, 2, nil)
+	data = data[:eventDataOffset]
+	for _, r := range records {
+		data = append(data, mustHex(t, r)...)
+	}
+	data = append(data, mustHex(t, "ff ff ff 7f ff ff ff ff ff ff ff ff ff ff ff ff")...)
+	binary.LittleEndian.PutUint32(data[0:4], uint32(len(data)))
+	return data
+}
+
+var factoryRecords = []string{
+	"00 00 00 00 01 c0 00 00 00 00 00 00 00 00 00 00", // program change, track 1
+	"00 00 00 00 01 82 01 00 00 00 00 00 00 00 00 00", // unknown 0x82
+	"00 00 00 00 01 90 24 7f 0c 00 00 00 ff ff ff ff", // ff tail
+	"00 00 00 00 07 c0 67 00 00 00 00 00 00 00 00 00", // program change after a note, same tick
+	"30 00 00 00 06 90 33 11 09 00 00 5a 00 00 00 00", // tune variation +90
+	"60 00 00 00 06 90 33 11 09 00 00 ec 00 00 00 00", // tune variation -20
+	"60 00 00 00 03 90 2a 7f 11 00 01 0c 00 00 00 00", // variation type 1
+	"c0 00 00 00 01 90 28 7f 0d 00 00 00 00 04 00 00", // recorded: pad index in byte 13
+	"fc 05 00 00 01 82 02 00 00 00 00 00 00 00 00 00", // 0x82 mid-sequence
+}
+
+// Opening and saving an unmodified file must not change a single byte.
+func TestWriteEventsFactoryRoundTripIsIdentical(t *testing.T) {
+	data := factoryLikeSEQ(t, factoryRecords...)
+	path := filepath.Join(t.TempDir(), "f.SEQ")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteEvents(path, s); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(path)
+	if !bytes.Equal(out, data) {
+		for i := range data {
+			if i >= len(out) || out[i] != data[i] {
+				t.Fatalf("first difference at 0x%X (event %d)", i, (i-eventDataOffset)/eventSize)
+			}
+		}
+		t.Fatalf("length %d, want %d", len(out), len(data))
+	}
+}
+
+// Deleting one note keeps every other record, in order, byte for byte.
+func TestWriteEventsAfterEditKeepsOtherRecords(t *testing.T) {
+	data := factoryLikeSEQ(t, factoryRecords...)
+	path := filepath.Join(t.TempDir(), "f.SEQ")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := Open(path)
+	s.Events = append(s.Events[:7], s.Events[8:]...) // drop the recorded note
+	if err := WriteEvents(path, s); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(path)
+	want := append([]string{}, factoryRecords[:7]...)
+	want = append(want, factoryRecords[8])
+	for i, r := range want {
+		off := eventDataOffset + i*eventSize
+		if got := out[off : off+eventSize]; !bytes.Equal(got, mustHex(t, r)) {
+			t.Errorf("record %d:\n got  % x\n want %s", i, got, r)
+		}
+	}
+	if !isTerminator(out[eventDataOffset+len(want)*eventSize:]) {
+		t.Error("terminator not after the last record")
+	}
+}
+
+func TestWriteEventsDropsOnlyZeroVelocityNotes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "z.SEQ")
+	if err := os.WriteFile(path, buildTestSEQ(120, 1, nil), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &Sequence{Events: []Event{
+		{Tick: 0, Type: EventProgramChange, Note: 4},
+		{Tick: 0, Type: EventNoteOn, Note: 36, Velocity: 0, Duration: 10},
+		{Tick: 24, Type: EventNoteOn, Note: 36, Velocity: 90, Duration: 10},
+	}}
+	if err := WriteEvents(path, s); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := Open(path)
+	if len(got.Events) != 2 || got.Events[0].Type != EventProgramChange || got.Events[1].Velocity != 90 {
+		t.Fatalf("events = %+v", got.Events)
 	}
 }
