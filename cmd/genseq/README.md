@@ -22,6 +22,31 @@ Files are written to `testdata/seq/`. Each filename describes what it tests:
 | `boundary_*` | First/last step, all pads simultaneous, velocity range (1–127), 90 BPM, 4 bars, duration 1 tick, duration 383 ticks | Edge-case timing, velocity response, multi-pad polyphony |
 | `verify_loop_on` / `verify_loop_off` | Identical 1-bar patterns with `loop=true` / `loop=false` | Loop flag byte `0x17` (hardware should loop or stop accordingly) |
 
+## Hardware probes (`-probe`)
+
+```bash
+go run ./cmd/genpgm /tmp/PGMTEST        # programs + tone WAVs the probes play
+go run ./cmd/genseq -probe /tmp/PGMTEST # SEQ probes into the same folder
+```
+
+`-probe DIR` writes small `.SEQ` files that each isolate one open format question
+(loop bytes `0x16`/`0x17`, the sequence-number byte, mixed-meter clock maps,
+Note Variation types and units, `0x82` and program change records, `ff ff ff ff`
+event tails, and a file with every record kind for a load-and-resave diff). All
+of them play program `P1_CTRL` from [`cmd/genpgm`](../genpgm/README.md), whose pads
+are tones that identify themselves. The questions and expected results are in
+the SEQ hardware checklist (`docs/seq-hardware-tests.md`).
+
+## Field diff (`-diff`)
+
+```bash
+go run ./cmd/genseq -diff A.SEQ B.SEQ
+```
+
+Lists every differing byte with its field name (header field, clock map entry,
+track field, event field). If the files have different event counts, the fixed
+part is diffed and both event lists are printed decoded.
+
 ## Workflow
 
 ```

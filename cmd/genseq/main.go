@@ -3,21 +3,28 @@
 //
 //	go run ./cmd/genseq
 //
-// Files are written to testdata/seq/.
+// Files are written to testdata/seq/. With -probe DIR it writes the hardware
+// probes for docs/seq-hardware-tests.md instead; -diff names differing bytes.
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/maxgarvey/mpc_editor/internal/seq"
 )
 
 func main() {
-	outDir := "testdata/seq"
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// writeFixtures writes the curated fixture set (the original behaviour) to outDir.
+func writeFixtures(outDir string, w io.Writer) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "mkdir: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
 	files := []struct {
@@ -209,13 +216,47 @@ func main() {
 	}
 
 	for _, f := range files {
-		path := outDir + "/" + f.name
+		path := filepath.Join(outDir, f.name)
 		if err := os.WriteFile(path, f.data, 0o644); err != nil {
-			fmt.Fprintf(os.Stderr, "write %s: %v\n", path, err)
-			os.Exit(1)
+			return err
 		}
 		s, _ := seq.Parse(f.data)
-		fmt.Printf("%-45s  %5d bytes  bpm=%.0f bars=%d events=%d\n",
+		_, _ = fmt.Fprintf(w, "%-45s  %5d bytes  bpm=%.0f bars=%d events=%d\n",
 			f.name, len(f.data), s.BPM, s.Bars, len(s.Events))
 	}
+	return nil
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("genseq", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	probe := fs.String("probe", "", "write hardware probe .SEQ files into `DIR` (use the genpgm output folder)")
+	diff := fs.Bool("diff", false, "compare two .SEQ files: genseq -diff A.SEQ B.SEQ")
+	fs.Usage = func() {
+		_, _ = fmt.Fprintln(stderr, "usage: genseq                  (fixtures → testdata/seq)\n       genseq -probe DIR\n       genseq -diff A.SEQ B.SEQ")
+	}
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	var err error
+	switch {
+	case *diff:
+		if fs.NArg() != 2 {
+			fs.Usage()
+			return 2
+		}
+		err = diffFiles(fs.Arg(0), fs.Arg(1), stdout)
+	case *probe != "":
+		err = writeProbes(*probe, stdout)
+	case fs.NArg() == 0:
+		err = writeFixtures("testdata/seq", stdout)
+	default:
+		fs.Usage()
+		return 2
+	}
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "genseq: %v\n", err)
+		return 1
+	}
+	return 0
 }
