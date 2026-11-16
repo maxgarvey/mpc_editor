@@ -73,15 +73,17 @@ func isTerminator(b []byte) bool {
 //
 // Wire layout (all multi-byte fields are little-endian):
 //
-//	[0-3]  tick position (uint32)
-//	[4]    track number, 1-indexed in file; stored 0-indexed in Event.Track
-//	[5]    MIDI status byte (0x90 = NoteOn ch0)
-//	[6]    MIDI note
-//	[7]    velocity
-//	[8-11] duration in ticks (uint32)
-//	[12]   0x00, or 0xFF when [12-15] are all 0xFF (meaning unknown; ignored)
-//	[13]   pad index in recorded files; 0 in Akai's factory sequences, so ignored
-//	[14-15] 0x00 0x00, or 0xFF 0xFF as above
+//	[0-3]   tick position (uint32)
+//	[4]     track number, 1-indexed in file; stored 0-indexed in Event.Track
+//	[5]     status byte (0x90 = NoteOn, 0xC0 = program change, 0x82 = unknown)
+//	[6]     note (data byte 1)
+//	[7]     velocity (data byte 2)
+//	[8-9]   duration in ticks (uint16)
+//	[10]    Note Variation type
+//	[11]    Note Variation value (signed)
+//	[12-15] 00 PP 00 00 with PP = pad index in recorded files (0 in Akai's
+//	        factory sequences), or ff ff ff ff (meaning unknown). Not modelled;
+//	        preserved through Event.raw.
 func parseEvent(b []byte) Event {
 	tick := binary.LittleEndian.Uint32(b[0:4])
 	track := int(b[4])
@@ -89,21 +91,24 @@ func parseEvent(b []byte) Event {
 		track-- // file is 1-indexed; internal representation is 0-indexed
 	}
 	status := b[5]
-	note := b[6]
-	velocity := b[7] & 0x7F
-	duration := uint16(binary.LittleEndian.Uint32(b[8:12]))
 
 	evType := EventNoteOn
 	if status >= 0x80 {
 		evType = EventType(status & 0xF0)
 	}
 
-	return Event{
-		Tick:     tick,
-		Track:    track,
-		Type:     evType,
-		Note:     note,
-		Velocity: velocity,
-		Duration: duration,
+	ev := Event{
+		Tick:           tick,
+		Track:          track,
+		Type:           evType,
+		Status:         status,
+		Note:           b[6],
+		Velocity:       b[7] & 0x7F,
+		Duration:       binary.LittleEndian.Uint16(b[8:10]),
+		VariationType:  b[10],
+		VariationValue: int8(b[11]),
+		hasRaw:         true,
 	}
+	copy(ev.raw[:], b)
+	return ev
 }

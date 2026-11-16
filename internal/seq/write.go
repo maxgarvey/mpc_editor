@@ -38,29 +38,61 @@ func PatchFile(path string, bpm float64, bars int) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// encodeEvent encodes a single NoteOn Event into the 16-byte MPC wire format.
+// encodeEvent encodes an Event into the 16-byte MPC wire format (see parseEvent).
 //
-// Wire layout (all multi-byte fields are little-endian):
-//
-//	[0-3]  tick position (uint32)
-//	[4]    track number, 1-indexed (Event.Track + 1)
-//	[5]    MIDI status: 0x90 for NoteOn
-//	[6]    note
-//	[7]    velocity
-//	[8-11] duration in ticks (uint32)
-//	[12]   0x00 (padding)
-//	[13]   pad index: note - 36 (for factory note mapping; 0 if note < 36)
-//	[14-15] 0x00 0x00 (padding)
+// An event that came from a parsed file starts from its original bytes and only
+// the fields that differ from what was parsed are rewritten, so unmodelled bytes
+// round-trip unchanged. A new event starts from zeros: status 0x90 (or Status /
+// Type for other kinds) and byte 13 = note − 36, as recorded files do.
 func encodeEvent(ev Event) [eventSize]byte {
 	var b [eventSize]byte
-	binary.LittleEndian.PutUint32(b[0:4], ev.Tick)
-	b[4] = byte(ev.Track + 1)
-	b[5] = 0x90 // NoteOn, channel 0
-	b[6] = ev.Note
-	b[7] = ev.Velocity & 0x7F
-	binary.LittleEndian.PutUint32(b[8:12], uint32(ev.Duration))
-	if ev.Note >= 36 {
-		b[13] = ev.Note - 36
+	var orig Event
+	all := !ev.hasRaw // new event: write every field
+	if ev.hasRaw {
+		b = ev.raw
+		orig = parseEvent(b[:])
+	}
+
+	if all || ev.Tick != orig.Tick {
+		binary.LittleEndian.PutUint32(b[0:4], ev.Tick)
+	}
+	if all || ev.Track != orig.Track {
+		b[4] = byte(ev.Track + 1)
+	}
+	switch {
+	case ev.Status != 0:
+		if all || ev.Status != orig.Status {
+			b[5] = ev.Status
+		}
+	case all:
+		b[5] = byte(ev.Type)
+		if ev.Type == EventNoteOn || ev.Type == 0 {
+			b[5] = 0x90
+		}
+	case ev.Type != orig.Type:
+		b[5] = byte(ev.Type)
+	}
+	if all || ev.Note != orig.Note {
+		b[6] = ev.Note
+		// Keep byte 13 (pad index) in step with the note, as recorded files do.
+		if ev.IsNote() {
+			b[13] = 0
+			if ev.Note >= 36 && ev.Note-36 < 64 {
+				b[13] = ev.Note - 36
+			}
+		}
+	}
+	if all || ev.Velocity != orig.Velocity {
+		b[7] = ev.Velocity & 0x7F
+	}
+	if all || ev.Duration != orig.Duration {
+		binary.LittleEndian.PutUint16(b[8:10], ev.Duration)
+	}
+	if all || ev.VariationType != orig.VariationType {
+		b[10] = ev.VariationType
+	}
+	if all || ev.VariationValue != orig.VariationValue {
+		b[11] = byte(ev.VariationValue)
 	}
 	return b
 }

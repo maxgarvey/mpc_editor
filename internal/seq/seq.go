@@ -57,15 +57,37 @@ type Track struct {
 	MIDIChannel int    // 1-indexed; 0 means the track is unused
 }
 
-// Event represents a single MIDI event in the sequence.
+// Event represents a single event record in the sequence.
+//
+// For NoteOn events, Note/Velocity/Duration are the note fields. For other
+// event types Note and Velocity hold the record's two data bytes (e.g. the
+// program number of a program change).
 type Event struct {
 	Tick     uint32
 	Track    int // 0-indexed
 	Type     EventType
+	Status   byte // raw status byte (type | channel); 0 means "derive from Type"
 	Note     byte
 	Velocity byte
 	Duration uint16
+
+	// Note Variation (MPC "16 Levels" / per-note variation), bytes 10–11.
+	// VariationType 0 appears to be Tune and 1 Decay in factory files; the
+	// full mapping is unverified. VariationValue is signed (Tune: −120..+120).
+	VariationType  byte
+	VariationValue int8
+
+	// raw holds the record exactly as parsed, so bytes the editor does not
+	// model (12–15, the high bit of velocity, …) survive a rewrite. Zero for
+	// events created in code.
+	raw    [eventSize]byte
+	hasRaw bool
 }
+
+// IsNote reports whether the event is a NoteOn, i.e. something the step grid
+// shows and the editor may move, delete or change. A zero Type (an Event
+// literal that didn't set it) counts as a note; Parse never produces one.
+func (e Event) IsNote() bool { return e.Type == EventNoteOn || e.Type == 0 }
 
 // noteNames maps MIDI note number mod 12 to note name.
 var noteNames = [12]string{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}

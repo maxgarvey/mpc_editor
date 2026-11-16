@@ -12,7 +12,7 @@ A `.SEQ` file stores one pattern: a tempo, a bar count, 64 track headers, and a 
 |------|------|
 | `Sequence` | Parsed file: `BPM`, `Bars`, `Loop`, `Tracks[64]`, `Events[]` |
 | `Track` | Track metadata: name, associated PGM filename, MIDI channel |
-| `Event` | One MIDI event: `Tick`, `Track`, `Type`, `Note`, `Velocity`, `Duration` |
+| `Event` | One event record: `Tick`, `Track`, `Type`/`Status`, `Note`, `Velocity`, `Duration`, `VariationType`/`VariationValue` (Note Variation). Parsed events keep their original 16 bytes, so unmodelled bytes survive a rewrite; `IsNote()` tells notes from program changes and other records |
 | `GridParams` | Display parameters: time signature (`BeatsPerBar`, `BeatDenom`) + step division (`TicksPerStep`) |
 | `StepGrid` | Visualization model: `BankAPadRows` + `ExtraBankPadRows`, each a `[]PadRow` |
 | `PadRow` | One pad's cells across all bars: `[]StepCell` |
