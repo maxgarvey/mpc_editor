@@ -58,7 +58,7 @@ test.describe('File tagging', () => {
 
     const tagsSection = page.locator('#tags-section');
     await tagsSection.locator('.tag-input').fill('kick');
-    await tagsSection.locator('button[type="submit"]').click();
+    await tagsSection.getByRole('button', { name: 'Add', exact: true }).click();
 
     await expect(page.locator('#tags-section .tag-chip', { hasText: 'kick' })).toBeVisible({ timeout: 5000 });
   });
@@ -68,7 +68,7 @@ test.describe('File tagging', () => {
 
     const tagsSection = page.locator('#tags-section');
     await tagsSection.locator('.tag-input').fill('genre:house');
-    await tagsSection.locator('button[type="submit"]').click();
+    await tagsSection.getByRole('button', { name: 'Add', exact: true }).click();
 
     await expect(page.locator('#tags-section .tag-chip', { hasText: 'house' })).toBeVisible({ timeout: 10000 });
 
@@ -82,7 +82,7 @@ test.describe('File tagging', () => {
 
     const tagsSection = page.locator('#tags-section');
     await tagsSection.locator('.tag-input').fill('removeme');
-    await tagsSection.locator('button[type="submit"]').click();
+    await tagsSection.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.locator('#tags-section .tag-chip', { hasText: 'removeme' })).toBeVisible({ timeout: 5000 });
 
     const chip = page.locator('#tags-section .tag-chip', { hasText: 'removeme' });
@@ -103,7 +103,7 @@ test.describe('File tagging', () => {
 
     const tagsSection = page.locator('#tags-section');
     await tagsSection.locator('.tag-input').fill('persist-test');
-    await tagsSection.locator('button[type="submit"]').click();
+    await tagsSection.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.locator('#tags-section .tag-chip', { hasText: 'persist-test' })).toBeVisible({ timeout: 5000 });
 
     // Open another file

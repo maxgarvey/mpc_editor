@@ -117,20 +117,13 @@ test.describe('Layout', () => {
     await expect(page).toHaveTitle(/Slicer/);
   });
 
-  test('batch link navigates to standalone page', async ({ page }) => {
+  test('New Folder button opens the folder-name modal', async ({ page }) => {
     await page.goto('/');
 
-    await page.locator('a', { hasText: 'Batch' }).click();
-    await page.waitForLoadState('networkidle');
-
-    await expect(page).toHaveTitle(/Batch/);
-  });
-
-  test('new folder form is visible in browser', async ({ page }) => {
-    await page.goto('/');
-
-    const mkdirForm = page.locator('.nav-mkdir');
-    await expect(mkdirForm).toBeVisible();
-    await expect(mkdirForm.locator('input[name="name"]')).toBeVisible();
+    const mkdirBar = page.locator('.nav-mkdir');
+    await expect(mkdirBar).toBeVisible();
+    await mkdirBar.getByRole('button', { name: 'New Folder' }).click();
+    await expect(page.locator('#mkdir-name')).toBeVisible();
+    await expect(page.locator('#mkdir-confirm-btn')).toBeVisible();
   });
 });

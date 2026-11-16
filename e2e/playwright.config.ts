@@ -5,6 +5,10 @@ export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
   retries: 0,
+  // The server keeps one global session (workspace, open program), so tests
+  // running in parallel overwrite each other's state. Run them one at a time.
+  workers: 1,
+  fullyParallel: false,
   use: {
     baseURL: 'http://127.0.0.1:8080',
     trace: 'on-first-retry',

@@ -32,7 +32,7 @@ test.describe('WAV detail view', () => {
     await expect(page.locator('.detail-wav')).toContainText('Duration');
   });
 
-  test('play button uses correct AudioPlayer method', async ({ page }) => {
+  test('transport buttons drive the WAV detail player', async ({ page }) => {
     await page.goto('/');
 
     const wavEntry = page.locator('#file-nav .browser-entry', { hasText: 'chh.wav' });
@@ -40,14 +40,14 @@ test.describe('WAV detail view', () => {
     await wavEntry.click();
     await htmxDone;
 
-    // Verify the play button exists and has correct onclick
-    const playBtn = page.locator('.detail-wav button', { hasText: 'Play' });
+    // Play/Pause and Stop call WavDetailPlayer, which reads the file from the
+    // panel's data-rel-path.
+    const playBtn = page.locator('#wav-play-pause-btn');
     await expect(playBtn).toBeVisible();
-    const onclick = await playBtn.getAttribute('onclick');
-    expect(onclick).toContain('AudioPlayer.play');
-    expect(onclick).toContain('/audio/file?path=');
-    // Should NOT contain playURL
-    expect(onclick).not.toContain('playURL');
+    expect(await playBtn.getAttribute('onclick')).toBe('WavDetailPlayer.toggle()');
+    const stopBtn = page.locator('.detail-wav button', { hasText: 'Stop' });
+    expect(await stopBtn.getAttribute('onclick')).toBe('WavDetailPlayer.stop()');
+    await expect(page.locator('.detail-wav')).toHaveAttribute('data-rel-path', /chh\.wav$/);
   });
 
   test('WAV type badge is visible', async ({ page }) => {

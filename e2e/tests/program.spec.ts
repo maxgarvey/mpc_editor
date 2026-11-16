@@ -47,15 +47,16 @@ test.describe('Program lifecycle', () => {
     const count = await sampledPads.count();
     expect(count).toBeGreaterThan(0);
 
-    // Open the New modal, switch to New Program tab, and click Create
+    // Create a new program from the New modal (it opens in place of test.pgm)
     await page.getByRole('button', { name: 'New', exact: true }).click();
     const modal = page.locator('.new-modal');
     await expect(modal).toBeVisible();
-    await modal.locator('.new-modal-tab', { hasText: 'New Program' }).click();
-    await modal.getByRole('button', { name: 'Create' }).click();
+    await page.locator('#new-project-name').fill('blank01');
+    await modal.getByRole('button', { name: 'Create Program' }).click();
 
-    // Wait for page to reload/update
-    await page.waitForLoadState('networkidle');
+    // Once the new program is shown, no pad has a sample
+    await expect(page.locator('.detail-pgm[data-file-path$="blank01.pgm"]')).toBeVisible();
+    await expect(sampledPads).toHaveCount(0);
   });
 
   test('profile switch updates page', async ({ page }) => {

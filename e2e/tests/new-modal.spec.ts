@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupWorkspace, cleanupWorkspace, setWorkspace, scanWorkspace, waitForHtmxOrTimeout } from './helpers';
+import { setupWorkspace, cleanupWorkspace, setWorkspace, scanWorkspace } from './helpers';
 import fs from 'fs';
 import path from 'path';
 
@@ -26,49 +26,43 @@ test.describe('New modal', () => {
     // Should have three tabs
     const tabs = modal.locator('.new-modal-tab');
     await expect(tabs).toHaveCount(3);
-    await expect(tabs.nth(0)).toContainText('New Project');
-    await expect(tabs.nth(1)).toContainText('New Program');
+    await expect(tabs.nth(0)).toContainText('New Program');
+    await expect(tabs.nth(1)).toContainText('New Sequence');
     await expect(tabs.nth(2)).toContainText('Import Files');
   });
 
-  test('New Project tab is default and has Create Project button', async ({ page }) => {
+  test('New Program tab is default; Create Program needs a name', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'New', exact: true }).click();
 
     const modal = page.locator('.new-modal');
     await expect(modal).toBeVisible();
 
-    // New Project tab content should be visible
+    // New Program (project folder) tab content should be visible
     const projectTab = page.locator('#new-project-tab');
     await expect(projectTab).toBeVisible();
 
-    // Create Project button should be present (disabled until name entered)
-    const createBtn = projectTab.getByRole('button', { name: 'Create Project' });
+    // Create Program is disabled until a name is entered
+    const createBtn = projectTab.getByRole('button', { name: 'Create Program' });
     await expect(createBtn).toBeVisible();
     await expect(createBtn).toBeDisabled();
+    await projectTab.locator('#new-project-name').fill('beat001');
+    await expect(createBtn).toBeEnabled();
   });
 
-  test('New Program creates blank program', async ({ page }) => {
+  test('New Program creates a project folder with a blank program', async ({ page }) => {
     await page.goto('/');
 
-    // First open a PGM so we have pads loaded
-    const pgmEntry = page.locator('#file-nav .browser-entry', { hasText: 'test.pgm' });
-    let htmxDone = waitForHtmxOrTimeout(page);
-    await pgmEntry.click();
-    await htmxDone;
-
-    // Open modal and switch to New Program tab
     await page.getByRole('button', { name: 'New', exact: true }).click();
     const modal = page.locator('.new-modal');
     await expect(modal).toBeVisible();
-    await modal.locator('.new-modal-tab', { hasText: 'New Program' }).click();
-    await modal.getByRole('button', { name: 'Create' }).click();
+    await page.locator('#new-project-name').fill('e2eprog');
+    await modal.getByRole('button', { name: 'Create Program' }).click();
 
-    // Wait for page to reload
-    await page.waitForLoadState('networkidle');
-
-    // Modal should be gone
+    // Modal closes and the new program opens
     await expect(page.locator('.new-modal')).toHaveCount(0);
+    await expect(page.locator('.detail-pgm[data-file-path$="e2eprog.pgm"]')).toBeVisible();
+    expect(fs.existsSync(path.join(workspace, 'programs', 'e2eprog', 'e2eprog.pgm'))).toBe(true);
   });
 
   test('Import Files tab shows drop zone', async ({ page }) => {
@@ -140,7 +134,8 @@ test.describe('New modal', () => {
     const fileInput = page.locator('#import-file-input');
     await fileInput.setInputFiles(path.join(workspace, 'chh.wav'));
 
-    // Click Import
+    // Click Import and accept the confirmation dialog
+    page.once('dialog', dialog => dialog.accept());
     await page.locator('#import-btn').click();
 
     // Wait for modal to close

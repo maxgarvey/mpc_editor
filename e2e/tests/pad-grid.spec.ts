@@ -69,16 +69,21 @@ test.describe('Pad grid', () => {
   });
 
   test('pad with sample shows sample name', async ({ page }) => {
-    const sampledPad = page.locator('.pad-btn.has-sample').first();
-    const count = await sampledPad.count();
-    if (count === 0) {
-      test.skip();
-      return;
-    }
+    // beforeEach opens the first .pgm (chromatic.pgm, which has no samples),
+    // so open test.pgm, whose pads name samples.
+    const pgmEntry = page.locator('#file-nav .browser-entry', { hasText: 'test.pgm' });
+    const htmxDone = waitForHtmxOrTimeout(page);
+    await pgmEntry.click();
+    await htmxDone;
+    await expect(page.locator('.detail-pgm[data-file-path$="test.pgm"]')).toBeVisible();
 
-    // Pad should display a sample name
+    const sampledPad = page.locator('#detail-panel .pad-btn.has-sample').first();
+    await expect(sampledPad).toBeVisible();
+
+    // The pad shows its sample name, and the title carries the same name
     const padName = sampledPad.locator('.pad-name');
-    const text = await padName.textContent();
-    expect(text?.trim().length).toBeGreaterThan(0);
+    await expect(padName).toHaveText(/\S/);
+    const name = (await padName.textContent())!.trim();
+    await expect(sampledPad).toHaveAttribute('title', new RegExp('^' + name));
   });
 });

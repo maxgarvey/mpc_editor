@@ -22,8 +22,8 @@ test.describe('SEQ detail view', () => {
     await seqEntry.click();
     await htmxDone;
 
-    // SEQ type badge
-    await expect(page.locator('.detail-type')).toContainText('[SEQ]');
+    // SEQ title
+    await expect(page.locator('.sequence-title')).toContainText('[SEQ] test.seq');
 
     // Step grid should be visible
     await expect(page.locator('.step-grid')).toBeVisible();
@@ -69,8 +69,8 @@ test.describe('SEQ detail view', () => {
     // Button should get active class
     await expect(muteBtn).toHaveClass(/active/);
 
-    // Row should get track-muted class
-    const row = page.locator('.step-grid tbody tr').first();
+    // The pad's own row (not the bank header above it) gets track-muted
+    const row = page.locator('.step-grid tr.pad-row').first();
     await expect(row).toHaveClass(/track-muted/);
   });
 
