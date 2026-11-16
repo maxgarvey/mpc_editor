@@ -17,6 +17,7 @@ const (
 
 	// Bytes Norum documents as "unknown, always 0x01"; hardware files have 1.
 	padConstOneOffset    = 0x65 // relative to pad base
+	padVariantOffset     = 0x60 // relative to pad base: unmodelled int16 (see fields.go)
 	sliderConstOneOffset = 0x01 // relative to slider base
 
 	padSectionStart = 0x18

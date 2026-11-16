@@ -65,6 +65,9 @@ func paramSpans(prefix string, params []Parameter) []fieldSpan {
 func buildPadFields() []fieldSpan {
 	out := paramSpans("", []Parameter{PadVoiceOverlap, PadMuteGroup})
 	out = append(out, fieldSpan{padConstOneOffset, 1, "unknown (always 1)"})
+	// Signed 16-bit, non-zero in Akai's factory programs; roughly layer 1
+	// tuning ÷ 10 but often not. Not modelled; Save preserves it.
+	out = append(out, fieldSpan{padVariantOffset, 2, "unknown int16 (factory: ~layer 1 tuning ÷ 10)"})
 	out = append(out, paramSpans("Envelope ", EnvelopeParameters)...)
 	out = append(out, paramSpans("Filter 1 ", []Parameter{Filter1Type, Filter1Freq, Filter1Res, Filter1VelocityToFreq})...)
 	out = append(out, paramSpans("Filter 2 ", Filter2Parameters)...)

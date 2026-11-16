@@ -21,6 +21,8 @@ func TestDescribeOffset(t *testing.T) {
 		{pad(0, 0x13), "pad A1 layer 1 Velocity range high"},
 		{pad(63, 0x62), "pad D16 Voice Overlap"},
 		{pad(0, 0x65), "pad A1 unknown (always 1)"},
+		{pad(0, 0x60), "pad A1 unknown int16"},
+		{pad(5, 0x61), "pad A6 unknown int16"},
 		{pad(0, 0x66), "pad A1 Envelope Attack"},
 		{pad(0, 0x71), "pad A1 Filter 1 Type"},
 		{pad(0, 0x79), "pad A1 Filter 2 Type"},

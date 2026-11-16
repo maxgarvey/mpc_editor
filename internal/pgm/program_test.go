@@ -398,3 +398,39 @@ func TestNewProgramMatchesHardwareDefaults(t *testing.T) {
 		t.Errorf("0x%04X %s: hardware %d, NewProgram %d", d.Offset, d.Field, d.A, d.B)
 	}
 }
+
+// Deleting a sample on the MPC zeroes only the first byte of its name (Akai's
+// factory programs contain "\x00J_KICK" left over from "DJ_KICK"). Such a
+// layer must read as empty, and its leftover bytes, like the unmodelled pad
+// +0x60 int16 the factory files set, must survive open → edit → save.
+func TestDeletedNameAndUnknownBytesRoundTrip(t *testing.T) {
+	prog := NewProgram()
+	data := prog.Buffer().Data()
+	base := padSectionStart + 2*padLength // pad A3
+	copy(data[base:base+16], "\x00J_KICK\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+	data[base+padVariantOffset] = 0xD7 // -41, as on E_Kit A1
+	data[base+padVariantOffset+1] = 0xFF
+
+	path := filepath.Join(t.TempDir(), "f.pgm")
+	if err := prog.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenProgram(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name := reopened.Pad(2).Layer(0).GetSampleName(); name != "" {
+		t.Fatalf("name = %q, want empty", name)
+	}
+	reopened.Pad(2).Layer(0).SetLevel(55) // unrelated edit
+	if err := reopened.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(path)
+	if string(out[base:base+7]) != "\x00J_KICK" {
+		t.Errorf("leftover name bytes changed: % x", out[base:base+16])
+	}
+	if out[base+padVariantOffset] != 0xD7 || out[base+padVariantOffset+1] != 0xFF {
+		t.Errorf("pad +0x60 changed: % x", out[base+padVariantOffset:base+padVariantOffset+2])
+	}
+}
