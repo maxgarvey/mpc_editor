@@ -182,13 +182,13 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 	}
 	pgmRelPath := r.FormValue("pgm")
 	action := r.FormValue("action")
-	gp := parseGridParams(r)
 
 	sequence, err := seq.Open(seqPath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	gp, tsig, division, meter := gridParamsFor(r, sequence)
 
 	padForNote := s.padForNoteFunc(pgmRelPath)
 
@@ -302,14 +302,6 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		grid.BankAPadRows[i].SampleName = names[i]
 	}
 
-	tsig := r.FormValue("tsig")
-	if tsig == "" {
-		tsig = "4_4"
-	}
-	division := r.FormValue("division")
-	if division == "" {
-		division = "24"
-	}
 	data := SequenceViewData{
 		Path:      seqPath,
 		FileName:  filepath.Base(seqPath),
@@ -323,6 +315,7 @@ func (s *Server) handleSequenceEventEdit(w http.ResponseWriter, r *http.Request)
 		PGMFiles:  s.pgmFilesInWorkspace(),
 		TSig:      tsig,
 		Division:  division,
+		MeterNote: meter,
 	}
 	s.renderTemplate(w, "sequence_grid.html", data)
 }
@@ -364,6 +357,7 @@ type SequenceViewData struct {
 	PGMFiles  []string   // all PGM files in workspace for the picker
 	TSig      string     // time signature, e.g. "4_4"
 	Division  string     // step division in ticks, e.g. "24" for 16th notes
+	MeterNote string     // non-empty when the sequence changes time signature part-way
 }
 
 // padColorsFor builds a [16]string of CSS colors for Bank A pads of the program at pgmRelPath.
@@ -392,26 +386,55 @@ func (s *Server) padColorsFor(ctx context.Context, pgmRelPath string) [16]string
 	return colors
 }
 
-// parseGridParams extracts time signature and step division from the request.
-// Defaults to 4/4 time with 16th-note (24-tick) steps.
-func parseGridParams(r *http.Request) seq.GridParams {
-	tsig := r.FormValue("tsig")
+// gridParamsFor picks the grid's time signature and step division.
+// An explicit "tsig" form value wins; otherwise the time signature comes from
+// the length of the sequence's first bar in its clock map (4/4 if it matches
+// none of the editor's choices). It returns the params, the tsig and division
+// strings for the template, and a note to show when the sequence changes time
+// signature part-way (the grid can only draw one).
+func gridParamsFor(r *http.Request, sequence *seq.Sequence) (gp seq.GridParams, tsig, division, note string) {
+	tsig = r.FormValue("tsig")
+	if tsig == "" && sequence != nil {
+		tsig = seq.TimeSignatureForBarTicks(sequence.BarLength(1))
+	}
 	if tsig == "" {
 		tsig = "4_4"
 	}
 	var num, denom int
 	if _, err := fmt.Sscanf(tsig, "%d_%d", &num, &denom); err != nil || num < 1 || denom < 1 {
-		num, denom = 4, 4
+		num, denom, tsig = 4, 4, "4_4"
 	}
-	divStr := r.FormValue("division")
-	if divStr == "" {
-		divStr = "24"
+	division = r.FormValue("division")
+	if division == "" {
+		division = "24"
 	}
-	divTicks, err := strconv.Atoi(divStr)
+	divTicks, err := strconv.Atoi(division)
 	if err != nil || divTicks < 1 {
-		divTicks = seq.TicksPerStep
+		divTicks, division = seq.TicksPerStep, "24"
 	}
-	return seq.NewGridParams(num, denom, divTicks)
+	return seq.NewGridParams(num, denom, divTicks), tsig, division, meterNote(sequence)
+}
+
+// meterNote describes the time signature changes in a mixed-meter sequence,
+// or returns "" when every bar has the same length.
+func meterNote(sequence *seq.Sequence) string {
+	if sequence == nil {
+		return ""
+	}
+	changes := sequence.MeterChanges()
+	if len(changes) < 2 {
+		return ""
+	}
+	parts := make([]string, len(changes))
+	for i, c := range changes {
+		name := strings.Replace(seq.TimeSignatureForBarTicks(c.Ticks), "_", "/", 1)
+		if name == "" {
+			name = fmt.Sprintf("%d ticks", c.Ticks)
+		}
+		parts[i] = fmt.Sprintf("bar %d %s", c.Bar, name)
+	}
+	return "Time signature changes (" + strings.Join(parts, ", ") +
+		"). The grid shows a single time signature, so its bar lines stop matching the MPC's after the first change; note positions are still exact."
 }
 
 func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
@@ -431,21 +454,13 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pgmRelPath := r.FormValue("pgm")
-	gp := parseGridParams(r)
+	gp, tsig, division, meter := gridParamsFor(r, sequence)
 	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
 	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
 	}
 
-	tsig := r.FormValue("tsig")
-	if tsig == "" {
-		tsig = "4_4"
-	}
-	division := r.FormValue("division")
-	if division == "" {
-		division = "24"
-	}
 	data := SequenceViewData{
 		Path:      path,
 		FileName:  filepath.Base(path),
@@ -459,6 +474,7 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 		PGMFiles:  s.pgmFilesInWorkspace(),
 		TSig:      tsig,
 		Division:  division,
+		MeterNote: meter,
 	}
 
 	// If HTMX request, render just the grid partial.
@@ -509,11 +525,11 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gp := parseGridParams(r)
+	gp, _, _, _ := gridParamsFor(r, sequence)
 
 	// bar=0 means "all bars"; any other value plays that specific bar only.
 	bar := parseIntParam(r, "bar", 0)
-	fileTotalTicks := sequence.Bars * seq.TicksPerBar
+	fileTotalTicks := sequence.TotalTicks()
 	displayBars := fileTotalTicks / gp.TicksPerBar
 	if fileTotalTicks%gp.TicksPerBar != 0 {
 		displayBars++
@@ -656,19 +672,11 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pgmRelPath := r.FormValue("pgm")
-	gp := parseGridParams(r)
+	gp, tsig, division, meter := gridParamsFor(r, sequence)
 	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
 	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
-	}
-	tsig := r.FormValue("tsig")
-	if tsig == "" {
-		tsig = "4_4"
-	}
-	division := r.FormValue("division")
-	if division == "" {
-		division = "24"
 	}
 
 	var tags []db.FileTag
@@ -691,6 +699,7 @@ func (s *Server) handleSequenceUpdate(w http.ResponseWriter, r *http.Request) {
 		PGMFiles:  s.pgmFilesInWorkspace(),
 		TSig:      tsig,
 		Division:  division,
+		MeterNote: meter,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -25,6 +25,7 @@ func PatchLoop(path string, loop bool) error {
 }
 
 // PatchFile reads a .SEQ file, updates BPM and bar count in-place, and writes it back.
+// When the bar count changes the clock map is rebuilt (see rebuildClockMap).
 func PatchFile(path string, bpm float64, bars int) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -33,8 +34,12 @@ func PatchFile(path string, bpm float64, bars int) error {
 	if len(data) < eventDataOffset {
 		return fmt.Errorf("seq: file too small to patch")
 	}
+	oldBars := int(binary.LittleEndian.Uint16(data[barsOffset:]))
 	binary.LittleEndian.PutUint16(data[bpmOffset:], uint16(bpm*10))
 	binary.LittleEndian.PutUint16(data[barsOffset:], uint16(bars))
+	if bars != oldBars {
+		rebuildClockMap(data, oldBars, bars)
+	}
 	return os.WriteFile(path, data, 0o644)
 }
 
@@ -131,16 +136,7 @@ func Create(bpm float64, bars int, trackName, pgmName string, loop bool, events 
 	binary.LittleEndian.PutUint16(data[barsOffset:], uint16(bars))
 	binary.LittleEndian.PutUint16(data[bpmOffset:], uint16(bpm*10))
 
-	// Timing/clock map: 1000 entries at 0x30, 4 bytes each.
-	// Entry n: bytes[0-2] = n*TicksPerBar as 24-bit LE, byte[3] = 0x60.
-	for n := range 1000 {
-		tick := uint32(n) * TicksPerBar
-		off := 0x30 + n*4
-		data[off+0] = byte(tick)
-		data[off+1] = byte(tick >> 8)
-		data[off+2] = byte(tick >> 16)
-		data[off+3] = 0x60
-	}
+	writeUniformClockMap(data)
 
 	// Track headers: 64 tracks × 48 bytes at 0x1000.
 	// Active track settings (MIDI channel 1): bytes [32-47] from real files.

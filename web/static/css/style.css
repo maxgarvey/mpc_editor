@@ -2220,6 +2220,15 @@ tr.pad-row:not(.has-events) .step-cell {
     text-align: center;
 }
 
+.seq-meter-note {
+    color: #d9a441;
+    background: #2a2416;
+    border-left: 3px solid #d9a441;
+    font-size: 12px;
+    padding: 6px 10px;
+    margin: 6px 0;
+}
+
 /* Sequence edit mode toolbar */
 .seq-mode-sep {
     color: #555;

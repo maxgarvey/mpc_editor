@@ -234,19 +234,11 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 	if pgmRelPath == "" {
 		pgmRelPath = s.sessionPgmRelPath()
 	}
-	gp := parseGridParams(r)
+	gp, tsig, division, meter := gridParamsFor(r, sequence)
 	grid := seq.BuildGrid(sequence, s.noteToPadMapFor(pgmRelPath), gp)
 	names := s.padSampleNames(pgmRelPath)
 	for i := range grid.BankAPadRows {
 		grid.BankAPadRows[i].SampleName = names[i]
-	}
-	tsig := r.FormValue("tsig")
-	if tsig == "" {
-		tsig = "4_4"
-	}
-	division := r.FormValue("division")
-	if division == "" {
-		division = "24"
 	}
 	data := SequenceViewData{
 		Path:      path,
@@ -261,6 +253,7 @@ func (s *Server) renderDetailSEQ(w http.ResponseWriter, r *http.Request, path st
 		PGMFiles:  s.pgmFilesInWorkspace(),
 		TSig:      tsig,
 		Division:  division,
+		MeterNote: meter,
 	}
 
 	// Look up file ID for tags.

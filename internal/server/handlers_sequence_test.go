@@ -827,3 +827,98 @@ func TestHandleSequenceEventEdit_KeepsNonNoteEvents(t *testing.T) {
 		t.Fatalf("program changes=%d 0x82=%d notes=%d, want 1/1/1", pcs, x82, notes)
 	}
 }
+
+// writeMeterSeq writes a sequence whose clock map has the given bar lengths
+// (zero-filled after the end tick, as in Akai's factory "Standard" sequence).
+func writeMeterSeq(t *testing.T, lengths []int, events []seq.Event) string {
+	t.Helper()
+	data := seq.Create(95, len(lengths), "", "", false, events)
+	tick := 0
+	for n := 0; n < 1000; n++ {
+		off := 0x30 + n*4
+		if n > len(lengths) {
+			copy(data[off:off+4], []byte{0, 0, 0, 0})
+			continue
+		}
+		data[off], data[off+1], data[off+2], data[off+3] = byte(tick), byte(tick>>8), byte(tick>>16), 0x60
+		if n < len(lengths) {
+			tick += lengths[n]
+		}
+	}
+	path := filepath.Join(t.TempDir(), "meter.SEQ")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestGridParamsFor(t *testing.T) {
+	waltz, _ := seq.Open(writeMeterSeq(t, []int{288, 288}, nil))
+	mixed, _ := seq.Open(writeMeterSeq(t, []int{384, 288, 384}, nil))
+	odd, _ := seq.Open(writeMeterSeq(t, []int{100, 100}, nil))
+
+	cases := []struct {
+		name     string
+		query    string
+		s        *seq.Sequence
+		wantTSig string
+		wantTPB  int
+		wantNote bool
+	}{
+		{"explicit wins", "tsig=5_4", waltz, "5_4", 480, false},
+		{"derived 3/4", "", waltz, "3_4", 288, false},
+		{"mixed uses first bar", "", mixed, "4_4", 384, true},
+		{"unknown length falls back", "", odd, "4_4", 384, false},
+		{"nil sequence", "", nil, "4_4", 384, false},
+		{"bad tsig", "tsig=x", waltz, "4_4", 384, false},
+	}
+	for _, c := range cases {
+		r := httptest.NewRequest("GET", "/?"+c.query, http.NoBody)
+		gp, tsig, div, note := gridParamsFor(r, c.s)
+		if tsig != c.wantTSig || gp.TicksPerBar != c.wantTPB || div != "24" || (note != "") != c.wantNote {
+			t.Errorf("%s: tsig=%q tpb=%d div=%q note=%q", c.name, tsig, gp.TicksPerBar, div, note)
+		}
+	}
+}
+
+func TestMeterNoteListsChanges(t *testing.T) {
+	s, _ := seq.Open(writeMeterSeq(t, []int{384, 384, 288, 288, 384}, nil))
+	note := meterNote(s)
+	for _, want := range []string{"bar 1 4/4", "bar 3 3/4", "bar 5 4/4"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("note %q missing %q", note, want)
+		}
+	}
+}
+
+func TestHandleSequencePage_MixedMeterNote(t *testing.T) {
+	srv := testServer(t)
+	path := writeMeterSeq(t, []int{384, 288}, nil)
+	req := httptest.NewRequest("GET", "/sequence?path="+url.QueryEscape(path), http.NoBody)
+	req.Header.Set("HX-Request", "true")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "seq-meter-note") {
+		t.Fatalf("status %d; meter note missing", w.Code)
+	}
+}
+
+// The playback endpoint must use the clock map's length, not Bars × 384.
+func TestHandleSequenceEvents_UsesClockMapLength(t *testing.T) {
+	srv := testServer(t)
+	path := writeMeterSeq(t, []int{288, 288}, []seq.Event{
+		{Tick: 0, Type: seq.EventNoteOn, Note: 36, Velocity: 100, Duration: 10},
+		{Tick: 500, Type: seq.EventNoteOn, Note: 36, Velocity: 100, Duration: 10},
+		{Tick: 600, Type: seq.EventNoteOn, Note: 36, Velocity: 100, Duration: 10}, // past the 576-tick end
+	})
+	req := httptest.NewRequest("GET", "/sequence/events?path="+url.QueryEscape(path), http.NoBody)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	var resp sequenceEventsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.TotalTicks != 576 || resp.BeatsPerBar != 3 || resp.Bars != 2 || len(resp.Events) != 2 {
+		t.Fatalf("totalTicks=%d beats=%d bars=%d events=%d", resp.TotalTicks, resp.BeatsPerBar, resp.Bars, len(resp.Events))
+	}
+}

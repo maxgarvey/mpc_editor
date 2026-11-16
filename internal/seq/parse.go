@@ -30,6 +30,7 @@ func Parse(data []byte) (*Sequence, error) {
 	s.Bars = int(binary.LittleEndian.Uint16(data[barsOffset:]))
 	bpmRaw := binary.LittleEndian.Uint16(data[bpmOffset:])
 	s.BPM = float64(bpmRaw) / 10.0
+	s.BarStarts = parseClockMap(data, s.Bars)
 
 	// Tracks
 	for i := range trackCount {

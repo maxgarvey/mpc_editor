@@ -45,8 +45,11 @@ type Sequence struct {
 	BPM     float64
 	Bars    int
 	Loop    bool
-	Tracks  [64]Track
-	Events  []Event
+	// BarStarts is the clock map: start tick of each bar plus the end tick
+	// (Bars+1 entries). Nil when the file's map is absent or inconsistent.
+	BarStarts []uint32
+	Tracks    [64]Track
+	Events    []Event
 }
 
 // Track holds metadata for one of the 64 sequence tracks.

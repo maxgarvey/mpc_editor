@@ -105,7 +105,7 @@ func PadLabel(padIndex int) string {
 // p controls the time signature and step division; use DefaultGridParams() for standard 4/4 16th-note grids.
 func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 	// Compute display bars: how many p-bars fit in the file's total ticks.
-	fileTicks := s.Bars * TicksPerBar
+	fileTicks := s.TotalTicks()
 	displayBars := fileTicks / p.TicksPerBar
 	if fileTicks%p.TicksPerBar != 0 {
 		displayBars++

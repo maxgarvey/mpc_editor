@@ -10,7 +10,7 @@ A `.SEQ` file stores one pattern: a tempo, a bar count, 64 track headers, and a 
 
 | Type | Role |
 |------|------|
-| `Sequence` | Parsed file: `BPM`, `Bars`, `Loop`, `Tracks[64]`, `Events[]` |
+| `Sequence` | Parsed file: `BPM`, `Bars`, `Loop`, `BarStarts` (clock map), `Tracks[64]`, `Events[]`. `TotalTicks()`, `BarLength(bar)` and `MeterChanges()` read bar lengths from the clock map, so 3/4 and mixed-meter sequences have the right length |
 | `Track` | Track metadata: name, associated PGM filename, MIDI channel |
 | `Event` | One event record: `Tick`, `Track`, `Type`/`Status`, `Note`, `Velocity`, `Duration`, `VariationType`/`VariationValue` (Note Variation). Parsed events keep their original 16 bytes, so unmodelled bytes survive a rewrite; `IsNote()` tells notes from program changes and other records |
 | `GridParams` | Display parameters: time signature (`BeatsPerBar`, `BeatDenom`) + step division (`TicksPerStep`) |
@@ -33,7 +33,7 @@ Step division is configurable: 1/8 (48 ticks), 1/16 (24), 1/32 (12), 1/64 (6), t
 
 ```
 0x0000   48 B    File header (size, version, bars, BPM, loop flag at 0x17)
-0x0030   ~4 KB   Internal timing/clock map (1000 × 4-byte entries)
+0x0030   ~4 KB   Clock map: start tick of each bar (1000 × 4-byte entries); time signatures live here
 0x1000   3 KB    64 track headers (64 × 48 bytes)
 0x1C00   16 B    Event section separator
 0x1C10   N×16 B  Events (sorted by tick, variable count)
@@ -41,6 +41,10 @@ EOF-16   16 B    End terminator (ff ff ff 7f ...)
 ```
 
 See `docs/seq-format.md` for the complete byte-level specification.
+
+## Time Signatures
+
+The MPC stores time signatures only as bar lengths in the clock map. `BuildGrid` and the playback endpoint use `TotalTicks()` for the sequence length. The server picks the grid's time signature from the first bar (`TimeSignatureForBarTicks`) unless the user chose one. The grid can only draw one time signature, so for a mixed-meter sequence the editor shows a note that its bar lines drift after the first change; note positions are still exact ticks.
 
 ## Coordinate System
 
@@ -54,7 +58,7 @@ GlobalStep maps directly to a tick: `tick = globalStep × TicksPerStep`. The UI 
 Parse:      Open(path) → seq.Parse(data) → Sequence
 Edit grid:  BuildGrid(sequence, noteToPadMap, gridParams) → StepGrid
 Write:      WriteEvents(path, sequence) — preserves header, rewrites event region
-Patch:      PatchFile(path, bpm, bars) — in-place header update
+Patch:      PatchFile(path, bpm, bars) — in-place header update; rebuilds the clock map when bars change
             PatchLoop(path, loop)      — toggles loop flag (byte 0x17)
 Create:     Create(bpm, bars, name, pgm, loop, events) → []byte (full fresh file)
 ```
