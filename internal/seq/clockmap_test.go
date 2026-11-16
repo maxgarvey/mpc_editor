@@ -7,17 +7,17 @@ import (
 	"testing"
 )
 
-// standardLikeLengths mirrors Akai's factory "Standard" sequence: 10 bars of
-// 4/4, 16 bars of 3/4, 21 bars of 4/4 (47 bars, 16512 ticks).
+// standardLikeLengths mirrors Akai's factory "Standard" sequence: bars 1-9
+// in 4/4, 10-25 in 3/4, 26-47 in 4/4 (47 bars, 16512 ticks).
 func standardLikeLengths() []int {
 	var l []int
-	for range 10 {
+	for range 9 {
 		l = append(l, 384)
 	}
 	for range 16 {
 		l = append(l, 288)
 	}
-	for range 21 {
+	for range 22 {
 		l = append(l, 384)
 	}
 	return l
@@ -56,10 +56,10 @@ func TestClockMapMixedMeter(t *testing.T) {
 	if got := s.TotalTicks(); got != 16512 {
 		t.Errorf("TotalTicks = %d, want 16512", got)
 	}
-	if s.BarLength(10) != 384 || s.BarLength(11) != 288 || s.BarLength(27) != 384 {
-		t.Errorf("bar lengths 10/11/27 = %d/%d/%d", s.BarLength(10), s.BarLength(11), s.BarLength(27))
+	if s.BarLength(9) != 384 || s.BarLength(10) != 288 || s.BarLength(25) != 288 || s.BarLength(26) != 384 {
+		t.Errorf("bar lengths 9/10/25/26 = %d/%d/%d/%d", s.BarLength(9), s.BarLength(10), s.BarLength(25), s.BarLength(26))
 	}
-	want := []MeterChange{{1, 384}, {11, 288}, {27, 384}}
+	want := []MeterChange{{1, 384}, {10, 288}, {26, 384}}
 	got := s.MeterChanges()
 	if len(got) != len(want) {
 		t.Fatalf("MeterChanges = %v, want %v", got, want)
@@ -135,7 +135,7 @@ func TestPatchFileGrowsMixedMeterMap(t *testing.T) {
 func TestPatchFileShrinksMixedMeterMap(t *testing.T) {
 	out := patchBars(t, withClockMap(buildTestSEQ(95, 1, nil), standardLikeLengths(), true), 12)
 	s, _ := Parse(out)
-	if s.TotalTicks() != 10*384+2*288 {
+	if s.TotalTicks() != 9*384+3*288 {
 		t.Errorf("TotalTicks = %d", s.TotalTicks())
 	}
 	for n := 13; n <= 47; n++ {

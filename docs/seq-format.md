@@ -67,14 +67,15 @@ which bar *n* (0-indexed) starts:
 | 3    | `0x60` (96) in every observed entry — probably ticks per beat (a quarter note) |
 
 Entry `bars` holds the end tick (the sequence length). **This is the only place
-time signatures are stored.** Akai's factory "Standard" sequence has bars 1–10 in
-4/4 (384 ticks), bars 11–26 in 3/4 (288 ticks) and bars 27–47 in 4/4 again:
+time signatures are stored.** Akai's factory "Standard" sequence has bars 1–9 in
+4/4 (384 ticks), bars 10–25 in 3/4 (288 ticks) and bars 26–47 in 4/4 again.
+Entry *n* minus entry *n*−1 is the length of bar *n*:
 
 ```
 entry  9: 80 0d 00 60   3456   (+384)
-entry 10: a0 0e 00 60   3744   (+288: bar 11 is 3/4)
+entry 10: a0 0e 00 60   3744   (+288: bar 10 is 3/4)
 ...
-entry 26: 00 21 00 60   8448   (+384: back to 4/4)
+entry 26: 00 21 00 60   8448   (+384: bar 26 is 4/4 again)
 entry 47: 80 40 00 60  16512   end tick
 entry 48: 00 00 00 00          zero-filled from here
 ```
@@ -165,7 +166,7 @@ track's program change before its first note).
 |--------|---------|------|
 | `0x90` | NoteOn | note, velocity, duration, variation |
 | `0xC0` | Program change | byte 6 = program number − 1 (MIDI's 0-based numbering): M_Bass (program change 104) is sent as 103. Factory sequences put one at tick 0 on the first track that uses each program |
-| `0x82` | Unknown | Only on track 1. Byte 6 = 1–13. Each factory sequence has one at tick 0, mostly with its own sequence number; "Standard" switches it 5 → 10 → 5 → 11 → 12 → 5 just before section boundaries (ticks 1919, 3444, 5760, 8400, 13052). The `.ALL` file holds 21 `EffectNN` records, so an effect-preset change is a guess |
+| `0x82` | Unknown | Only on track 1. Byte 6 = 1–13. Each factory sequence has one at tick 0, mostly with its own sequence number; "Standard" switches it 5 → 10 → 5 → 11 → 12 → 5 at or just before bar lines (ticks 1919, 3444, 5760, 8400, 13052: the ends of bars 5, 9, 26 and 38, and the start of bar 18). The `.ALL` file holds 21 `EffectNN` records, so an effect-preset change is a guess |
 
 The editor parses every record type, shows only NoteOn events on the grid,
 and writes all records back unchanged (`WriteEvents`).
