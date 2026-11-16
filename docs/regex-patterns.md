@@ -292,21 +292,21 @@ Offset    Size     Field / Pattern
 0x0000    4        file_size       LE uint32 = actual file length
 0x0004    16       version         "MPC1000 SEQ 4.40" ASCII
 0x0014    1        [?]             0x00 in all observed files
-0x0015    1        [?]             0x01 in all observed files
-0x0016    1        [?]             0x01 in all observed files
-0x0017    1        loop_flag       0x00=off, 0x01=loop "1-End"
+0x0015    1        seq_number      sequence slot number (1–9 in the factory .ALL; 1 in .SEQ files)
+0x0016    1        [?]             0x01, except 0x00 in the factory "Standard" sequence
+0x0017    1        loop_flag [?]   0x00=off, 0x01=loop "1-End" (unconfirmed on hardware)
 0x0018    1        [?]             0x01 in all observed files
 0x0019    1        [?]             0x00 in all observed files
-0x001A    2        [?]             0xe8 0x03 = 1000 LE (constant, purpose unknown)
+0x001A    2        [?]             0xe8 0x03 = 1000 LE (probably the clock map entry count)
 0x001C    2        bars            bar count uint16 LE
 0x001E    2        [?]             0x00 0x00 in all observed files
 0x0020    2        bpm_x10         BPM × 10 as uint16 LE (120.0 → 0xb0 0x04 = 1200)
 0x0022    14       [?]             all zero in observed files
-0x0030    4000     clock_map       1000 entries × 4 bytes (see below)
-0x0FD0    48       [?]             zero padding to 0x1000
+0x0030    4000     clock_map       bar start ticks, 1000 entries × 4 bytes (see below)
+0x0FD0    48       [?]             zero in .SEQ; a track-shaped "(unused)" record in .ALL blocks
 0x1000    3072     track_headers   64 tracks × 48 bytes (see below)
 0x1C00    16       separator       ff ff ff ff ff 00 ff ff ff ff ff ff ff ff ff ff
-0x1C10    N×16     events          NoteOn records (see below)
+0x1C10    N×16     events          NoteOn, program change and other records (see below)
 EOF-16    16       terminator      ff ff ff 7f ff ff ff ff ff ff ff ff ff ff ff ff
 ```
 
@@ -321,7 +321,9 @@ SEQ_LAYOUT = re.compile(
     rb'(?s)^'
     rb'(?P<file_size>.{4})'              # 0x0000
     rb'(?P<version>MPC1000 SEQ 4\.40)'   # 0x0004
-    rb'.{3}'                              # 0x0014 [?] constants
+    rb'.'                                 # 0x0014 [?]
+    rb'(?P<seq_number>.)'                # 0x0015
+    rb'.'                                 # 0x0016 [?]
     rb'(?P<loop_flag>[\x00\x01])'        # 0x0017
     rb'.{2}'                              # 0x0018 [?] constants
     rb'(?P<unknown_1000>.{2})'           # 0x001A [?] constant 1000
@@ -369,17 +371,17 @@ if m:
 
 ### Clock map (0x0030–0x0FCF, 1000 entries × 4 bytes)
 
-Entry N encodes bar N's starting tick (`N × 384`) as a 3-byte little-endian
-integer followed by the constant `\x60`:
+Entry N holds the tick at which bar N starts, as a 3-byte little-endian integer
+followed by `\x60`; entry `bars` holds the end tick. Bar lengths are the only
+record of time signatures (384 ticks = 4/4, 288 = 3/4). See
+[`seq-format.md`](seq-format.md#clock-map-0x00300x0fcf).
 
 ```
-byte[0] = (N × 384) & 0xFF
-byte[1] = (N × 384 >> 8) & 0xFF
-byte[2] = (N × 384 >> 16) & 0xFF
-byte[3] = 0x60
+byte[0..2] = bar start tick, 24-bit LE
+byte[3]    = 0x60 (96; probably ticks per beat)
 ```
 
-Because 384 = 0x180, byte[0] alternates `\x00` / `\x80` between entries:
+A 4/4 sequence (byte[0] alternates `\x00` / `\x80` because 384 = 0x180):
 
 | Entry | Tick  | Bytes             |
 |-------|-------|-------------------|
@@ -387,19 +389,20 @@ Because 384 = 0x180, byte[0] alternates `\x00` / `\x80` between entries:
 | 1     | 384   | `80 01 00 60`     |
 | 2     | 768   | `00 03 00 60`     |
 | 3     | 1152  | `80 04 00 60`     |
-| 4     | 1536  | `00 06 00 60`     |
 
-First-four-entries fingerprint:
+A 3/4 bar adds 288 (`0x120`) instead, e.g. `a0 0e 00 60` (3744) after
+`80 0d 00 60` (3456). Pure 4/4 hardware files keep counting through all 1000
+entries; Akai's mixed-meter "Standard" zero-fills the entries after the end tick.
+
+4/4 fingerprint (first four entries):
 ```
 \x00\x00\x00\x60\x80\x01\x00\x60\x00\x03\x00\x60\x80\x04\x00\x60
 ```
 
-Single-entry pattern:
+Single-entry pattern (any bar length; the all-zero form marks unused entries):
 ```
-(?s)[\x00\x80][\x00-\xff]{2}\x60
+(?s)[\x00-\xff]{3}\x60|\x00{4}
 ```
-
-Followed by 48 bytes of zero padding at 0x0FD0–0x0FFF before track headers.
 
 ### Event section markers
 
@@ -415,25 +418,30 @@ Byte 5 = `\x00` distinguishes it from the surrounding `\xff` fill.
 ```
 Byte 3 = `\x7f` (not `\xff`) is the unique distinguishing marker.
 
-### NoteOn event (16 bytes, starting at 0x1C10)
+### Event record (16 bytes, starting at 0x1C10)
 
 ```
 Byte   Size  Field       Constraints
 ----   ----  -----       -----------
-0-3    4     tick        uint32 LE — absolute tick, multiples of 24 typical
+0-3    4     tick        uint32 LE — absolute tick
 4      1     track       0x01–0x40 (1-indexed; subtract 1 for 0-indexed)
-5      1     status      0x90 = NoteOn channel 0
-6      1     note        0x00–0x7F (MIDI note number)
-7      1     velocity    0x01–0x7F (high bit clear; 0 would be NoteOff)
-8-11   4     duration    uint32 LE — ticks held
+5      1     status      0x90 NoteOn, 0xC0 program change, 0x82 unknown
+6      1     note        0x00–0x7F (MIDI note; data byte 1 for other types)
+7      1     velocity    0x01–0x7F for notes (data byte 2 for other types)
+8-9    2     duration    uint16 LE — ticks held
+10     1     var_type    Note Variation type (0 = Tune, 1 = Decay seen)
+11     1     var_value   Note Variation value, signed
 12     1     [?]         0x00 usually; see ff ff ff ff note below
 13     1     pad_idx     0x00 in all factory events; not used for playback
 14-15  2     [?]         0x00 0x00 usually; see ff ff ff ff note below
 ```
 
+Program change: byte 6 = program number − 1, other bytes zero, e.g.
+`00 00 00 00 07 c0 67 00 00 00 00 00 00 00 00 00` (track 7, program 104).
+
 Pattern for a single NoteOn event:
 ```
-(?s)(?P<tick>.{4})(?P<track>[\x01-\x40])\x90(?P<note>[\x00-\x7f])(?P<velocity>[\x01-\x7f])(?P<dur>.{4})(?P<tail>\x00[\x00-\x7f]\x00\x00|\xff{4})
+(?s)(?P<tick>.{4})(?P<track>[\x01-\x40])\x90(?P<note>[\x00-\x7f])(?P<velocity>[\x01-\x7f])(?P<dur>.{2})(?P<var_type>.)(?P<var_value>.)(?P<tail>\x00[\x00-\x7f]\x00\x00|\xff{4})
 ```
 
 Bytes 12–15 are `ff ff ff ff` in about 1% of the events in Akai's factory
@@ -452,10 +460,10 @@ EVENT_RE = re.compile(
     rb'\x90'
     rb'(?P<note>[\x00-\x7f])'
     rb'(?P<velocity>[\x01-\x7f])'
-    rb'(?P<dur>.{4})'
-    rb'\x00'
-    rb'(?P<pad>[\x00-\x7f])'
-    rb'\x00\x00'
+    rb'(?P<dur>.{2})'
+    rb'(?P<var_type>.)'
+    rb'(?P<var_value>.)'
+    rb'(?:\x00(?P<pad>[\x00-\x7f])\x00\x00|\xff{4})'
 )
 
 for m in EVENT_RE.finditer(data, 0x1C10):  # start past headers
@@ -463,8 +471,9 @@ for m in EVENT_RE.finditer(data, 0x1C10):  # start past headers
     track    = m.group('track')[0] - 1
     note     = m.group('note')[0]
     velocity = m.group('velocity')[0]
-    dur      = struct.unpack('<I', m.group('dur'))[0]
-    print(f't={tick:6d}  track={track:2d}  note={note:3d}  vel={velocity:3d}  dur={dur}')
+    dur      = struct.unpack('<H', m.group('dur'))[0]
+    var      = struct.unpack('<b', m.group('var_value'))[0]
+    print(f't={tick:6d}  track={track:2d}  note={note:3d}  vel={velocity:3d}  dur={dur}  var={m.group("var_type")[0]}:{var}')
 ```
 
 > **Important:** start `finditer` at offset 0x1C10, not 0. The clock map and
@@ -475,12 +484,14 @@ for m in EVENT_RE.finditer(data, 0x1C10):  # start past headers
 
 ```
 +0x00   16  name            track name, null-padded (e.g. "Track01")
-+0x10   16  pgm_name        PGM filename; byte[0] often \x00, name at bytes 1-15
++0x10   16  pgm_name        PGM filename; byte[0] \x00, name at bytes 1-15 ("OFF" = none)
 +0x20   2   [?]             zero in observed files
-+0x22   1   midi_channel    1-16 = active, 0 = unused/empty track
++0x22   1   midi_channel    1-16 = active, 0 = unused/empty track (factory .ALL: 1-13, likely MIDI out channel)
 +0x23   1   active_flag     0x01 in active tracks, 0x00 in empty tracks
-+0x24   1   [?]             0x64 = 100 in active tracks (volume?)
-+0x25   3   [?]             zero in observed files
++0x24   1   [?]             0x64 = 100 in .SEQ files (volume?); 0 in .ALL
++0x25   1   [?]             zero in observed files
++0x26   1   pgm_change      program change number (1-based) in factory .ALL tracks; 0 = none
++0x27   1   [?]             zero in observed files
 +0x28   1   [?]             0x1e = 30 in active tracks
 +0x29   1   [?]             zero in observed files
 +0x2A   1   [?]             0x6e = 110 in active tracks
@@ -571,16 +582,19 @@ then `diff <(xxd a) <(xxd b)` to isolate which bytes changed.
 
 | Offset | Size | Location | Notes |
 |--------|------|----------|-------|
-| 0x0014 | 3 B  | header | constants 0x00, 0x01, 0x01 |
+| 0x0014 | 1 B  | header | zero in all observed files |
+| 0x0016 | 1 B  | header | 0x01, except 0x00 in the factory "Standard" sequence |
 | 0x0018 | 2 B  | header | constants 0x01, 0x00 |
-| 0x001A | 2 B  | header | constant 1000 (0xe8 0x03 LE) |
+| 0x001A | 2 B  | header | constant 1000 (0xe8 0x03 LE); probably the clock map entry count |
 | 0x001E | 2 B  | header | zero in all observed files |
 | 0x0022 | 14 B | header | zero in all observed files |
-| 0x0FD0 | 48 B | clock map tail | zero padding to 0x1000 |
+| 0x0FD0 | 48 B | before tracks | zero in .SEQ; track-shaped "(unused)"/"OFF" record in .ALL blocks |
 | track+0x20 | 2 B  | per-track | zero in observed files |
-| track+0x24 | 8 B  | per-track | possibly volume/pan (100, 30, 110, 50 observed) |
+| track+0x24 | 2 B  | per-track | 100 in .SEQ files (volume?), 0 in .ALL |
+| track+0x27 | 7 B  | per-track | 30, 110, 50 in .SEQ files (pan at +0x2F?); 0 in .ALL |
 | track+0x2E | 1 B  | per-track | zero |
 | event+12 | 4 B  | per-event | bytes 12–15: `00 00 00 00` (byte 13 = pad_idx) or `ff ff ff ff` |
+| event status 0x82 | — | per-event | track 1 only, data 1–13; effect preset change? |
 
 ### SNG
 
