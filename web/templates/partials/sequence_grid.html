@@ -50,9 +50,10 @@
                     data-vel="{{$step.Velocity}}"
                     data-dur="{{$step.Duration}}"
                     data-tick="{{$step.Tick}}"
-                    title="vel:{{$step.Velocity}}" style="background-color: {{if $padColor}}{{$padColor}}{{else}}{{velocityColor $step.Velocity}}{{end}}; opacity: {{velocityOpacity $step.Velocity}}"
+                    {{if $step.Variation}}data-variation="{{$step.Variation}}"{{end}}
+                    title="vel:{{$step.Velocity}}{{if $step.Variation}} · {{$step.Variation}}{{end}}" style="background-color: {{if $padColor}}{{$padColor}}{{else}}{{velocityColor $step.Velocity}}{{end}}; opacity: {{velocityOpacity $step.Velocity}}"
                     {{end}}>
-                    {{if $step.Active}}<span class="step-dot"></span>{{end}}
+                    {{if $step.Active}}<span class="step-dot{{if $step.Variation}} step-dot-variation{{end}}"></span>{{end}}
                 </td>
                 {{end}}
             </tr>
@@ -80,9 +81,10 @@
                     data-vel="{{$step.Velocity}}"
                     data-dur="{{$step.Duration}}"
                     data-tick="{{$step.Tick}}"
-                    title="vel:{{$step.Velocity}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"
+                    {{if $step.Variation}}data-variation="{{$step.Variation}}"{{end}}
+                    title="vel:{{$step.Velocity}}{{if $step.Variation}} · {{$step.Variation}}{{end}}" style="background-color: {{velocityColor $step.Velocity}}; opacity: {{velocityOpacity $step.Velocity}}"
                     {{end}}>
-                    {{if $step.Active}}<span class="step-dot"></span>{{end}}
+                    {{if $step.Active}}<span class="step-dot{{if $step.Variation}} step-dot-variation{{end}}"></span>{{end}}
                 </td>
                 {{end}}
             </tr>
@@ -102,6 +104,9 @@
             <input type="range" id="seq-detail-vel" min="1" max="127" value="100"
                    oninput="document.getElementById('seq-detail-vel-display').textContent=this.value">
         </label>
+        <div class="seq-detail-label seq-detail-var-row" id="seq-detail-var-row" style="display:none">
+            Note Variation: <span id="seq-detail-var"></span>
+        </div>
         <label class="seq-detail-label">
             Duration (ticks):
             <input type="number" id="seq-detail-dur" min="1" max="384" value="23" class="seq-detail-dur-input">

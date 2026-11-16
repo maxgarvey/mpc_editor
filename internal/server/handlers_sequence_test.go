@@ -922,3 +922,34 @@ func TestHandleSequenceEvents_UsesClockMapLength(t *testing.T) {
 		t.Fatalf("totalTicks=%d beats=%d bars=%d events=%d", resp.TotalTicks, resp.BeatsPerBar, resp.Bars, len(resp.Events))
 	}
 }
+
+func TestSequenceNoteVariationIsShown(t *testing.T) {
+	srv := testServer(t)
+	path := filepath.Join(t.TempDir(), "var.SEQ")
+	data := seq.Create(120, 1, "", "", false, []seq.Event{
+		{Tick: 0, Type: seq.EventNoteOn, Note: 35, Velocity: 100, Duration: 10, VariationValue: -20},
+	})
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", "/sequence?path="+url.QueryEscape(path), http.NoBody)
+	req.Header.Set("HX-Request", "true")
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	body := w.Body.String()
+	if !strings.Contains(body, `data-variation="Tune -20"`) || !strings.Contains(body, "step-dot-variation") {
+		t.Fatalf("variation not rendered in grid")
+	}
+
+	req = httptest.NewRequest("GET", "/sequence/events?path="+url.QueryEscape(path), http.NoBody)
+	w = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+	var resp sequenceEventsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Events) != 1 || resp.Events[0].Variation != "Tune -20" {
+		t.Fatalf("events = %+v", resp.Events)
+	}
+}

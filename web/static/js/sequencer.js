@@ -415,7 +415,11 @@ const SequencePlayer = (function() {
                     evDiv.style.width = Math.max(3, Math.round(e.durationTicks * pxpt)) + 'px';
                     evDiv.style.backgroundColor = padColors[padIdx] || velocityToColor(e.velocity);
                     evDiv.style.opacity = 0.5 + e.velocity / 127 * 0.5;
-                    evDiv.title = padLabel(padIdx) + ' vel:' + e.velocity;
+                    evDiv.title = padLabel(padIdx) + ' vel:' + e.velocity + (e.variation ? ' · ' + e.variation : '');
+                    if (e.variation) {
+                        evDiv.dataset.variation = e.variation;
+                        evDiv.classList.add('seq-cont-event-variation');
+                    }
                     if (SequenceEditor.isContInSelection(padIdx, evGs)) {
                         evDiv.classList.add('seq-cont-event-selected');
                     }
@@ -1554,7 +1558,7 @@ const SequenceEditor = (function() {
             detailFromCont = false;
             var vel = parseInt(cell.dataset.vel) || 100;
             var dur = parseInt(cell.dataset.dur) || 23;
-            openDetail(e.clientX, e.clientY, vel, dur, false);
+            openDetail(e.clientX, e.clientY, vel, dur, false, undefined, cell.dataset.variation);
         }
     });
 
@@ -1591,13 +1595,19 @@ const SequenceEditor = (function() {
             detailStep = Math.floor(tick % tpb / tps);
             detailBar = Math.floor(tick / tpb) + 1;
             detailFromCont = false;
-            openDetail(e.clientX, e.clientY, vel, dur, false);
+            openDetail(e.clientX, e.clientY, vel, dur, false, undefined, evDiv.dataset.variation);
         }
     });
 
-    function openDetail(x, y, vel, dur, multi, count) {
+    function openDetail(x, y, vel, dur, multi, count, variation) {
         var panel = document.getElementById('seq-event-detail');
         if (!panel) return;
+        // Note Variation is shown read-only; edits keep it unchanged.
+        var varRow = document.getElementById('seq-detail-var-row');
+        if (varRow) {
+            varRow.style.display = (!multi && variation) ? '' : 'none';
+            document.getElementById('seq-detail-var').textContent = variation || '';
+        }
         detailIsMulti = !!multi;
         document.getElementById('seq-detail-vel').value = vel;
         document.getElementById('seq-detail-vel-display').textContent = vel;

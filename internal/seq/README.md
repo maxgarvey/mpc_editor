@@ -16,7 +16,7 @@ A `.SEQ` file stores one pattern: a tempo, a bar count, 64 track headers, and a 
 | `GridParams` | Display parameters: time signature (`BeatsPerBar`, `BeatDenom`) + step division (`TicksPerStep`) |
 | `StepGrid` | Visualization model: `BankAPadRows` + `ExtraBankPadRows`, each a `[]PadRow` |
 | `PadRow` | One pad's cells across all bars: `[]StepCell` |
-| `StepCell` | One cell: `Active`, `Velocity`, `Duration`, `Bar`, `StepInBar`, `GlobalStep` |
+| `StepCell` | One cell: `Active`, `Velocity`, `Duration`, `Bar`, `StepInBar`, `GlobalStep`, `Variation` (label from `VariationLabel`, e.g. "Tune +90") |
 
 ## Timing Constants
 

@@ -101,3 +101,26 @@ func NoteName(note byte) string {
 	name := noteNames[int(note)%12]
 	return name + strconv.Itoa(octave)
 }
+
+// VariationLabel describes an event's Note Variation for display, e.g.
+// "Tune +90" or "Decay 12"; "" when the event has none. Only types 0 (Tune)
+// and 1 (Decay) are identified from real files; others show their number.
+func VariationLabel(varType byte, value int8) string {
+	if varType == 0 && value == 0 {
+		return ""
+	}
+	switch varType {
+	case 0:
+		return "Tune " + signed(value)
+	case 1:
+		return "Decay " + strconv.Itoa(int(value))
+	}
+	return "Variation type " + strconv.Itoa(int(varType)) + ": " + strconv.Itoa(int(value))
+}
+
+func signed(v int8) string {
+	if v > 0 {
+		return "+" + strconv.Itoa(int(v))
+	}
+	return strconv.Itoa(int(v))
+}

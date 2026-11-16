@@ -60,6 +60,7 @@ type StepCell struct {
 	Bar        int    // 1-indexed bar this cell belongs to
 	StepInBar  int    // 0-indexed step within the bar (0–15)
 	GlobalStep int    // = (Bar-1)*StepsPerBar + StepInBar
+	Variation  string // Note Variation label (see VariationLabel); "" if none
 }
 
 // PadRow is one pad's activity across all bars.
@@ -136,10 +137,11 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 	}
 
 	type cell struct {
-		note     byte
-		velocity byte
-		duration uint16
-		tick     uint32
+		note      byte
+		velocity  byte
+		duration  uint16
+		tick      uint32
+		variation string
 	}
 
 	// padGlobalSteps: padIndex → globalStep → loudest cell
@@ -157,7 +159,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 	barTicks := uint32(displayBars * p.TicksPerBar)
 
 	for _, ev := range s.Events {
-		if ev.Type != EventNoteOn {
+		if !ev.IsNote() {
 			continue
 		}
 		if ev.Tick >= barTicks {
@@ -173,7 +175,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 		padIdx := padForNote(ev.Note)
 		if padIdx >= 0 && padIdx < 64 {
 			if padGlobalSteps[padIdx][gs] == nil || ev.Velocity > padGlobalSteps[padIdx][gs].velocity {
-				padGlobalSteps[padIdx][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick}
+				padGlobalSteps[padIdx][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick, variation: VariationLabel(ev.VariationType, ev.VariationValue)}
 			}
 		}
 
@@ -181,7 +183,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 			trackGlobalSteps[ev.Track] = make(map[int]*cell)
 		}
 		if trackGlobalSteps[ev.Track][gs] == nil || ev.Velocity > trackGlobalSteps[ev.Track][gs].velocity {
-			trackGlobalSteps[ev.Track][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick}
+			trackGlobalSteps[ev.Track][gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick, variation: VariationLabel(ev.VariationType, ev.VariationValue)}
 		}
 
 		if trackNoteGlobalSteps[ev.Track] == nil {
@@ -192,7 +194,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 		}
 		ns := trackNoteGlobalSteps[ev.Track][ev.Note]
 		if ns[gs] == nil || ev.Velocity > ns[gs].velocity {
-			ns[gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick}
+			ns[gs] = &cell{note: ev.Note, velocity: ev.Velocity, duration: ev.Duration, tick: ev.Tick, variation: VariationLabel(ev.VariationType, ev.VariationValue)}
 		}
 	}
 
@@ -210,6 +212,7 @@ func BuildGrid(s *Sequence, noteToPad map[int]int, p GridParams) *StepGrid {
 				steps[gs].Velocity = c.velocity
 				steps[gs].Duration = c.duration
 				steps[gs].Tick = c.tick
+				steps[gs].Variation = c.variation
 			}
 		}
 		return steps

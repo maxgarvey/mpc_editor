@@ -488,14 +488,15 @@ func (s *Server) handleSequencePage(w http.ResponseWriter, r *http.Request) {
 
 // sequenceEventJSON is one note event for the JSON playback endpoint.
 type sequenceEventJSON struct {
-	Step          int `json:"step"`
-	Track         int `json:"track"`
-	Note          int `json:"note"`
-	PadIndex      int `json:"padIndex"`
-	Velocity      int `json:"velocity"`
-	DurationSteps int `json:"durationSteps"`
-	Tick          int `json:"tick"`          // exact tick offset from range start
-	DurationTicks int `json:"durationTicks"` // exact duration in ticks
+	Step          int    `json:"step"`
+	Track         int    `json:"track"`
+	Note          int    `json:"note"`
+	PadIndex      int    `json:"padIndex"`
+	Velocity      int    `json:"velocity"`
+	DurationSteps int    `json:"durationSteps"`
+	Tick          int    `json:"tick"`                // exact tick offset from range start
+	DurationTicks int    `json:"durationTicks"`       // exact duration in ticks
+	Variation     string `json:"variation,omitempty"` // Note Variation label, e.g. "Tune +90"
 }
 
 // sequenceEventsResponse is the JSON payload for /sequence/events.
@@ -563,7 +564,7 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 
 	var events []sequenceEventJSON
 	for _, ev := range sequence.Events {
-		if ev.Type != seq.EventNoteOn {
+		if !ev.IsNote() {
 			continue
 		}
 		if ev.Tick < tickStart || ev.Tick >= tickEnd {
@@ -582,6 +583,7 @@ func (s *Server) handleSequenceEvents(w http.ResponseWriter, r *http.Request) {
 			DurationSteps: durSteps,
 			Tick:          int(ev.Tick - tickStart),
 			DurationTicks: int(ev.Duration),
+			Variation:     seq.VariationLabel(ev.VariationType, ev.VariationValue),
 		})
 	}
 

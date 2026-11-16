@@ -115,3 +115,42 @@ func TestIsNote(t *testing.T) {
 		t.Error("program change / 0x82 should not be notes")
 	}
 }
+
+func TestVariationLabel(t *testing.T) {
+	cases := []struct {
+		typ  byte
+		val  int8
+		want string
+	}{
+		{0, 0, ""},
+		{0, 90, "Tune +90"},
+		{0, -20, "Tune -20"},
+		{1, 12, "Decay 12"},
+		{1, 0, "Decay 0"},
+		{3, 50, "Variation type 3: 50"},
+	}
+	for _, c := range cases {
+		if got := VariationLabel(c.typ, c.val); got != c.want {
+			t.Errorf("(%d,%d) = %q, want %q", c.typ, c.val, got, c.want)
+		}
+	}
+}
+
+func TestBuildGridCarriesVariation(t *testing.T) {
+	s, _ := Parse(factoryLikeSEQ(t,
+		"30 00 00 00 06 90 33 11 09 00 00 5a 00 00 00 00", // tick 48, note 51, Tune +90
+		"00 00 00 00 01 c0 10 00 00 00 00 00 00 00 00 00", // program change: must not appear
+	))
+	g := BuildGrid(s, map[int]int{51: 3}, DefaultGridParams())
+	cell := g.BankAPadRows[3].Steps[2]
+	if !cell.Active || cell.Variation != "Tune +90" {
+		t.Fatalf("cell = %+v", cell)
+	}
+	for _, row := range g.BankAPadRows {
+		for _, st := range row.Steps {
+			if st.Active && st.Tick == 0 {
+				t.Fatalf("program change shown on the grid: pad %s", row.PadLabel)
+			}
+		}
+	}
+}

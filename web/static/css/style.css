@@ -4089,3 +4089,14 @@ tr.pad-row:not(.has-events) .step-cell {
     font-size: 11px;
     font-style: italic;
 }
+
+/* Note Variation markers (per-note tune/decay variation) */
+.step-dot-variation {
+    box-shadow: 0 0 0 2px #d9a441;
+}
+.seq-cont-event-variation {
+    border-top: 2px solid #d9a441;
+}
+.seq-detail-var-row {
+    color: #d9a441;
+}
