@@ -22,6 +22,33 @@ Python module for loading, editing, and exporting MPC 1000 .PGM files.
 
 - Repository: https://github.com/stephenn/pympc1000
 
+### Open500 (MPC500 firmware add-ons)
+Native-code add-ons for the MPC500 (OS 1.31), loaded as WAV files. Their source
+headers document the OS's in-memory structures, read from the firmware and
+partly tested on hardware. The MPC500 keeps programs and sequences in memory in
+the same layout as the MPC1000 `.PGM` and `.SEQ` files, so these notes name
+fields in our formats. Addresses and offsets apply to the MPC500 OS 1.31 only.
+The authors label each one as tested on hardware or read from firmware only.
+
+- Repository: https://github.com/M45K/open500 (SDK, `sdk/README.md` table of OS
+  facts; `sdk/addons/wav_grid.py` and `wav_seqtools.py` for the sequence layout,
+  tested on hardware)
+- Repository: https://github.com/LA-2500/Open500-LA (`sdk/examples/program.py`
+  pad fields, `seqedit.py` clock map, `track.py` track header, `song.py` song
+  structure)
+
+### Other public example files
+Programs examined for format evidence (all 10,756-byte `MPC1000 PGM 1.00`):
+
+- seaweedfactory/MPC1000 `KEYMAP3.PGM`: a JJOS-saved chromatic keymap and the
+  only public program with two pads on one note (pad indices 62 and 63 both on
+  note 98; note→pad points to 62). https://github.com/seaweedfactory/MPC1000
+- stigi/mpc1k-node `data/Program01.PGM` (blank, drum layout, layer levels 100,
+  non-zero tail bytes at 0x29F3) and `data/E_Kit.PGM`.
+  https://github.com/stigi/mpc1k-node
+- antonhornquist/pgm-rb `test/original.pgm`. https://github.com/antonhornquist/pgm-rb
+- JOJ0/mpc1k-seq ships four JJOS `FunkBG_*.SEQ` files (all 4/4).
+
 ---
 
 ## Format Documentation

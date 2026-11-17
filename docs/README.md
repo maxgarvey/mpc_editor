@@ -20,7 +20,7 @@ None of the MPC file formats are officially documented by Akai. All content here
 |--------|-------------------|
 | `.PGM` | Well documented — see [`references.md`](references.md) for the Stephen Norum spec |
 | `.SEQ` | Mostly documented — [`seq-format.md`](seq-format.md) covers header, clock map (time signatures), tracks, and events including Note Variation and program changes; a few header and track bytes remain unknown |
-| `.SNG` | Header confirmed from hardware file; step record layout unconfirmed (empty test file has no steps) — see [`song-format.md`](song-format.md) |
+| `.SNG` | Header confirmed from hardware file; step record layout unconfirmed (empty test file has no steps); the MPC500's in-memory song structure is noted as a lead — see [`song-format.md`](song-format.md) |
 | `.ALL` | Partially documented from one factory file — [`all-format.md`](all-format.md); sequence blocks fully understood, effect and song areas not decoded |
 
 Fields marked `[?]` in `seq-format.md` are observed in real files but not yet understood. Update the spec whenever new evidence clarifies them.
@@ -31,3 +31,5 @@ Fields marked `[?]` in `seq-format.md` are observed in real files but not yet un
 - [`internal/pgm`](../internal/pgm/README.md) — implements the `.PGM` format; its byte offsets align with the Norum spec
 - [`cmd/genseq`](../cmd/genseq/README.md) — generates test `.SEQ` files that exercise the format spec on real hardware
 - [`cmd/genpgm`](../cmd/genpgm/README.md) — generates `.PGM` probe files for testing open format questions on real hardware
+
+Some fields are named from MPC500 firmware notes (the Open500 projects, see [`references.md`](references.md)) rather than from MPC1000 files. The specs mark these, and say where the MPC500 and MPC1000 disagree.

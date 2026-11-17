@@ -70,11 +70,11 @@ Offset    Size    Field / Pattern
 0x0014    4       [?]             unknown header tail
 0x0018    10496   pads            64 pads × 164 bytes (see below)
 0x2918    64      midi_note_map   one byte per pad: MIDI note number
-0x2958    128     [?]             unknown region
+0x2958    128     note_to_pad     one byte per MIDI note: pad index (64 = no pad)
 0x29D8    1       midi_pgm_change MIDI program change value (0=off, 1–128)
 0x29D9    13      slider_0        slider 0 (see below)
 0x29E6    13      slider_1        slider 1
-0x29F3    17      [?]             unknown tail
+0x29F3    17      [?]             unknown tail (zero in most files; set in one, see below)
 0x2A04    —       EOF
 ```
 
@@ -89,7 +89,7 @@ PGM_LAYOUT = re.compile(
     rb'(?P<hdr_unknown>.{4})'             # 0x0014  [?]
     rb'(?P<pads>.{10496})'                # 0x0018  64 × 164 bytes
     rb'(?P<midi_note_map>.{64})'          # 0x2918  MIDI notes
-    rb'(?P<unknown_1>.{128})'             # 0x2958  [?]
+    rb'(?P<note_to_pad>.{128})'           # 0x2958  note → pad
     rb'(?P<midi_pgm_change>.)'            # 0x29D8  program change
     rb'(?P<slider_0>.{13})'              # 0x29D9  slider 0
     rb'(?P<slider_1>.{13})'              # 0x29E6  slider 1
@@ -100,7 +100,12 @@ PGM_LAYOUT = re.compile(
 
 ### Pad structure (164 bytes at `0x18 + N × 0xA4`)
 
-Relative offsets within a pad:
+Relative offsets within a pad. Fields marked **[MPC500 firmware]** come from
+the Open500 projects' reading of the MPC500 OS 1.31 Program-menu code (see
+[`references.md`](references.md#open500-mpc500-firmware-add-ons)). The MPC500
+keeps programs in memory with this same pad layout, and every other offset that
+code reads matches the fields below. These three are not yet confirmed in
+MPC1000 files: they are zero in every public program examined.
 
 ```
 +0x00   24  layer_0         (see layer structure below)
@@ -114,9 +119,11 @@ Relative offsets within a pad:
 +0x66   1   env_attack      0-100
 +0x67   1   env_decay       0-100
 +0x68   1   env_decay_mode  0=End, 1=Start
-+0x69   2   [?]
++0x69   1   env_vel_attack  velocity → attack (0-100) [MPC500 firmware]
++0x6A   1   env_vel_start   velocity → start (0-100) [MPC500 firmware]
 +0x6B   1   env_vel_level   velocity → level (0-100)
-+0x6C   5   [?]
++0x6C   4   [?]
++0x70   1   vel_tune        velocity → tune (0-100) [MPC500 firmware]
 +0x71   1   filter1_type    0=Off, 1=LP, 2=BP, 3=HP
 +0x72   1   filter1_freq    0-100
 +0x73   1   filter1_res     0-100
@@ -152,9 +159,11 @@ PAD_RE = re.compile(
     rb'(?P<env_attack>[\x00-\x64])'        # +0x66
     rb'(?P<env_decay>[\x00-\x64])'         # +0x67
     rb'(?P<env_decay_mode>[\x00\x01])'     # +0x68
-    rb'.{2}'                               # +0x69 [?]
+    rb'(?P<env_vel_attack>.)'              # +0x69 [MPC500 fw]
+    rb'(?P<env_vel_start>.)'               # +0x6A [MPC500 fw]
     rb'(?P<env_vel_level>[\x00-\x64])'     # +0x6B
-    rb'.{5}'                               # +0x6C [?]
+    rb'.{4}'                               # +0x6C [?]
+    rb'(?P<vel_tune>.)'                    # +0x70 [MPC500 fw]
     rb'(?P<filter1_type>[\x00-\x03])'      # +0x71
     rb'(?P<filter1_freq>[\x00-\x64])'      # +0x72
     rb'(?P<filter1_res>[\x00-\x64])'       # +0x73
@@ -381,6 +390,11 @@ byte[0..2] = bar start tick, 24-bit LE
 byte[3]    = 0x60 (96; probably ticks per beat)
 ```
 
+MPC500 firmware code calls byte 3 the bar's time signature. It is `0x60` on
+both the 3/4 and the 4/4 bars of the factory "Standard" sequence, so it can
+only carry the denominator, most likely as ticks per beat (`0x60` = a quarter
+note; `0x30` predicted for /8, unverified).
+
 A 4/4 sequence (byte[0] alternates `\x00` / `\x80` because 384 = 0x180):
 
 | Entry | Tick  | Bytes             |
@@ -564,12 +578,10 @@ then `diff <(xxd a) <(xxd b)` to isolate which bytes changed.
 | Offset | Size | Location | Notes |
 |--------|------|----------|-------|
 | 0x0014 | 4 B  | file header | constant in all observed files |
-| 0x2958 | 128 B | after MIDI note map | between note map and program change |
-| 0x29F3 | 17 B | file tail | after slider 1 |
+| 0x29F3 | 17 B | file tail | after slider 1. Zero in nearly all files; stigi/mpc1k-node `Program01.PGM` (origin OS unknown) has 0x29F4 = 100, 0x29F6 = 100, 0x29F8 = 1, 0x29FA/0x29FB = −120/120, 0x29FD = 1, 0x29FF/0x2A00 = −120/120, which looks like two more slider-shaped records (a third slider, or MPC2500/JJOS settings?) |
 | pad+0x60 | 2 B | per-pad | int16 LE, non-zero on ~100 factory pads; roughly layer 1 tuning ÷ 10 but often not, and set on some untuned pads |
 | pad+0x64 | 2 B | per-pad | between mute group and envelope |
-| pad+0x69 | 2 B | per-pad | after decay mode |
-| pad+0x6C | 5 B | per-pad | before filter 1 |
+| pad+0x6C | 4 B | per-pad | before vel→tune (+0x69, +0x6A and +0x70 are now named from MPC500 firmware) |
 | pad+0x74 | 4 B | per-pad | between filter1 resonance and vel→freq |
 | pad+0x7C | 4 B | per-pad | between filter2 resonance and vel→freq |
 | pad+0x81 | 14 B | per-pad | before mixer section |
@@ -588,9 +600,9 @@ then `diff <(xxd a) <(xxd b)` to isolate which bytes changed.
 | 0x001A | 2 B  | header | constant 1000 (0xe8 0x03 LE); probably the clock map entry count |
 | 0x001E | 2 B  | header | zero in all observed files |
 | 0x0022 | 14 B | header | zero in all observed files |
-| 0x0FD0 | 48 B | before tracks | zero in .SEQ; track-shaped "(unused)"/"OFF" record in .ALL blocks |
+| 0x0FD0 | 48 B | before tracks | "track 0" slot (MPC500 firmware addresses track n at 0xFD0 + n × 0x30); zero in .SEQ, "(unused)"/"OFF" record in .ALL blocks |
 | track+0x20 | 2 B  | per-track | zero in observed files |
-| track+0x24 | 2 B  | per-track | 100 in .SEQ files (volume?), 0 in .ALL |
+| track+0x24 | 2 B  | per-track | 100 in MPC1000 .SEQ files (volume?), 0 in .ALL. **Conflict:** MPC500 firmware reading (unconfirmed) puts track type at +0x24 (0 drum, 1 MIDI) and MIDI channel at +0x25 |
 | track+0x27 | 7 B  | per-track | 30, 110, 50 in .SEQ files (pan at +0x2F?); 0 in .ALL |
 | track+0x2E | 1 B  | per-track | zero |
 | event+12 | 4 B  | per-event | bytes 12–15: `00 00 00 00` (byte 13 = pad_idx) or `ff ff ff ff` |
@@ -600,4 +612,4 @@ then `diff <(xxd a) <(xxd b)` to isolate which bytes changed.
 
 | Offset | Size | Location | Notes |
 |--------|------|----------|-------|
-| 0x000C | all  | step records | layout unknown; only empty file observed |
+| 0x000C | all  | step records | layout unknown; only empty file observed. MPC500 in-memory song: +0x11 in use, +0x14 sequence per step (256 × 1 B, 0 = end), +0x114 repeats per step (−1 = HOLD); whether the file mirrors it is unknown |

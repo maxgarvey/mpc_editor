@@ -14,6 +14,20 @@ All multi-byte values are **little-endian**. Sequencer resolution is fixed at
 > Fields marked **[?]** are observed in the binary but not yet understood.
 > Update this file whenever new evidence changes or clarifies the format.
 
+### Corroboration from MPC500 firmware
+
+The Open500 projects (see [`references.md`](references.md#open500-mpc500-firmware-add-ons))
+run native add-ons on the MPC500 (OS 1.31) and document the firmware's data
+structures. Their Grid Seq add-on reports, **tested on hardware**, that the
+MPC500 holds the current sequence in memory in this exact layout: bar count
+(u16) at +0x1C, the clock map at +0x30, track headers from +0xFD0, 16-byte
+events from +0x1C10 sorted by tick, and an end tick of `0x7FFFFFFF`. That
+confirms the overall structure independently. Points marked *MPC500
+firmware* below come from those projects' notes. Some are read from code
+and marked by their authors as not yet confirmed on hardware, and the MPC500
+may differ from the MPC1000 in places. Where the two disagree this spec says
+so and follows the MPC1000 files.
+
 ---
 
 ## File Layout
@@ -64,7 +78,7 @@ which bar *n* (0-indexed) starts:
 | Byte | Meaning |
 |------|---------|
 | 0–2  | start tick, 24-bit LE |
-| 3    | `0x60` (96) in every observed entry — probably ticks per beat (a quarter note) |
+| 3    | `0x60` (96) in every observed entry. MPC500 firmware code treats it as the time signature of the bar that starts there. It is also `0x60` on the 3/4 bars of "Standard", so it cannot hold the numerator: most likely ticks per beat, i.e. the denominator (`0x60` = quarter note). **Unverified:** a /8 bar would then be `0x30` |
 
 Entry `bars` holds the end tick (the sequence length). **This is the only place
 time signatures are stored.** Akai's factory "Standard" sequence has bars 1–9 in
@@ -82,8 +96,12 @@ entry 48: 00 00 00 00          zero-filled from here
 
 Two conventions exist for the entries after the end tick: hardware files in
 pure 4/4 keep counting +384 through all 1000 entries, while "Standard" zero-fills
-them. Which one the MPC writes after a time signature change, and whether it
-reads past the end tick, is unverified. Some third-party files (e.g.
+them. The MPC500's Seq Tools add-on notes that the OS keeps the table filled
+past the end in continuous 4/4 (*MPC500 firmware*, observed in memory), and its
+DOUBLE operation relies on that. That points to "keep counting" as the current
+OS behaviour and the zero fill as an artefact of the factory file's older
+version (1.00). Whether the MPC1000 writes the same after a time signature
+change, and whether it reads past the end tick, is unverified. Some third-party files (e.g.
 `testdata/test.seq`) leave the whole map zeroed.
 
 **Editor behaviour:** `seq.Parse` exposes the map as `Sequence.BarStarts` and
@@ -107,7 +125,7 @@ and event byte 4 = 1 refers to it.
 | 32          | 2    | [?]           | Zero in observed files |
 | 34          | 1    | `midi_channel`| 1 in hardware `.SEQ` files, 0 for unused tracks. Factory `.ALL` tracks use 1–13, often a different value per instrument (e.g. Rock_Taste bass 12, guitar 9); likely the MIDI output channel, unverified |
 | 35          | 1    | `active` [?]  | `0x01` on tracks with a name/program, `0x00` on unused ones |
-| 36          | 4    | [?]           | `64 00 00 00` = 100 in OS 4.40 `.SEQ` files; zero in the factory `.ALL` (version 1.00). Possibly track volume |
+| 36          | 4    | [?]           | `64 00 00 00` = 100 in OS 4.40 `.SEQ` files; zero in the factory `.ALL` (version 1.00). Possibly track volume. **MPC500 vs MPC1000 conflict:** the MPC500 Track add-on reads track type at byte 36 (+0x24: 0 = DRUM, 1 = MIDI) and MIDI channel at byte 37 (+0x25: 0 = OFF, 1–16). That does not fit the MPC1000 files (100 at byte 36, the channel-like value at byte 34), and its authors mark it as read from firmware, not confirmed on hardware. Either the MPC500 track layout differs or the reading is wrong |
 | 38          | 1    | `pgm_change`  | In the factory `.ALL`: the program change number (1-based) of the track's program, matching that program's own byte `0x29D8` (M_Bass 104, Rock_GTR 101, kits 1–8); 0 = none. Overlaps the 4-byte field above, whose second byte is 0 in `.SEQ` files |
 | 40          | 2    | [?]           | `1e 00` = 30 in `.SEQ` files; zero in `.ALL` |
 | 42          | 4    | [?]           | `6e 00 00 00` = 110 in `.SEQ` files; zero in `.ALL` |
@@ -121,8 +139,10 @@ track has no content.
 
 The 48 bytes before the track headers are zero in `.SEQ` files. In `.ALL` blocks
 they hold a record shaped like a track header: name `(unused)` (or `Track00` in
-the blank template), program `OFF`, byte 34 = 1. Its purpose is unknown; the
-editor ignores it and preserves it.
+the blank template), program `OFF`, byte 34 = 1. MPC500 firmware addresses
+track *n* (1-based) at `0xFD0 + n × 0x30`, which makes this record the unused
+"track 0" slot of that array (track 1 lands at 0x1000). What, if anything, the
+OS keeps in it is unknown; the editor ignores it and preserves it.
 
 ---
 

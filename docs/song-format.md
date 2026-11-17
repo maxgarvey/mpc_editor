@@ -62,6 +62,34 @@ The total file size for a populated song is unknown. The 256-byte empty stub
 does not reveal whether step records are fixed-size (as in SEQ events) or
 variable-length.
 
+#### MPC500 in-memory song structure (firmware reading, unconfirmed for files)
+
+The Open500-LA Song add-on (see
+[`references.md`](references.md#open500-mpc500-firmware-add-ons)) documents how
+the MPC500 OS 1.31 holds a song in memory. Its authors read this from the
+firmware and mark it as not yet confirmed on hardware:
+
+```
+Offset  Size   Field        Notes
+------  ----   -----        -----
++0x11   1      in_use       song slot in use
++0x14   256    seq_per_step sequence number per step, 1–99; 0 = END (the song stops at the first 0)
++0x114  256    repeats      times each step plays: −1 = HOLD, 0–99
+```
+
+The MPC500 has 20 song slots, as listed above, but 256 step slots against the
+manual's 250. Steps refer to sequences as 1–99, with 0 marking the end, not
+0–98. The song name comes from a separate OS call; where it sits in the
+structure is not documented.
+
+**Open questions:**
+- Does a `.SNG` file mirror this structure? A song stored this way needs at
+  least 0x214 (532) bytes, but `testdata/test.sng` is only 256 bytes. Either
+  the file packs steps differently, an empty song is saved truncated, or the
+  MPC1000 differs from the MPC500.
+- There is no per-step tempo field in the MPC500 structure. A tempo override,
+  if the MPC1000 has one, must be stored somewhere else.
+
 #### How to Reverse-Engineer This
 
 To map out the binary layout, produce two or three small songs with known
@@ -94,10 +122,10 @@ a single file. It captures everything needed to restore a full project.
 
 ### Binary Format
 
-The .ALL format is a binary container. No byte-level specification is
-publicly available from open-source projects. It is known to contain
-concatenated/embedded versions of the individual file formats, but the
-container structure (headers, offsets, index table) has not been documented.
+The container layout (sequence directory, effect records, one `.SEQ`-shaped
+block per sequence) is documented in [`all-format.md`](all-format.md), from
+Akai's factory `ALL_SEQS&SONGS.ALL`. That file has no songs, so the song area
+of a `.ALL` file is still unknown.
 
 ### Usage Notes
 
